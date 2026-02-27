@@ -13,7 +13,7 @@
 
 **Solution**: One conversation, one tool, one video. Upload a photo → talk to Forge → download a complete YouTube-ready MP4.
 
-**Framework**: Google ADK (`google-adk`) Agent with 7 FunctionTools, powered by Gemini 2.0 Flash Live via bidirectional streaming (`run_live()` + `LiveRequestQueue`). Media generation code ported from genmedia-live sample app.
+**Framework**: Google ADK (`google-adk`) multi-agent architecture — a research sub-agent (google_search only) + main Forge agent (6 media FunctionTools) — powered by Gemini 2.0 Flash Live via bidirectional streaming (`run_live()` + `LiveRequestQueue`). Media generation code ported from genmedia-live sample app.
 
 ---
 
@@ -64,11 +64,15 @@
 - As a creator, I want Forge to research the topic before writing so that the video content is factually accurate and grounded.
 
 **Acceptance Criteria**:
-- [ ] Uses ADK built-in `google_search` tool (imported from `google.adk.tools`)
-- [ ] Returns key facts, dates, figures, and interesting angles
-- [ ] Research results are used to ground the script (no hallucinations)
+- [ ] Uses a dedicated **researcher sub-agent** with ADK built-in `google_search` tool
+- [ ] `google_search` is isolated in the sub-agent (cannot coexist with other tools in one agent)
+- [ ] Main Forge agent transfers to researcher sub-agent when research is needed
+- [ ] Researcher returns key facts, dates, figures, and interesting angles
+- [ ] Research results are passed back to Forge and used to ground the script (no hallucinations)
 - [ ] Research completes within 10 seconds
 - [ ] Agent explicitly references factual sources in narration where appropriate
+
+**Architecture Note**: ADK's `google_search` built-in tool **cannot be combined with other tools** in a single agent. This requires a multi-agent architecture where the researcher is a sub-agent of the main Forge agent. Forge transfers control to the researcher for fact-gathering, then resumes creative direction.
 
 ---
 
@@ -249,4 +253,4 @@
 - Multiple language support for voiceover
 - Background music licensing management
 - SEO optimization for YouTube titles/descriptions
-- Multi-agent orchestration (single root_agent for hackathon)
+- Complex multi-agent orchestration beyond researcher↔forge transfer pattern

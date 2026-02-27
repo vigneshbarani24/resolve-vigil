@@ -36,7 +36,9 @@ adk deploy cloud_run \
 ```
 
 ## Architecture
-- **Agent**: Google ADK `Agent` class with `run_live()` bidi streaming
+- **Agent**: Google ADK multi-agent — researcher sub-agent (google_search) + main Forge agent (6 media FunctionTools)
+- **Model**: `gemini-2.0-flash-live-001` (or env var `DEMO_AGENT_MODEL`)
+- **Why multi-agent**: ADK's `google_search` CANNOT coexist with other tools in one agent
 - **Backend**: Python 3.11 / FastAPI / WebSocket (bidi-demo pattern)
 - **AI**: Gemini 2.0 Flash Live (voice + vision + interleaved output)
 - **Image Gen**: Imagen 3 (Vertex AI) — ported from genmedia-live
@@ -88,15 +90,24 @@ tubeforge/
 - Document first, then implement
 - Follow bidi-demo patterns for streaming (`run_live`, `LiveRequestQueue`)
 - Port genmedia-live media code (Imagen, Veo, FFmpeg) into ADK FunctionTools
+- **Multi-agent**: `google_search` must be in its own sub-agent (cannot mix with other tools)
+- **Model ID**: Use `gemini-2.0-flash-live-001` (not `gemini-2.0-flash-live`)
+- **Import**: `LiveRequestQueue` from `google.adk.agents.live_request_queue` (not `google.adk.streaming`)
+- **Queue methods**: `send_content()`, `send_realtime()`, `close()` (not `send()`)
 
-## Tool Pipeline (7 ADK FunctionTools)
-1. `google_search` → ADK built-in (topic research/grounding)
+## Tool Pipeline (Multi-Agent: 1 sub-agent + 6 FunctionTools)
+**Researcher sub-agent** (isolated — google_search limitation):
+1. `google_search` → ADK built-in (topic research/grounding) — in researcher sub-agent
+
+**Forge agent** (6 media FunctionTools):
 2. `generate_script` → Gemini interleaved output (text + images)
 3. `generate_voiceover` → Cloud TTS (WAV + word timestamps)
 4. `generate_thumbnail` → Imagen 3 (1280x720)
 5. `generate_broll` → Veo 2 (4-8 sec clips)
 6. `edit_image` → Imagen edit/regenerate
 7. `assemble_video` → FFmpeg (images + audio + subtitles → MP4)
+
+**Flow**: User → Forge → (transfers to Researcher) → back to Forge → media tools
 
 ## Key Resources
 - [ADK Docs](https://google.github.io/adk-docs/)
@@ -114,7 +125,11 @@ tubeforge/
 - `docs/competitor-analysis.md` — Winning strategy
 
 ## Common Mistakes
-<!-- Add mistakes as you find them during development -->
+- **google_search + other tools**: ADK's `google_search` CANNOT coexist with other tools in one agent. Must use sub-agent pattern.
+- **Wrong model ID**: Use `gemini-2.0-flash-live-001` (with `-001` suffix), not `gemini-2.0-flash-live`
+- **Wrong import**: `LiveRequestQueue` is at `google.adk.agents.live_request_queue`, NOT `google.adk.streaming`
+- **Wrong queue method**: Use `queue.send_content(Content(...))` / `queue.send_realtime(Blob(...))`, NOT `queue.send(msg)`
+- **RunConfig import**: Import `StreamingMode` alongside `RunConfig` from `google.adk.agents.run_config`
 
 ## Dev Docs
 When starting large tasks:

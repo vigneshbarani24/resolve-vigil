@@ -29,30 +29,47 @@
 - [ ] Set env vars: `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GENAI_USE_VERTEXAI=TRUE`
 - [ ] Test: `gcloud auth application-default login` works
 
-### 1.2 ADK Agent Setup
+### 1.2 ADK Multi-Agent Setup
 - [ ] `pip install google-adk google-cloud-texttospeech pillow`
-- [ ] Create `tubeforge/agent.py` with `root_agent`:
+- [ ] Create `tubeforge/agent.py` with **two agents** (multi-agent architecture):
   ```python
+  import os
   from google.adk.agents import Agent
   from google.adk.tools import google_search
+
+  # Sub-agent: google_search CANNOT coexist with other tools
+  researcher = Agent(
+      name="researcher",
+      model="gemini-2.0-flash",
+      description="Research assistant for gathering facts",
+      instruction="Research topics thoroughly. Return key facts, dates, figures.",
+      tools=[google_search],
+  )
+
+  AGENT_MODEL = os.environ.get("DEMO_AGENT_MODEL", "gemini-2.0-flash-live-001")
+
   root_agent = Agent(
       name="forge",
-      model="gemini-2.0-flash-live",
+      model=AGENT_MODEL,
       instruction="...",
-      tools=[google_search],
+      tools=[],  # Media tools added in Phase 2-5
+      sub_agents=[researcher],
   )
   ```
 - [ ] Create `tubeforge/__init__.py`: `from . import agent`
 - [ ] Test with `adk web tubeforge/` — verify Forge responds in dev UI
+- [ ] Test: ask Forge to research a topic → transfers to researcher → returns facts
 - [ ] **Files**: `tubeforge/agent.py`, `tubeforge/__init__.py`
 
 ### 1.3 FastAPI WebSocket Server
 - [ ] Create `tubeforge/app.py` with FastAPI + WebSocket (bidi-demo pattern):
-  - Import `Runner`, `InMemorySessionService`, `LiveRequestQueue`
+  - Import `Runner`, `InMemorySessionService` from `google.adk`
+  - Import `LiveRequestQueue` from `google.adk.agents.live_request_queue` (NOT `google.adk.streaming`)
   - WebSocket endpoint: `/ws/{user_id}/{session_id}`
-  - Upstream task: `websocket.receive → live_queue.send`
+  - Upstream task: `websocket.receive → live_queue.send_content(Content(...))` / `live_queue.send_realtime(Blob(...))`
   - Downstream task: `runner.run_live() → websocket.send`
   - `asyncio.gather(upstream, downstream)`
+  - Use `live_queue.close()` for graceful shutdown
 - [ ] Add static file serving: `app.mount("/", StaticFiles(directory="frontend"))`
 - [ ] Add REST endpoint: `/api/download/{file_id}` for asset downloads
 - [ ] Test: `uvicorn tubeforge.app:app --port 8080` — WebSocket connects
@@ -91,9 +108,10 @@
 > **Goal**: Image → researched, interleaved script with scene images
 > **Depends on**: Phase 1 complete
 
-### 2.1 Topic Research
-- [ ] ADK built-in `google_search` is already in agent tools — no custom code needed
-- [ ] Test: Voice "research the Colosseum" → agent uses google_search → returns facts
+### 2.1 Topic Research (via Researcher Sub-Agent)
+- [ ] `google_search` is in the researcher sub-agent (set up in Phase 1.2)
+- [ ] Test: Voice "research the Colosseum" → Forge transfers to researcher → google_search → facts returned
+- [ ] Verify agent transfer works: Forge → Researcher → back to Forge
 - [ ] Verify grounded responses (no hallucination)
 
 ### 2.2 Script Generation Tool
@@ -341,9 +359,9 @@ Phase 7 → Phase 8 (Demo + Submit)
 
 | File | Purpose | Source |
 |------|---------|--------|
-| `tubeforge/agent.py` | ADK Agent with root_agent | NEW (ADK pattern) |
+| `tubeforge/agent.py` | ADK multi-agent: researcher (google_search) + root_agent forge (6 tools) | NEW (ADK pattern) |
 | `tubeforge/__init__.py` | Package init | NEW |
-| `tubeforge/app.py` | FastAPI + WebSocket server | bidi-demo pattern |
+| `tubeforge/app.py` | FastAPI + WebSocket server (LiveRequestQueue from `google.adk.agents.live_request_queue`) | bidi-demo pattern |
 | `tubeforge/tools/script_generator.py` | Gemini interleaved output | NEW |
 | `tubeforge/tools/voiceover_gen.py` | Cloud TTS | NEW |
 | `tubeforge/tools/thumbnail_gen.py` | Imagen 3 | Ported from genmedia-live |

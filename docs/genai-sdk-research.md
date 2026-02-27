@@ -25,7 +25,7 @@ client = genai.Client(api_key="YOUR_API_KEY")
 | Model ID | Use Case |
 |----------|----------|
 | `gemini-2.0-flash` | Standard generation, interleaved output |
-| `gemini-2.0-flash-live` | Live API bidi streaming (voice + vision) |
+| `gemini-2.0-flash-live-001` | Live API bidi streaming (voice + vision). Use env var `DEMO_AGENT_MODEL` to override. |
 | `gemini-2.0-flash-preview-image-generation` | Native text + image generation |
 | `imagen-3.0-generate-002` | High-quality image generation |
 | `veo-3.1-generate-001` | Video generation (4-8 sec clips) |
@@ -154,20 +154,38 @@ pip install google-adk  # v1.25.0+, requires Python 3.10+
 - `adk deploy cloud_run` — one-command Cloud Run deployment
 - `adk eval` — agent evaluation framework
 
-### ADK Agent Definition
+### ADK Agent Definition (Multi-Agent Pattern)
+
+**CRITICAL**: ADK's `google_search` built-in tool **cannot coexist** with other tools in a single agent. Use a multi-agent architecture:
 
 ```python
+import os
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 
+# Sub-agent: google_search ONLY (ADK limitation)
+researcher = Agent(
+    name="researcher",
+    model="gemini-2.0-flash",
+    description="Research assistant for gathering facts",
+    instruction="Research topics thoroughly. Return key facts, dates, figures.",
+    tools=[google_search],  # ONLY tool — cannot mix with others
+)
+
+# Main agent: media tools + sub_agents for research
+AGENT_MODEL = os.environ.get("DEMO_AGENT_MODEL", "gemini-2.0-flash-live-001")
+
 root_agent = Agent(
     name="forge",
-    model="gemini-2.0-flash-live",    # Live API model
+    model=AGENT_MODEL,    # Live API model (use -001 suffix)
     description="AI Creative Director for YouTube videos",
     instruction="You are Forge...",
-    tools=[google_search, my_tool_function],
+    tools=[my_tool_function],     # Media tools only
+    sub_agents=[researcher],      # Transfer to researcher for google_search
 )
 ```
+
+**Agent transfer flow**: User → Forge → (transfer to Researcher for facts) → back to Forge → media tools
 
 ### ADK FunctionTool Pattern
 
@@ -232,7 +250,9 @@ tool_context.state["research_context"]  # Search results
 ```python
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.streaming import LiveRequestQueue
+from google.adk.agents.live_request_queue import LiveRequestQueue  # CORRECT import path
+from google.adk.agents.run_config import RunConfig, StreamingMode  # Optional: run config
+from google.genai import types
 
 session_service = InMemorySessionService()
 runner = Runner(agent=root_agent, session_service=session_service)
@@ -243,8 +263,13 @@ live_queue = LiveRequestQueue()
 
 # Upstream: client → queue
 async def upstream(websocket, queue):
-    async for msg in websocket.iter_text():
-        await queue.send(msg)  # text, audio bytes, image
+    async for msg in websocket.iter_bytes():
+        # Audio: send as realtime blob
+        await queue.send_realtime(
+            types.Blob(data=msg, mime_type="audio/pcm;rate=16000")
+        )
+        # Text: send as content
+        # await queue.send_content(types.Content(parts=[types.Part(text="...")]))
     await queue.close()  # CRITICAL: graceful shutdown
 
 # Downstream: run_live → client
@@ -259,11 +284,28 @@ async def downstream(websocket, runner, queue, session):
 await asyncio.gather(upstream(...), downstream(...))
 ```
 
+**Correct LiveRequestQueue methods** (verified):
+| Method | Use For |
+|--------|---------|
+| `queue.send_content(types.Content(...))` | Text and structured content |
+| `queue.send_realtime(types.Blob(...))` | Audio/video binary data |
+| `queue.close()` | Graceful shutdown |
+| ~~`queue.send(msg)`~~ | **WRONG** — does not exist |
+
+**Correct import paths** (verified):
+| Our old spec | Correct |
+|---|---|
+| `from google.adk.streaming import LiveRequestQueue` | `from google.adk.agents.live_request_queue import LiveRequestQueue` |
+| `from google.adk.agents.run_config import RunConfig` | `from google.adk.agents.run_config import RunConfig, StreamingMode` |
+
 ### ADK Built-in Tools
 
 ```python
 from google.adk.tools import google_search  # Google Search grounding
-# Just add to agent.tools — zero config
+# IMPORTANT: google_search CANNOT coexist with other tools in one agent.
+# Must be isolated in a dedicated sub-agent:
+researcher = Agent(name="researcher", tools=[google_search])
+root_agent = Agent(name="forge", tools=[...media_tools...], sub_agents=[researcher])
 ```
 
 ### ADK Deployment

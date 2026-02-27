@@ -18,9 +18,14 @@ graph TB
     subgraph CloudRun["Cloud Run (FastAPI Server)"]
         FASTAPI[FastAPI + WebSocket]
         RUNNER[ADK Runner]
-        AGENT[ADK Agent 'Forge']
         LRQ[LiveRequestQueue]
-        TOOLS[7 FunctionTools]
+
+        subgraph Agents["Multi-Agent Architecture"]
+            FORGE[ADK Agent 'Forge'<br/>root_agent<br/>6 Media FunctionTools]
+            RESEARCHER[Sub-Agent 'Researcher'<br/>google_search ONLY]
+        end
+
+        TOOLS[6 FunctionTools]
     end
 
     subgraph GCP["Google Cloud Services"]
@@ -34,16 +39,20 @@ graph TB
     MIC -->|PCM Audio| FASTAPI
     FASTAPI -->|upstream| LRQ
     LRQ -->|feed| RUNNER
-    RUNNER -->|run_live| AGENT
-    AGENT -->|FunctionTool calls| TOOLS
+    RUNNER -->|run_live| FORGE
+    FORGE -->|transfer for research| RESEARCHER
+    RESEARCHER -->|google_search| SEARCH
+    RESEARCHER -->|transfer back| FORGE
+    FORGE -->|FunctionTool calls| TOOLS
     TOOLS --> VERTEX
     TOOLS --> TTS
     TOOLS --> GCS
-    AGENT --> SEARCH
     RUNNER -->|downstream events| FASTAPI
     FASTAPI -->|Audio + Events| SPK
     FASTAPI -->|Assets + Status| UI
 ```
+
+**Why multi-agent?** ADK's `google_search` built-in tool **cannot coexist** with other tools in a single agent. Forge transfers to the researcher sub-agent for fact-gathering, then resumes creative direction.
 
 ### Data Flow: Image → Video
 
@@ -57,16 +66,19 @@ sequenceDiagram
     participant T as FunctionTools
 
     U->>WS: Upload image + audio (WebSocket)
-    WS->>Q: queue.send(image + audio)
+    WS->>Q: queue.send_realtime(Blob) / send_content(Content)
     Q->>R: feed to run_live()
     R->>A: Process with Gemini Live
     A->>WS: Voice: "I see the Colosseum!"
     WS->>U: Audio playback
 
     U->>WS: Voice: "5-min documentary, gladiator era"
-    WS->>Q: queue.send(audio)
-    A->>T: google_search("Colosseum gladiators")
+    WS->>Q: queue.send_content(Content) / queue.send_realtime(Blob)
+
+    Note over A,T: Agent transfer: Forge → Researcher
+    A->>T: [Researcher] google_search("Colosseum gladiators")
     T->>A: {facts, dates, key events}
+    Note over A,T: Agent transfer: Researcher → Forge
     A->>T: generate_script(topic, style, research)
     T->>A: {segments: [{narration, image_id}...]}
     A->>WS: Voice: "Script is ready!"
@@ -93,7 +105,7 @@ graph LR
     end
 
     subgraph Server["FastAPI Server"]
-        UP[Upstream Task<br/>ws.receive → queue.send]
+        UP[Upstream Task<br/>ws.receive → queue.send_content/send_realtime]
         DOWN[Downstream Task<br/>run_live events → ws.send]
         GATHER[asyncio.gather<br/>upstream, downstream]
     end
@@ -116,14 +128,17 @@ graph LR
 
 ## 2. Component Breakdown
 
-### 2.1 ADK Agent (`agent.py`)
+### 2.1 ADK Multi-Agent Architecture (`agent.py`)
 
 **Framework**: Google ADK (`google-adk`)
-**Pattern**: Single root agent with 7 FunctionTools
+**Pattern**: Multi-agent — researcher sub-agent (google_search) + main Forge agent (6 media FunctionTools)
 **Responsibility**: AI Creative Director "Forge" — orchestrates the entire video creation pipeline
+
+**Why multi-agent?** ADK's `google_search` tool **cannot coexist** with other tools in a single agent. This is a verified API limitation.
 
 ```python
 # agent.py
+import os
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 from tools.script_generator import generate_script
@@ -133,13 +148,25 @@ from tools.broll_gen import generate_broll
 from tools.image_editor import edit_image
 from tools.video_assembler import assemble_video
 
+# Sub-agent: research ONLY (google_search cannot coexist with other tools)
+researcher = Agent(
+    name="researcher",
+    model="gemini-2.0-flash",
+    description="Research assistant that gathers facts, dates, and key information about topics",
+    instruction="Research topics thoroughly using Google Search. Return key facts, dates, "
+                "figures, and interesting angles. Be concise and factual.",
+    tools=[google_search],  # ONLY google_search — ADK limitation
+)
+
+# Main agent: creative direction + 6 media tools
+AGENT_MODEL = os.environ.get("DEMO_AGENT_MODEL", "gemini-2.0-flash-live-001")
+
 root_agent = Agent(
     name="forge",
-    model="gemini-2.0-flash-live",
+    model=AGENT_MODEL,
     description="AI Creative Director for YouTube explainer/documentary videos",
     instruction=open("prompts/system_prompt.txt").read(),
     tools=[
-        google_search,        # ADK built-in — topic research
         generate_script,      # Gemini interleaved output
         generate_voiceover,   # Cloud TTS
         generate_thumbnail,   # Imagen 3
@@ -147,14 +174,18 @@ root_agent = Agent(
         edit_image,           # Imagen edit
         assemble_video,       # FFmpeg pipeline
     ],
+    sub_agents=[researcher],  # Transfer to researcher for fact-gathering
 )
 ```
 
+**Agent flow**: User → Forge → (transfers to Researcher for facts) → back to Forge → media tools
+
 **Key ADK features used**:
 - `Agent` class: declarative agent definition with tools list
+- `sub_agents`: multi-agent transfer pattern (Forge ↔ Researcher)
 - Auto-wrapped `FunctionTool`: ADK introspects type hints + docstrings to create tool schemas
 - `ToolContext`: injected into tool functions for state management (`tool_context.state`)
-- `google_search`: ADK built-in tool (replaces manual Google Search grounding)
+- `google_search`: ADK built-in tool, isolated in researcher sub-agent
 
 ### 2.2 FastAPI Server (`app.py`)
 
@@ -164,11 +195,13 @@ root_agent = Agent(
 
 ```python
 # app.py (simplified)
+import asyncio
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.streaming import LiveRequestQueue
+from google.adk.agents.live_request_queue import LiveRequestQueue
+from google.genai import types
 from agent import root_agent
 
 app = FastAPI()
@@ -183,9 +216,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
     async def upstream():
         """Client → LiveRequestQueue"""
-        async for message in websocket.iter_text():
-            await live_queue.send(message)  # audio, images, text
-        await live_queue.close()
+        async for message in websocket.iter_bytes():
+            # Audio: send as realtime blob
+            await live_queue.send_realtime(
+                types.Blob(data=message, mime_type="audio/pcm;rate=16000")
+            )
+        await live_queue.close()  # Graceful shutdown
 
     async def downstream():
         """run_live() events → Client"""
@@ -200,6 +236,15 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     await asyncio.gather(upstream(), downstream())
 ```
 
+**Correct import paths** (verified against `google-adk` package):
+- `LiveRequestQueue`: `from google.adk.agents.live_request_queue import LiveRequestQueue` (NOT `google.adk.streaming`)
+- `RunConfig`: `from google.adk.agents.run_config import RunConfig, StreamingMode`
+
+**Correct LiveRequestQueue methods**:
+- `queue.send_content(types.Content(...))` — for text/structured content
+- `queue.send_realtime(types.Blob(...))` — for audio/video binary data
+- `queue.close()` — graceful shutdown (NOT `queue.send()`)
+
 **Static file serving**: FastAPI serves `frontend/` directory for the web UI.
 **REST endpoints**: `/api/download/<file_id>` for video/image downloads.
 
@@ -209,7 +254,7 @@ Each tool is a plain Python function with type hints. ADK auto-wraps them as `Fu
 
 | Module | API Used | Input | Output | Ported From |
 |--------|----------|-------|--------|-------------|
-| `topic_research.py` | ADK built-in `google_search` | — | — | ADK native |
+| *(researcher sub-agent)* | ADK built-in `google_search` | topic query | grounded facts | ADK native (isolated agent) |
 | `script_generator.py` | Gemini interleaved output | topic, style, research | segments with images | NEW |
 | `voiceover_gen.py` | Cloud TTS | script text, voice config | audio file + timestamps | NEW |
 | `thumbnail_gen.py` | Imagen 3 (Vertex AI) | subject, title, style | 1280x720 PNG | genmedia-live |
@@ -293,7 +338,7 @@ def generate_thumbnail(
 
 **Endpoint**: `ws://host/ws/{user_id}/{session_id}`
 
-**Client → Server (upstream via LiveRequestQueue)**:
+**Client → Server (upstream via LiveRequestQueue — `send_content()` / `send_realtime()`)**:
 
 | Message Type | Format | Description |
 |-------------|--------|-------------|
@@ -339,7 +384,7 @@ def generate_thumbnail(
 | **TTS** | Google Cloud TTS (Neural2/Studio) | Native GCP service (hackathon bonus). Word-level timestamps for subtitles. |
 | **Video assembly** | FFmpeg | Industry standard. Ported from genmedia-live. Ken Burns, subtitles, audio mixing. |
 | **Frontend** | Vanilla HTML/CSS/JS | No build step. Audio worklets from bidi-demo. Fast iteration. |
-| **Search** | ADK built-in `google_search` | Zero-config. Already in ADK tools module. |
+| **Search** | ADK built-in `google_search` (in researcher sub-agent) | Zero-config. Isolated in sub-agent due to ADK limitation: cannot coexist with other tools. |
 | **Deployment** | `adk deploy cloud_run` | One-command deploy. No Dockerfile needed. Auto-generates container. |
 | **Dev Testing** | `adk web` | Free built-in dev UI for testing agent responses during development. |
 | **Auth** | Vertex AI via ADK env vars | ADK reads `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`. Proves GCP usage. |
@@ -493,8 +538,8 @@ adk deploy cloud_run \
 
 ## 9. Google Cloud Services (5 total)
 
-1. **Vertex AI** — Gemini 2.0 Flash Live (agent), Imagen 3 (images), Veo 2 (video)
+1. **Vertex AI** — Gemini 2.0 Flash Live (`gemini-2.0-flash-live-001`) for agent, Imagen 3 for images, Veo 2 for video
 2. **Cloud Run** — Backend hosting via `adk deploy cloud_run`
 3. **Cloud Storage** — Generated asset storage (images, audio, video)
 4. **Cloud Text-to-Speech** — AI voiceover with word timestamps
-5. **Google Search** — Topic research/grounding via ADK built-in tool
+5. **Google Search** — Topic research/grounding via ADK built-in tool (in researcher sub-agent)
