@@ -9,8 +9,35 @@
 - [x] Generate tasks.md (this file)
 - [x] Generate reference docs (SDK research, deployment guide, competitor analysis)
 - [x] Update CLAUDE.md with TubeForge project details
+- [x] Update specs with verified ADK findings (multi-agent, import paths, model IDs)
 - [ ] Initialize git repository
-- [ ] Create .gitignore (outputs/, .env, __pycache__, node_modules, .adk/)
+- [x] Create .gitignore (outputs/, .env, __pycache__, node_modules, .adk/)
+
+## Phase 0.5: Full Codebase Build — COMPLETE
+> **All code written** — 23 files, ~3,768 lines. Needs GCP credentials to test.
+- [x] tubeforge/__init__.py — package init
+- [x] tubeforge/agent.py — multi-agent: researcher (google_search) + forge (6 tools)
+- [x] tubeforge/app.py — FastAPI + WebSocket server (bidi-demo pattern)
+- [x] tubeforge/tools/script_generator.py — Gemini interleaved output
+- [x] tubeforge/tools/voiceover_gen.py — Cloud TTS
+- [x] tubeforge/tools/thumbnail_gen.py — Imagen 3
+- [x] tubeforge/tools/broll_gen.py — Veo 2
+- [x] tubeforge/tools/image_editor.py — Imagen edit
+- [x] tubeforge/tools/video_assembler.py — FFmpeg pipeline (Ken Burns, subtitles, concat)
+- [x] tubeforge/frontend/index.html — dark theme studio UI
+- [x] tubeforge/frontend/style.css — professional CSS (725 lines)
+- [x] tubeforge/frontend/src/main.js — WebSocket client + app logic (535 lines)
+- [x] tubeforge/frontend/src/audio.js — audio worklet setup
+- [x] tubeforge/frontend/src/pcm-player-processor.js — 24kHz playback
+- [x] tubeforge/frontend/src/pcm-recorder-processor.js — 16kHz recording
+- [x] tubeforge/frontend/src/ui.js — UI utilities
+- [x] tubeforge/prompts/system_prompt.txt — Forge persona
+- [x] tubeforge/prompts/niche_presets.json — 6 style presets
+- [x] tubeforge/requirements.txt — Python dependencies
+- [x] tubeforge/.env.example — environment template
+- [x] tubeforge/Dockerfile — Python 3.11 + FFmpeg
+- [x] tubeforge/terraform/main.tf — GCP IaC scaffold
+- [x] tubeforge/.gitignore — outputs, .env, caches
 
 ## Phase 1: Foundation (Days 2-3)
 > **Goal**: ADK agent running locally with Forge persona, image input, voice I/O

@@ -1,0 +1,10 @@
+outputs/
+.env
+__pycache__/
+*.pyc
+.adk/
+*.egg-info/
+dist/
+build/
+.terraform/
+terraform.tfstate*

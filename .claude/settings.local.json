@@ -11,7 +11,9 @@
       "WebFetch(domain:pypi.org)",
       "mcp__plugin_microsoft-docs_microsoft-learn__microsoft_docs_search",
       "WebFetch(domain:docs.cloud.google.com)",
-      "WebFetch(domain:gist.githubusercontent.com)"
+      "WebFetch(domain:gist.githubusercontent.com)",
+      "Bash(git clone:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }
