@@ -1,0 +1,13 @@
+# Claude Progress Log
+# Project: Gemini Live Agent Challenge
+# Team: KaarTech UK
+# Created: 2026-02-27
+# Deadline: 2026-03-17
+
+## Sessions
+
+### Session 1 — 2026-02-27
+- Initialized Claude Code project scaffold
+- Created CLAUDE.md, .claude/ config, commands, agents
+- Created docs/, dev/active/ directories
+- Next: Choose hackathon category, research Gemini SDK/ADK, plan architecture
