@@ -1,87 +1,120 @@
-# Gemini Live Agent Challenge — Hackathon Project
+# TubeForge — AI Explainer Video Engine
 
-## Hackathon Info
+## Project
+- **What**: Upload a photo → talk to AI Creative Director "Forge" → get a complete YouTube-ready explainer video
+- **Category**: Creative Storyteller
+- **Hackathon**: Gemini Live Agent Challenge (Devpost)
 - **Deadline**: Mar 17, 2026 @ 5:30am GMT+5:30
-- **Prize Pool**: $80,000 in cash
-- **Platform**: Devpost — https://geminiliveagentchallenge.devpost.com/
-- **Team**: KaarTech UK
-
-## Mandatory Requirements
-- Must use a **Gemini model**
-- Must use **Google GenAI SDK** or **ADK** (Agent Development Kit)
-- Must use at least one **Google Cloud** service
-- Backend must be **hosted on Google Cloud**
-
-## Categories (pick one)
-1. **Live Agents** — Real-time audio/vision interaction via Gemini Live API or ADK
-2. **Creative Storyteller** — Multimodal storytelling with interleaved text/image/audio/video output
-3. **UI Navigator** — Visual UI understanding & interaction via screenshots/screen recordings
-
-## Judging Criteria
-- Innovation & Multimodal UX (40%)
-- Technical Implementation & Agent Architecture (30%)
-- Demo & Presentation (30%)
-
-## Submission Requirements
-- Text description of features, tech, findings
-- Public code repository with spin-up instructions in README
-- Proof of Google Cloud deployment (screen recording or code file)
-- Architecture diagram
-- Demo video (<4 min)
+- **Prize Pool**: $80,000 | **Team**: Solo (KaarTech UK)
+- **Framework**: Google ADK (`google-adk`) + genmedia-live media patterns ported as FunctionTools
 
 ## Quick Start
 ```bash
-# TODO: Update after choosing stack
-pip install google-genai google-adk google-cloud-aiplatform
-python main.py
+cd tubeforge
+pip install -r requirements.txt
+
+# Dev mode (ADK built-in UI)
+adk web .
+
+# Server mode
+uvicorn app:app --host 0.0.0.0 --port 8080
+
+# Open http://localhost:8080
 ```
 
-## Build & Test Commands
+## Build & Deploy
 ```bash
-# TODO: Update after project structure is set
-pip install -r requirements.txt
-python -m pytest tests/
+# Development
+adk web tubeforge/
+
+# Production (Cloud Run — one command)
+adk deploy cloud_run \
+  --project=tubeforge-hackathon \
+  --region=us-central1 \
+  --with_ui \
+  tubeforge/
 ```
 
 ## Architecture
-<!-- TODO: Fill in after choosing category and designing system -->
-- Frontend: TBD
-- Backend: Python + Google ADK/GenAI SDK
-- Cloud: Google Cloud (Vertex AI / Cloud Run / Cloud Functions)
-- Model: Gemini (via Live API or GenAI SDK)
+- **Agent**: Google ADK `Agent` class with `run_live()` bidi streaming
+- **Backend**: Python 3.11 / FastAPI / WebSocket (bidi-demo pattern)
+- **AI**: Gemini 2.0 Flash Live (voice + vision + interleaved output)
+- **Image Gen**: Imagen 3 (Vertex AI) — ported from genmedia-live
+- **Video Gen**: Veo 2 (Vertex AI) — ported from genmedia-live
+- **Voiceover**: Google Cloud Text-to-Speech
+- **Assembly**: FFmpeg — ported from genmedia-live
+- **Hosting**: Cloud Run via `adk deploy`
+- **Storage**: Google Cloud Storage
 
 ## Project Structure
 ```
-.
-├── CLAUDE.md                 # This file — project brain
-├── main.md                   # Hackathon challenge details
-├── resources.md              # Hackathon resource links
-├── docs/                     # Planning & design documents
-├── dev/active/               # Active task dev docs
-├── .claude/                  # Claude Code config
-│   ├── commands/             # Slash commands
-│   ├── agents/               # Subagent definitions
-│   └── skills/               # Project-specific skills
-├── feature_list.json         # Cross-session feature tracking
-└── claude-progress.txt       # Session progress log
+tubeforge/
+├── agent.py                   # ADK Agent with root_agent
+├── __init__.py                # from . import agent
+├── app.py                     # FastAPI + WebSocket (bidi-demo pattern)
+├── tools/
+│   ├── __init__.py
+│   ├── script_generator.py    # Gemini interleaved output (NEW)
+│   ├── thumbnail_gen.py       # Imagen 3 (ported from genmedia-live)
+│   ├── broll_gen.py           # Veo 2 (ported from genmedia-live)
+│   ├── voiceover_gen.py       # Cloud TTS (NEW)
+│   ├── video_assembler.py     # FFmpeg pipeline (ported from genmedia-live)
+│   └── image_editor.py        # Imagen edit (ported from genmedia-live)
+├── prompts/
+│   ├── system_prompt.txt      # Forge persona
+│   └── niche_presets.json     # Style configs
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── src/
+│       ├── main.js            # WebSocket client + app logic
+│       ├── audio.js           # Web Audio worklets (from bidi-demo)
+│       └── ui.js              # Preview, progress, video player
+├── outputs/                   # Generated assets (gitignored)
+├── docs/                      # Kiro-style specs
+├── terraform/                 # IaC (bonus)
+├── requirements.txt           # google-adk, fastapi, uvicorn, etc.
+└── README.md
 ```
 
 ## Key Conventions
-- Python 3.11+ with type hints
-- Use `google-genai` SDK or `google-adk` for agent logic
-- All secrets via environment variables (never commit .env)
+- Python 3.10+ with type hints (ADK requirement)
+- Use `google-adk` as primary framework (wraps `google-genai` internally)
+- ADK `FunctionTool` pattern: type hints + docstrings + optional `ToolContext`
+- Use `google-genai` SDK inside tool functions for Imagen/Veo calls
+- Vertex AI for all model calls (`GOOGLE_GENAI_USE_VERTEXAI=TRUE`)
+- All secrets via `.env` (never commit)
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`
-- Document first, then implement (per user preference)
+- Document first, then implement
+- Follow bidi-demo patterns for streaming (`run_live`, `LiveRequestQueue`)
+- Port genmedia-live media code (Imagen, Veo, FFmpeg) into ADK FunctionTools
+
+## Tool Pipeline (7 ADK FunctionTools)
+1. `google_search` → ADK built-in (topic research/grounding)
+2. `generate_script` → Gemini interleaved output (text + images)
+3. `generate_voiceover` → Cloud TTS (WAV + word timestamps)
+4. `generate_thumbnail` → Imagen 3 (1280x720)
+5. `generate_broll` → Veo 2 (4-8 sec clips)
+6. `edit_image` → Imagen edit/regenerate
+7. `assemble_video` → FFmpeg (images + audio + subtitles → MP4)
 
 ## Key Resources
-- [Multimodal Live API samples](https://github.com/GoogleCloudPlatform/generative-ai/tree/main/gemini/multimodal-live-api)
-- [ADK Bidi Streaming Guide](https://google.github.io/adk-docs/streaming/dev-guide/part1/)
-- [ADK Bidi Demo](https://github.com/google/adk-samples/tree/main/python/agents/bidi-demo)
-- [GenMedia Live Sample App](https://github.com/GoogleCloudPlatform/generative-ai/tree/main/vision/sample-apps/genmedia-live)
-- [Computer Use samples](https://github.com/GoogleCloudPlatform/generative-ai/tree/main/gemini/computer-use)
+- [ADK Docs](https://google.github.io/adk-docs/)
+- [ADK Bidi Demo (BASE PATTERN)](https://github.com/google/adk-samples/tree/main/python/agents/bidi-demo)
+- [genmedia-live (MEDIA CODE SOURCE)](https://github.com/GoogleCloudPlatform/generative-ai/tree/main/vision/sample-apps/genmedia-live)
+- [Sparkify (Google's version — inspiration)](https://sparkify.withgoogle.com/explore)
+- [ADK-MarketingBot (Imagen+Veo in ADK)](https://github.com/jakedibattista/ADK-MarketingBot)
+
+## Specs (in docs/)
+- `docs/requirements.md` — Kiro-style: user stories + acceptance criteria (ADK)
+- `docs/design.md` — Kiro-style: architecture + API contracts + data flow (ADK)
+- `docs/tasks.md` — Kiro-style: implementation checklist (track progress here)
+- `docs/genai-sdk-research.md` — GenAI SDK + ADK reference
+- `docs/gcp-deployment.md` — Cloud Run + Terraform guide
+- `docs/competitor-analysis.md` — Winning strategy
 
 ## Common Mistakes
-<!-- Add mistakes as you find them -->
+<!-- Add mistakes as you find them during development -->
 
 ## Dev Docs
 When starting large tasks:
