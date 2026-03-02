@@ -37,7 +37,7 @@ adk deploy cloud_run \
 
 ## Architecture
 - **Agent**: Google ADK multi-agent — researcher sub-agent (google_search) + main Forge agent (6 media FunctionTools)
-- **Model**: `gemini-2.0-flash-live-001` (or env var `DEMO_AGENT_MODEL`)
+- **Model**: `gemini-live-2.5-flash-native-audio` (or env var `DEMO_AGENT_MODEL`)
 - **Why multi-agent**: ADK's `google_search` CANNOT coexist with other tools in one agent
 - **Backend**: Python 3.11 / FastAPI / WebSocket (bidi-demo pattern)
 - **AI**: Gemini 2.0 Flash Live (voice + vision + interleaved output)
@@ -91,7 +91,7 @@ tubeforge/
 - Follow bidi-demo patterns for streaming (`run_live`, `LiveRequestQueue`)
 - Port genmedia-live media code (Imagen, Veo, FFmpeg) into ADK FunctionTools
 - **Multi-agent**: `google_search` must be in its own sub-agent (cannot mix with other tools)
-- **Model ID**: Use `gemini-2.0-flash-live-001` (not `gemini-2.0-flash-live`)
+- **Model ID**: Use `gemini-live-2.5-flash-native-audio` (not `gemini-2.0-flash-live`)
 - **Import**: `LiveRequestQueue` from `google.adk.agents.live_request_queue` (not `google.adk.streaming`)
 - **Queue methods**: `send_content()`, `send_realtime()`, `close()` (not `send()`)
 
@@ -126,7 +126,7 @@ tubeforge/
 
 ## Common Mistakes
 - **google_search + other tools**: ADK's `google_search` CANNOT coexist with other tools in one agent. Must use sub-agent pattern.
-- **Wrong model ID**: Use `gemini-2.0-flash-live-001` (with `-001` suffix), not `gemini-2.0-flash-live`
+- **Wrong model ID**: Use `gemini-live-2.5-flash-native-audio` (with `-001` suffix), not `gemini-2.0-flash-live`
 - **Wrong import**: `LiveRequestQueue` is at `google.adk.agents.live_request_queue`, NOT `google.adk.streaming`
 - **Wrong queue method**: Use `queue.send_content(Content(...))` / `queue.send_realtime(Blob(...))`, NOT `queue.send(msg)`
 - **RunConfig import**: Import `StreamingMode` alongside `RunConfig` from `google.adk.agents.run_config`

@@ -1,6 +1,6 @@
 """TubeForge FastAPI server — bidi streaming with ADK.
 
-Adapted from google/adk-samples bidi-demo.
+Direct adaptation of google/adk-samples bidi-demo main.py.
 Pattern: FastAPI + WebSocket + LiveRequestQueue + Runner.run_live()
 """
 
@@ -9,6 +9,7 @@ import base64
 import json
 import logging
 import os
+import warnings
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,17 +27,24 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from agent import root_agent  # noqa: E402
 
-# --- Logging ---
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("tubeforge")
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Suppress Pydantic serialization warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
 # --- FastAPI app ---
-app = FastAPI(title="TubeForge", description="AI Explainer Video Engine")
+APP_NAME = "tubeforge"
 
-# Static files (frontend)
+app = FastAPI()
+
+# Mount static files (frontend)
 static_dir = Path(__file__).parent / "frontend"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Outputs directory (generated assets)
 outputs_dir = Path(__file__).parent / "outputs"
@@ -44,7 +52,6 @@ outputs_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/outputs", StaticFiles(directory=outputs_dir), name="outputs")
 
 # --- ADK Runner ---
-APP_NAME = "tubeforge"
 session_service = InMemorySessionService()
 runner = Runner(app_name=APP_NAME, agent=root_agent, session_service=session_service)
 
@@ -55,28 +62,25 @@ runner = Runner(app_name=APP_NAME, agent=root_agent, session_service=session_ser
 @app.get("/")
 async def root():
     """Serve the frontend."""
-    index_path = static_dir / "index.html"
-    if index_path.exists():
-        return FileResponse(index_path)
-    return {"status": "TubeForge running", "ws": "/ws/{user_id}/{session_id}"}
+    return FileResponse(static_dir / "index.html")
 
 
 @app.get("/api/health")
 async def health():
-    """Health check for Cloud Run."""
+    """Health check."""
     return {"status": "ok", "app": APP_NAME}
 
 
 @app.get("/api/download/{file_type}/{filename}")
 async def download_asset(file_type: str, filename: str):
-    """Download a generated asset (image, video, audio)."""
+    """Download a generated asset (image, video, audio, final)."""
     file_path = outputs_dir / file_type / filename
     if file_path.exists() and file_path.is_file():
-        return FileResponse(file_path)
-    return {"error": "File not found"}, 404
+        return FileResponse(file_path, filename=filename)
+    return {"error": "File not found"}
 
 
-# --- WebSocket endpoint (bidi-demo pattern) ---
+# --- WebSocket endpoint (exact bidi-demo pattern) ---
 
 
 @app.websocket("/ws/{user_id}/{session_id}")
@@ -85,25 +89,41 @@ async def websocket_endpoint(
     user_id: str,
     session_id: str,
 ) -> None:
-    """Bidirectional streaming WebSocket endpoint.
-
-    Phase 1: Accept connection
-    Phase 2: Initialize session + LiveRequestQueue + RunConfig
-    Phase 3: Run concurrent upstream/downstream tasks
-    Phase 4: Cleanup on disconnect
-    """
-    # Phase 1: Accept connection
-    await websocket.accept()
-    logger.info(f"WebSocket connected: user={user_id} session={session_id}")
-
-    # Phase 2: Session initialization
-    run_config = RunConfig(
-        streaming_mode=StreamingMode.BIDI,
-        response_modalities=["AUDIO"],
-        input_audio_transcription=types.AudioTranscriptionConfig(),
-        output_audio_transcription=types.AudioTranscriptionConfig(),
-        session_resumption=types.SessionResumptionConfig(),
+    """WebSocket endpoint for bidirectional streaming with ADK."""
+    logger.debug(
+        f"WebSocket connection request: user_id={user_id}, session_id={session_id}"
     )
+    await websocket.accept()
+    logger.debug("WebSocket connection accepted")
+
+    # --- Session Initialization ---
+
+    # Determine response modality from model name
+    model_name = root_agent.model
+    is_native_audio = "native-audio" in model_name.lower()
+
+    if is_native_audio:
+        response_modalities = ["AUDIO"]
+        run_config = RunConfig(
+            streaming_mode=StreamingMode.BIDI,
+            response_modalities=response_modalities,
+            input_audio_transcription=types.AudioTranscriptionConfig(),
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+            session_resumption=types.SessionResumptionConfig(),
+        )
+        logger.debug(
+            f"Native audio model detected: {model_name}, using AUDIO response modality"
+        )
+    else:
+        response_modalities = ["TEXT"]
+        run_config = RunConfig(
+            streaming_mode=StreamingMode.BIDI,
+            response_modalities=response_modalities,
+            session_resumption=types.SessionResumptionConfig(),
+        )
+        logger.debug(
+            f"Half-cascade model detected: {model_name}, using TEXT response modality"
+        )
 
     # Get or create session
     session = await session_service.get_session(
@@ -116,79 +136,72 @@ async def websocket_endpoint(
 
     live_request_queue = LiveRequestQueue()
 
-    # Phase 3: Concurrent upstream/downstream tasks
+    # --- Concurrent bidirectional communication ---
 
     async def upstream_task() -> None:
-        """Client → LiveRequestQueue (audio, images, text)."""
+        """Receives messages from WebSocket and sends to LiveRequestQueue."""
         logger.debug("upstream_task started")
         while True:
             message = await websocket.receive()
 
-            # Binary frames: raw PCM audio
+            # Handle binary frames (audio data)
             if "bytes" in message:
                 audio_data = message["bytes"]
+                logger.debug(f"Received binary audio chunk: {len(audio_data)} bytes")
                 audio_blob = types.Blob(
                     mime_type="audio/pcm;rate=16000", data=audio_data
                 )
                 live_request_queue.send_realtime(audio_blob)
 
-            # Text frames: JSON messages (text, image, camera frame)
+            # Handle text frames (JSON messages)
             elif "text" in message:
                 text_data = message["text"]
-                try:
-                    json_message = json.loads(text_data)
-                except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON: {text_data[:100]}")
-                    continue
+                logger.debug(f"Received text message: {text_data[:100]}...")
 
-                msg_type = json_message.get("type", "")
+                json_message = json.loads(text_data)
 
-                if msg_type == "text":
-                    # Text message
+                if json_message.get("type") == "text":
+                    logger.debug(f"Sending text content: {json_message['text']}")
                     content = types.Content(
                         parts=[types.Part(text=json_message["text"])]
                     )
                     live_request_queue.send_content(content)
 
-                elif msg_type in ("image", "frame"):
-                    # Image upload or camera frame
+                elif json_message.get("type") == "image":
+                    logger.debug("Received image data")
                     image_data = base64.b64decode(json_message["data"])
                     mime_type = json_message.get("mimeType", "image/jpeg")
+                    logger.debug(
+                        f"Sending image: {len(image_data)} bytes, type: {mime_type}"
+                    )
                     image_blob = types.Blob(mime_type=mime_type, data=image_data)
                     live_request_queue.send_realtime(image_blob)
 
-                    # If image has accompanying text, send that too
-                    if "text" in json_message and json_message["text"]:
-                        content = types.Content(
-                            parts=[types.Part(text=json_message["text"])]
-                        )
-                        live_request_queue.send_content(content)
-
     async def downstream_task() -> None:
-        """Runner.run_live() events → WebSocket client."""
-        logger.debug("downstream_task started")
+        """Receives Events from run_live() and sends to WebSocket."""
+        logger.debug("downstream_task started, calling runner.run_live()")
         async for event in runner.run_live(
             user_id=user_id,
             session_id=session_id,
             live_request_queue=live_request_queue,
             run_config=run_config,
         ):
-            # Send full event as JSON (client processes all event types)
             event_json = event.model_dump_json(exclude_none=True, by_alias=True)
+            logger.debug(f"[SERVER] Event: {event_json[:200]}")
             await websocket.send_text(event_json)
-        logger.debug("run_live() completed")
+        logger.debug("run_live() generator completed")
 
     # Run both tasks concurrently
     try:
+        logger.debug("Starting asyncio.gather for upstream and downstream tasks")
         await asyncio.gather(upstream_task(), downstream_task())
     except WebSocketDisconnect:
-        logger.info(f"Client disconnected: user={user_id} session={session_id}")
+        logger.debug("Client disconnected normally")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
+        logger.error(f"Unexpected error in streaming tasks: {e}", exc_info=True)
     finally:
-        # Phase 4: Cleanup
+        logger.debug("Closing live_request_queue")
         live_request_queue.close()
-        logger.info(f"Session cleaned up: user={user_id} session={session_id}")
 
 
 # --- Run with uvicorn ---

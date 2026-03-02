@@ -25,7 +25,20 @@ IMAGES_DIR = OUTPUTS_DIR / "images"
 AUDIO_DIR = OUTPUTS_DIR / "audio"
 VIDEOS_DIR = OUTPUTS_DIR / "videos"
 FINAL_DIR = OUTPUTS_DIR / "final"
-FFMPEG = os.environ.get("FFMPEG_PATH", "ffmpeg")
+def _get_ffmpeg_path() -> str:
+    """Get FFmpeg binary path, trying system PATH first then imageio-ffmpeg."""
+    import shutil
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
+    return "ffmpeg"
+
+FFMPEG = os.environ.get("FFMPEG_PATH", _get_ffmpeg_path())
 
 # Video settings
 OUTPUT_WIDTH = 1920
