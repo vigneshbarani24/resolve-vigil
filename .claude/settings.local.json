@@ -38,7 +38,11 @@
       "WebFetch(domain:googleai.devpost.com)",
       "WebFetch(domain:genuineartificialintelligence.com)",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "Bash(xargs grep:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
