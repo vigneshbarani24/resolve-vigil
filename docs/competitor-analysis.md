@@ -1,6 +1,7 @@
 # Competitor & Strategy Analysis — TubeForge
 
-> Compiled from hackathon research | 2026-02-27
+> Compiled from hackathon research | Updated: 2026-03-05
+> See also: docs/winning-strategy.md (full strategy with demo script + execution plan)
 
 ## Hackathon Winning Formula
 
@@ -43,15 +44,33 @@ Judges evaluate:
 
 ## Competition Landscape
 
-### Storytopia (Main Creative Storyteller Competitor)
-- Repeat winner team doing interactive kids' stories
-- Very polished UI, strong emotional appeal
-- **Our differentiation**: Ad-tech/YouTube niche, not kids' stories. Deeper tech (7 tools, 5 GCP services). Tangible downloadable output (actual video file).
+### Pixtale (Google AI Hackathon WINNER — Closest Competitor)
+- **Won**: Google AI Hackathon, multimedia storytelling category
+- **What**: Trip photos → narrated travel video
+- **Tech**: Gemini Pro Vision + Flask + FFmpeg + Maps API + Cloud TTS
+- **Why it won**: Clear concept, tangible output, polished demo
+- **TubeForge advantages**: Voice conversation (Pixtale is text-only), AI-GENERATED images
+  (Pixtale only uses uploaded photos), ADK agent architecture (Pixtale is simple Flask),
+  Gemini Live bidi streaming, Imagen 3 + Veo 2 video generation
 
-### Other Creative Storyteller Entries
-- Most will do: text prompt → story with illustrations
+### Sparkify (Google's Official Experiment)
+- **What**: Question → animated educational short (2 min)
+- **Tech**: Gemini 2.5 + Veo 2/3 + MusicLM + AudioLM
+- **TubeForge advantages**: Voice interaction, image input, creative direction/customization,
+  open agent (not curated topics), downloadable MP4, runs on YOUR cloud
+
+### Past Creative Storyteller Entries (Expected Competition Pattern)
+- Most will do: text prompt → story with illustrations (BASIC)
+- Some will do: blog/article generator with images (GENERIC)
 - Few will produce: actual assembled video with voiceover
 - Even fewer will use: camera/image input + voice conversation
+- Almost none will use: ADK + Imagen + Veo + TTS + FFmpeg pipeline
+
+### ADK Hackathon Winners Pattern (477 projects, 10,400 participants)
+- **TradeSage AI** (Grand Prize): Multi-agent financial analysis — won on depth
+- **Bleach** (EMEA): Visual agent builder — won on innovation/UX
+- **Energy Agent AI** (NA): Customer management — won on real-world value
+- **Common traits**: Clear problem, tangible output, multiple GCP services, polished demo
 
 ### Faceless YouTube Tool Market
 | Existing Tool | Limitation |
@@ -62,7 +81,7 @@ Judges evaluate:
 | Synthesia | Avatar-focused, not faceless style |
 | Sparkify (Google) | Web-only playback, pre-curated topics, no voice interaction |
 
-**TubeForge differentiates** on: image input trigger, voice conversation, custom AI images (not stock), downloadable MP4, complete pipeline.
+**TubeForge differentiates** on: image input trigger, voice conversation, custom AI images (not stock), downloadable MP4, complete 7-tool pipeline, ADK agent architecture.
 
 ## Strategic Recommendations
 
@@ -74,5 +93,12 @@ Judges evaluate:
 
 ## Bonus Points Checklist
 - [ ] Blog/content about the build (#GeminiLiveAgentChallenge)
-- [ ] Terraform/gcloud deployment scripts in repo
+- [ ] Terraform/gcloud deployment scripts in repo (terraform/main.tf exists)
 - [ ] Google Developer Group signup + profile link
+- [ ] Request build credits: https://forms.gle/rKNPXA1o6XADvQGb7
+
+## Key Resources from Challenge Page
+- GenMedia notebooks: https://github.com/GoogleCloudPlatform/generative-ai/tree/main/gemini/multimodal-live-api
+- ADK Bidi Guide: https://medium.com/google-cloud/adk-bidi-streaming-a-visual-guide-to-real-time-multimodal-ai-agent-development-62dd08c81399
+- MCP for GenMedia: https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia
+- Codelabs: https://codelabs.developers.google.com/way-back-home-level-3/instructions#0

@@ -1,24 +1,44 @@
 /**
- * TubeForge app.js — Direct adaptation of bidi-demo app.js
- * Proven working pattern from google/adk-samples
+ * TubeForge app.js — Main application (bidi-demo pattern + studio UI).
  */
 
-// --- WebSocket ---
-const userId = "demo-user";
-const sessionId = "demo-session-" + Math.random().toString(36).substring(7);
-let websocket = null;
-let is_audio = false;
+import { startAudioPlayerWorklet } from "./audio-player.js";
+import { startAudioRecorderWorklet } from "./audio-recorder.js";
+import {
+  initPipeline,
+  setPipelineStage,
+  handleToolEvent,
+  showScriptPreview,
+  showThumbnail,
+  showVideo,
+  addAsset,
+  refreshAssets,
+  hideUploadHero,
+  updatePipelineStatus,
+  updateAudioStatus,
+  setHeroTranscript,
+  setHeroStatus,
+  startTimer,
+  stopTimer,
+} from "./ui.js";
 
-// --- DOM Elements ---
-const messageForm = document.getElementById("messageForm");
-const messageInput = document.getElementById("message");
-const messagesDiv = document.getElementById("messages");
-const statusIndicator = document.getElementById("statusIndicator");
-const statusText = document.getElementById("statusText");
-const consoleContent = document.getElementById("consoleContent");
-const clearConsoleBtn = document.getElementById("clearConsole");
-const showAudioEventsCheckbox = document.getElementById("showAudioEvents");
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const userId = "user-" + Math.random().toString(36).substring(2, 8);
+const sessionId = "session-" + Date.now().toString(36);
+let ws = null;
+let isAudio = false;
+let selectedPreset = "documentary";
 
+// Audio nodes
+let audioPlayerNode = null;
+let audioPlayerCtx = null;
+let audioRecorderNode = null;
+let audioRecorderCtx = null;
+let micStream = null;
+
+// Transcription tracking
 let currentMessageId = null;
 let currentBubbleElement = null;
 let currentInputTranscriptionId = null;
@@ -28,581 +48,701 @@ let currentOutputTranscriptionElement = null;
 let inputTranscriptionFinished = false;
 let hasOutputTranscriptionInTurn = false;
 
-// --- Console logging ---
-function formatTimestamp() {
-  const now = new Date();
-  return now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const $ = (sel) => document.querySelector(sel);
+const messagesDiv = $("#messages");
+const messageForm = $("#messageForm");
+const messageInput = $("#messageInput");
+const sendBtn = $("#sendBtn");
+const voiceBtn = $("#voiceBtn");
+const cameraBtn = $("#cameraBtn");
+const fileUpload = $("#fileUpload");
+const hiddenFileInput = $("#hiddenFileInput");
+const dropZone = $("#dropZone");
+const consoleContent = $("#consoleContent");
+const showAudioEventsCheckbox = $("#showAudioEvents");
+const statusDot = $("#statusDot");
+const statusLabel = $("#statusLabel");
+
+// Camera
+const cameraModal = $("#cameraModal");
+const cameraPreview = $("#cameraPreview");
+let cameraStream = null;
+
+// Voice orb pulse elements
+const orbPulse1 = $("#orbPulse1");
+const orbPulse2 = $("#orbPulse2");
+
+// ---------------------------------------------------------------------------
+// WebSocket
+// ---------------------------------------------------------------------------
+function connect() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${proto}//${location.host}/ws/${userId}/${sessionId}`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setConnected(true);
+    sendBtn.disabled = false;
+    addSystemMessage("Connected to Forge -- your AI Creative Director");
+    setHeroStatus("Connected -- speak or type to begin");
+    logConsole("down", "WebSocket connected", { userId, sessionId });
+  };
+
+  ws.onmessage = (evt) => {
+    const event = JSON.parse(evt.data);
+    handleEvent(event);
+  };
+
+  ws.onclose = () => {
+    setConnected(false);
+    sendBtn.disabled = true;
+    addSystemMessage("Disconnected. Reconnecting...");
+    setHeroStatus("Reconnecting...");
+    logConsole("err", "Disconnected", null);
+    setTimeout(connect, 4000);
+  };
+
+  ws.onerror = () => {
+    setConnected(false);
+    logConsole("err", "WebSocket error", null);
+  };
 }
 
-function addConsoleEntry(type, content, data = null, emoji = null, author = null, isAudio = false) {
-  if (isAudio && !showAudioEventsCheckbox.checked) return;
+function setConnected(ok) {
+  if (statusDot) {
+    statusDot.className = ok
+      ? "size-2 rounded-full bg-emerald-500 transition-colors"
+      : "size-2 rounded-full bg-red-500 transition-colors";
+  }
+  if (statusLabel) statusLabel.textContent = ok ? "Connected" : "Disconnected";
+}
 
-  const entry = document.createElement("div");
-  entry.className = `console-entry ${type}`;
+// ---------------------------------------------------------------------------
+// Event handler (from ADK via WebSocket)
+// ---------------------------------------------------------------------------
+function handleEvent(event) {
+  handleToolEvent(event);
 
-  const header = document.createElement("div");
-  header.className = "console-entry-header";
-
-  const leftSection = document.createElement("div");
-  leftSection.className = "console-entry-left";
-
-  if (emoji) {
-    const emojiIcon = document.createElement("span");
-    emojiIcon.className = "console-entry-emoji";
-    emojiIcon.textContent = emoji;
-    leftSection.appendChild(emojiIcon);
+  if (event.turnComplete === true) {
+    finalizeTurn();
+    logConsole("down", "Turn complete", null);
+    return;
   }
 
-  const expandIcon = document.createElement("span");
-  expandIcon.className = "console-expand-icon";
-  expandIcon.textContent = data ? ">" : "";
-
-  const typeLabel = document.createElement("span");
-  typeLabel.className = "console-entry-type";
-  typeLabel.textContent = type === 'outgoing' ? 'UP' : type === 'incoming' ? 'DOWN' : 'ERR';
-
-  leftSection.appendChild(expandIcon);
-  leftSection.appendChild(typeLabel);
-
-  if (author) {
-    const authorBadge = document.createElement("span");
-    authorBadge.className = "console-entry-author";
-    authorBadge.textContent = author;
-    authorBadge.setAttribute('data-author', author);
-    leftSection.appendChild(authorBadge);
+  if (event.interrupted === true) {
+    if (audioPlayerNode) audioPlayerNode.port.postMessage({ command: "endOfAudio" });
+    interruptCurrent();
+    logConsole("down", "Interrupted", null);
+    return;
   }
 
-  const timestamp = document.createElement("span");
-  timestamp.className = "console-entry-timestamp";
-  timestamp.textContent = formatTimestamp();
+  if (event.inputTranscription && event.inputTranscription.text) {
+    handleInputTranscription(event.inputTranscription);
+  }
 
-  header.appendChild(leftSection);
-  header.appendChild(timestamp);
+  if (event.outputTranscription && event.outputTranscription.text) {
+    handleOutputTranscription(event.outputTranscription);
+  }
 
-  const contentDiv = document.createElement("div");
-  contentDiv.className = "console-entry-content";
-  contentDiv.textContent = content;
+  if (event.content && event.content.parts) {
+    handleContentParts(event);
+  }
 
-  entry.appendChild(header);
-  entry.appendChild(contentDiv);
+  const hasAudioOnly =
+    event.content &&
+    event.content.parts &&
+    event.content.parts.some((p) => p.inlineData) &&
+    !event.content.parts.some((p) => p.text);
 
-  if (data) {
-    const jsonDiv = document.createElement("div");
-    jsonDiv.className = "console-entry-json collapsed";
-    const pre = document.createElement("pre");
-    pre.textContent = JSON.stringify(data, null, 2);
-    jsonDiv.appendChild(pre);
-    entry.appendChild(jsonDiv);
+  if (!hasAudioOnly && !event.turnComplete && !event.interrupted) {
+    const summary = summarizeEvent(event);
+    logConsole("down", summary, event);
+  }
+}
 
-    entry.classList.add("expandable");
-    entry.addEventListener("click", () => {
-      const isExpanded = !jsonDiv.classList.contains("collapsed");
-      if (isExpanded) {
-        jsonDiv.classList.add("collapsed");
-        expandIcon.textContent = ">";
-        entry.classList.remove("expanded");
-      } else {
-        jsonDiv.classList.remove("collapsed");
-        expandIcon.textContent = "v";
-        entry.classList.add("expanded");
+function summarizeEvent(event) {
+  if (event.inputTranscription) return `Input: "${truncate(event.inputTranscription.text, 60)}"`;
+  if (event.outputTranscription) return `Output: "${truncate(event.outputTranscription.text, 60)}"`;
+  if (event.content && event.content.parts) {
+    const textPart = event.content.parts.find((p) => p.text);
+    if (textPart) return `Text: "${truncate(textPart.text, 80)}"`;
+    const audioPart = event.content.parts.find((p) => p.inlineData);
+    if (audioPart) return `Audio chunk`;
+  }
+  return "Event";
+}
+
+// ---------------------------------------------------------------------------
+// Transcription handling (voice mode)
+// ---------------------------------------------------------------------------
+function handleInputTranscription(t) {
+  const text = t.text;
+  const finished = t.finished;
+  if (!text || inputTranscriptionFinished) return;
+
+  // Update hero transcript with what user is saying
+  setHeroTranscript(`"${text}"`);
+  setHeroStatus("Listening...");
+
+  if (!currentInputTranscriptionId) {
+    currentInputTranscriptionId = rndId();
+    currentInputTranscriptionElement = createBubble(text, true, !finished);
+    currentInputTranscriptionElement.id = currentInputTranscriptionId;
+    currentInputTranscriptionElement.classList.add("transcription");
+    messagesDiv.appendChild(currentInputTranscriptionElement);
+  } else if (!currentOutputTranscriptionId && !currentMessageId) {
+    if (finished) {
+      updateBubble(currentInputTranscriptionElement, text, false);
+    } else {
+      const existing = currentInputTranscriptionElement.querySelector(".bubble-text").textContent;
+      updateBubble(currentInputTranscriptionElement, existing + text, true);
+    }
+  }
+
+  if (finished) {
+    currentInputTranscriptionId = null;
+    currentInputTranscriptionElement = null;
+    inputTranscriptionFinished = true;
+    setHeroStatus("Processing...");
+  }
+  scrollChat();
+}
+
+function handleOutputTranscription(t) {
+  const text = t.text;
+  const finished = t.finished;
+  if (!text) return;
+  hasOutputTranscriptionInTurn = true;
+
+  // Update hero with what Forge is saying
+  setHeroTranscript(`"${truncate(text, 120)}"`);
+  setHeroStatus("Forge is speaking...");
+
+  if (currentInputTranscriptionId && !currentOutputTranscriptionId) {
+    clearTyping(currentInputTranscriptionElement);
+    currentInputTranscriptionId = null;
+    currentInputTranscriptionElement = null;
+    inputTranscriptionFinished = true;
+  }
+
+  if (!currentOutputTranscriptionId) {
+    currentOutputTranscriptionId = rndId();
+    currentOutputTranscriptionElement = createBubble(text, false, !finished);
+    currentOutputTranscriptionElement.id = currentOutputTranscriptionId;
+    currentOutputTranscriptionElement.classList.add("transcription");
+    messagesDiv.appendChild(currentOutputTranscriptionElement);
+  } else {
+    if (finished) {
+      updateBubble(currentOutputTranscriptionElement, text, false);
+    } else {
+      const existing = currentOutputTranscriptionElement.querySelector(".bubble-text").textContent;
+      updateBubble(currentOutputTranscriptionElement, existing + text, true);
+    }
+  }
+
+  if (finished) {
+    currentOutputTranscriptionId = null;
+    currentOutputTranscriptionElement = null;
+  }
+  scrollChat();
+}
+
+// ---------------------------------------------------------------------------
+// Content parts (text, audio, images from agent)
+// ---------------------------------------------------------------------------
+function handleContentParts(event) {
+  if (currentInputTranscriptionId && !currentMessageId && !currentOutputTranscriptionId) {
+    clearTyping(currentInputTranscriptionElement);
+    currentInputTranscriptionId = null;
+    currentInputTranscriptionElement = null;
+    inputTranscriptionFinished = true;
+  }
+
+  for (const part of event.content.parts) {
+    if (part.inlineData) {
+      const mime = part.inlineData.mimeType || "";
+      if (mime.startsWith("audio/pcm") && audioPlayerNode) {
+        audioPlayerNode.port.postMessage(base64ToArrayBuffer(part.inlineData.data));
       }
+      if (showAudioEventsCheckbox && showAudioEventsCheckbox.checked) {
+        logConsole("down", `Audio: ${Math.floor((part.inlineData.data || "").length * 0.75)} bytes`, null, true);
+      }
+    }
+
+    if (part.text) {
+      if (part.thought) continue;
+      if (!event.partial && hasOutputTranscriptionInTurn) continue;
+
+      if (!currentMessageId) {
+        currentMessageId = rndId();
+        currentBubbleElement = createBubble(part.text, false, true);
+        currentBubbleElement.id = currentMessageId;
+        messagesDiv.appendChild(currentBubbleElement);
+      } else {
+        const existing = currentBubbleElement.querySelector(".bubble-text").textContent;
+        updateBubble(currentBubbleElement, existing + part.text, true);
+      }
+      scrollChat();
+    }
+
+    if (part.functionCall || part.function_call) {
+      const fc = part.functionCall || part.function_call;
+      addSystemMessage(`Calling: ${fc.name}...`);
+      setHeroStatus(`Running ${fc.name}...`);
+      logConsole("down", `Tool call: ${fc.name}`, fc);
+    }
+
+    if (part.functionResponse || part.function_response) {
+      const fr = part.functionResponse || part.function_response;
+      const status = (fr.response || fr.result || {}).status || "unknown";
+      addSystemMessage(`${fr.name}: ${status}`);
+      logConsole("down", `Tool result: ${fr.name} -> ${status}`, fr);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Turn management
+// ---------------------------------------------------------------------------
+function finalizeTurn() {
+  clearTyping(currentBubbleElement);
+  clearTyping(currentOutputTranscriptionElement);
+  currentMessageId = null;
+  currentBubbleElement = null;
+  currentOutputTranscriptionId = null;
+  currentOutputTranscriptionElement = null;
+  inputTranscriptionFinished = false;
+  hasOutputTranscriptionInTurn = false;
+  setHeroStatus("Ready");
+}
+
+function interruptCurrent() {
+  if (currentBubbleElement) {
+    clearTyping(currentBubbleElement);
+    currentBubbleElement.classList.add("interrupted");
+  }
+  if (currentOutputTranscriptionElement) {
+    clearTyping(currentOutputTranscriptionElement);
+    currentOutputTranscriptionElement.classList.add("interrupted");
+  }
+  finalizeTurn();
+}
+
+// ---------------------------------------------------------------------------
+// Bubble helpers
+// ---------------------------------------------------------------------------
+function createBubble(text, isUser, isPartial = false) {
+  const msg = document.createElement("div");
+  msg.className = `message ${isUser ? "user" : "agent"}`;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  const p = document.createElement("p");
+  p.className = "bubble-text";
+  p.textContent = text;
+
+  if (isPartial && !isUser) {
+    const ti = document.createElement("span");
+    ti.className = "typing-indicator";
+    p.appendChild(ti);
+  }
+
+  bubble.appendChild(p);
+  msg.appendChild(bubble);
+  return msg;
+}
+
+function createImageBubble(dataUrl, isUser) {
+  const msg = document.createElement("div");
+  msg.className = `message ${isUser ? "user" : "agent"}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble image-bubble";
+  const img = document.createElement("img");
+  img.src = dataUrl;
+  img.className = "bubble-image";
+  img.alt = "Image";
+  bubble.appendChild(img);
+  msg.appendChild(bubble);
+  return msg;
+}
+
+function updateBubble(el, text, isPartial) {
+  if (!el) return;
+  const p = el.querySelector(".bubble-text");
+  const ti = p.querySelector(".typing-indicator");
+  if (ti) ti.remove();
+  p.textContent = text;
+  if (isPartial) {
+    const span = document.createElement("span");
+    span.className = "typing-indicator";
+    p.appendChild(span);
+  }
+}
+
+function clearTyping(el) {
+  if (!el) return;
+  const ti = el.querySelector(".typing-indicator");
+  if (ti) ti.remove();
+}
+
+function addSystemMessage(text) {
+  const div = document.createElement("div");
+  div.className = "system-message";
+  div.textContent = text;
+  messagesDiv.appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() {
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// ---------------------------------------------------------------------------
+// Send messages
+// ---------------------------------------------------------------------------
+function sendText(text) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "text", text }));
+  logConsole("up", `User: ${text}`, null);
+}
+
+function sendImage(base64Data, mimeType = "image/jpeg") {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "image", data: base64Data, mimeType }));
+  logConsole("up", `Image: ${Math.floor(base64Data.length * 0.75)} bytes`, null);
+}
+
+// ---------------------------------------------------------------------------
+// Image upload (drag & drop + file picker)
+// ---------------------------------------------------------------------------
+function setupDragDrop() {
+  if (!dropZone) return;
+
+  const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+  dropZone.addEventListener("dragenter", (e) => { prevent(e); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragover", (e) => { prevent(e); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", (e) => { prevent(e); dropZone.classList.remove("drag-over"); });
+  dropZone.addEventListener("drop", (e) => {
+    prevent(e);
+    dropZone.classList.remove("drag-over");
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].type.startsWith("image/")) {
+      handleImageFile(files[0]);
+    }
+  });
+
+  dropZone.addEventListener("click", () => hiddenFileInput && hiddenFileInput.click());
+}
+
+function setupFileInputs() {
+  if (hiddenFileInput) {
+    hiddenFileInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) handleImageFile(e.target.files[0]);
+      e.target.value = "";
     });
   }
+  if (fileUpload) {
+    fileUpload.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) handleImageFile(e.target.files[0]);
+      e.target.value = "";
+    });
+  }
+}
 
+function handleImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+
+    const bubble = createImageBubble(dataUrl, true);
+    messagesDiv.appendChild(bubble);
+    scrollChat();
+
+    const base64 = dataUrl.split(",")[1];
+    const mimeType = file.type || "image/jpeg";
+    sendImage(base64, mimeType);
+
+    hideUploadHero();
+    startTimer();
+    setHeroTranscript("Photo uploaded -- Forge is analyzing...");
+    setHeroStatus("Processing image...");
+
+    if (selectedPreset) {
+      setTimeout(() => {
+        const hint = `I'd like a ${selectedPreset}-style video about this.`;
+        const userBubble = createBubble(hint, true);
+        messagesDiv.appendChild(userBubble);
+        scrollChat();
+        sendText(hint);
+      }, 500);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---------------------------------------------------------------------------
+// Camera
+// ---------------------------------------------------------------------------
+function setupCamera() {
+  if (cameraBtn) cameraBtn.addEventListener("click", openCamera);
+  if ($("#closeCameraModal")) $("#closeCameraModal").addEventListener("click", closeCamera);
+  if ($("#cancelCamera")) $("#cancelCamera").addEventListener("click", closeCamera);
+  if ($("#captureImage")) $("#captureImage").addEventListener("click", captureFromCamera);
+  if ($("#cameraBackdrop")) $("#cameraBackdrop").addEventListener("click", closeCamera);
+}
+
+async function openCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 768 }, height: { ideal: 768 }, facingMode: "user" },
+    });
+    cameraPreview.srcObject = cameraStream;
+    cameraModal.classList.add("show");
+    cameraModal.classList.remove("hidden");
+  } catch (err) {
+    addSystemMessage(`Camera error: ${err.message}`);
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  if (cameraPreview) cameraPreview.srcObject = null;
+  if (cameraModal) {
+    cameraModal.classList.remove("show");
+    cameraModal.classList.add("hidden");
+  }
+}
+
+function captureFromCamera() {
+  if (!cameraStream) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = cameraPreview.videoWidth;
+  canvas.height = cameraPreview.videoHeight;
+  canvas.getContext("2d").drawImage(cameraPreview, 0, 0);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  const bubble = createImageBubble(dataUrl, true);
+  messagesDiv.appendChild(bubble);
+  scrollChat();
+
+  canvas.toBlob((blob) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const b64 = reader.result.split(",")[1];
+      sendImage(b64, "image/jpeg");
+    };
+    reader.readAsDataURL(blob);
+  }, "image/jpeg", 0.85);
+
+  closeCamera();
+  hideUploadHero();
+  startTimer();
+}
+
+// ---------------------------------------------------------------------------
+// Audio (voice mode)
+// ---------------------------------------------------------------------------
+function setupAudio() {
+  if (!voiceBtn) return;
+  voiceBtn.addEventListener("click", toggleAudio);
+}
+
+async function toggleAudio() {
+  if (isAudio) {
+    isAudio = false;
+    voiceBtn.classList.remove("active");
+    updateAudioStatus(false);
+    setVoiceOrbActive(false);
+    addSystemMessage("Voice mode off");
+    setHeroStatus("Voice mode off");
+    return;
+  }
+
+  try {
+    if (!audioPlayerNode) {
+      const [node, ctx] = await startAudioPlayerWorklet();
+      audioPlayerNode = node;
+      audioPlayerCtx = ctx;
+    }
+    if (!audioRecorderNode) {
+      const [node, ctx, stream] = await startAudioRecorderWorklet(audioRecorderHandler);
+      audioRecorderNode = node;
+      audioRecorderCtx = ctx;
+      micStream = stream;
+    }
+    isAudio = true;
+    voiceBtn.classList.add("active");
+    updateAudioStatus(true);
+    setVoiceOrbActive(true);
+    addSystemMessage("Voice mode on -- speak to Forge");
+    setHeroTranscript("Listening... speak to Forge");
+    setHeroStatus("Voice mode active");
+  } catch (err) {
+    addSystemMessage(`Audio error: ${err.message}`);
+  }
+}
+
+function setVoiceOrbActive(active) {
+  if (orbPulse1) orbPulse1.classList.toggle("hidden", !active);
+  if (orbPulse2) orbPulse2.classList.toggle("hidden", !active);
+}
+
+function audioRecorderHandler(pcmData) {
+  if (ws && ws.readyState === WebSocket.OPEN && isAudio) {
+    ws.send(pcmData);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Presets
+// ---------------------------------------------------------------------------
+function setupPresets() {
+  document.querySelectorAll(".preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".preset-btn").forEach((b) => {
+        b.className = "preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors";
+      });
+      btn.className = "preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium bg-primary/10 text-primary border border-primary/20 transition-colors";
+      selectedPreset = btn.dataset.preset;
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Console
+// ---------------------------------------------------------------------------
+function setupConsole() {
+  const drawer = $("#consoleDrawer");
+  const toggleBtn = $("#toggleConsole");
+  const closeBtn = $("#closeConsole");
+  const clearBtn = $("#clearConsole");
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      drawer && drawer.classList.toggle("open");
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      drawer && drawer.classList.remove("open");
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (consoleContent) consoleContent.innerHTML = "";
+    });
+  }
+}
+
+function logConsole(type, message, data, isAudioEvt = false) {
+  if (!consoleContent) return;
+  if (isAudioEvt && showAudioEventsCheckbox && !showAudioEventsCheckbox.checked) return;
+
+  const entry = document.createElement("div");
+  entry.className = `con-entry ${type}`;
+
+  const now = new Date();
+  const ts = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  const dirLabel = type === "up" ? "UP" : type === "down" ? "DN" : "ER";
+
+  let html = `<span class="con-time">${ts}</span><span class="con-dir">${dirLabel}</span><span class="con-msg">${escapeHtml(message)}</span>`;
+
+  if (data) {
+    entry.classList.add("expandable");
+    html += `<div class="con-json"><pre>${escapeHtml(JSON.stringify(sanitizeForConsole(data), null, 2))}</pre></div>`;
+    entry.addEventListener("click", () => entry.classList.toggle("expanded"));
+  }
+
+  entry.innerHTML = html;
   consoleContent.appendChild(entry);
   consoleContent.scrollTop = consoleContent.scrollHeight;
 }
 
-clearConsoleBtn.addEventListener('click', () => { consoleContent.innerHTML = ''; });
-
-// --- Connection status ---
-function updateConnectionStatus(connected) {
-  if (connected) {
-    statusIndicator.classList.remove("disconnected");
-    statusText.textContent = "Connected";
-  } else {
-    statusIndicator.classList.add("disconnected");
-    statusText.textContent = "Disconnected";
-  }
-}
-
-// --- Message bubbles ---
-function createMessageBubble(text, isUser, isPartial = false) {
-  const messageDiv = document.createElement("div");
-  messageDiv.className = `message ${isUser ? "user" : "agent"}`;
-
-  const bubbleDiv = document.createElement("div");
-  bubbleDiv.className = "bubble";
-
-  const textP = document.createElement("p");
-  textP.className = "bubble-text";
-  textP.textContent = text;
-
-  if (isPartial && !isUser) {
-    const typingSpan = document.createElement("span");
-    typingSpan.className = "typing-indicator";
-    textP.appendChild(typingSpan);
-  }
-
-  bubbleDiv.appendChild(textP);
-  messageDiv.appendChild(bubbleDiv);
-  return messageDiv;
-}
-
-function createImageBubble(imageDataUrl, isUser) {
-  const messageDiv = document.createElement("div");
-  messageDiv.className = `message ${isUser ? "user" : "agent"}`;
-
-  const bubbleDiv = document.createElement("div");
-  bubbleDiv.className = "bubble image-bubble";
-
-  const img = document.createElement("img");
-  img.src = imageDataUrl;
-  img.className = "bubble-image";
-  img.alt = "Captured image";
-
-  bubbleDiv.appendChild(img);
-  messageDiv.appendChild(bubbleDiv);
-  return messageDiv;
-}
-
-function updateMessageBubble(element, text, isPartial = false) {
-  const textElement = element.querySelector(".bubble-text");
-  const existingIndicator = textElement.querySelector(".typing-indicator");
-  if (existingIndicator) existingIndicator.remove();
-
-  textElement.textContent = text;
-
-  if (isPartial) {
-    const typingSpan = document.createElement("span");
-    typingSpan.className = "typing-indicator";
-    textElement.appendChild(typingSpan);
-  }
-}
-
-function addSystemMessage(text) {
-  const messageDiv = document.createElement("div");
-  messageDiv.className = "system-message";
-  messageDiv.textContent = text;
-  messagesDiv.appendChild(messageDiv);
-  scrollToBottom();
-}
-
-function scrollToBottom() {
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// --- Sanitize event data for console ---
-function sanitizeEventForDisplay(event) {
-  const sanitized = JSON.parse(JSON.stringify(event));
-  if (sanitized.content && sanitized.content.parts) {
-    sanitized.content.parts = sanitized.content.parts.map(part => {
-      if (part.inlineData && part.inlineData.data) {
-        const byteSize = Math.floor(part.inlineData.data.length * 0.75);
-        return { ...part, inlineData: { ...part.inlineData, data: `(${byteSize.toLocaleString()} bytes)` } };
+function sanitizeForConsole(obj) {
+  const s = JSON.parse(JSON.stringify(obj));
+  if (s && s.content && s.content.parts) {
+    s.content.parts = s.content.parts.map((p) => {
+      if (p.inlineData && p.inlineData.data && p.inlineData.data.length > 100) {
+        const bytes = Math.floor(p.inlineData.data.length * 0.75);
+        return { ...p, inlineData: { ...p.inlineData, data: `(${bytes.toLocaleString()} bytes)` } };
       }
-      return part;
+      return p;
     });
   }
-  return sanitized;
+  return s;
 }
 
-// --- WebSocket ---
-function connectWebsocket() {
-  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const ws_url = wsProtocol + "//" + window.location.host + "/ws/" + userId + "/" + sessionId;
-  websocket = new WebSocket(ws_url);
-
-  websocket.onopen = function () {
-    console.log("WebSocket connection opened.");
-    updateConnectionStatus(true);
-    addSystemMessage("Connected to Forge — your AI Creative Director");
-    addConsoleEntry('incoming', 'WebSocket Connected', { userId, sessionId, url: ws_url }, '=', 'system');
-    document.getElementById("sendButton").disabled = false;
-    addSubmitHandler();
-  };
-
-  websocket.onmessage = function (event) {
-    const adkEvent = JSON.parse(event.data);
-    console.log("[AGENT TO CLIENT] ", adkEvent);
-
-    let eventSummary = 'Event';
-    let eventEmoji = '<';
-    const author = adkEvent.author || 'system';
-
-    if (adkEvent.turnComplete) {
-      eventSummary = 'Turn Complete';
-      eventEmoji = '*';
-    } else if (adkEvent.interrupted) {
-      eventSummary = 'Interrupted';
-      eventEmoji = '!';
-    } else if (adkEvent.inputTranscription) {
-      const t = adkEvent.inputTranscription.text || '';
-      eventSummary = `Input: "${t.length > 60 ? t.substring(0, 60) + '...' : t}"`;
-      eventEmoji = '>';
-    } else if (adkEvent.outputTranscription) {
-      const t = adkEvent.outputTranscription.text || '';
-      eventSummary = `Output: "${t.length > 60 ? t.substring(0, 60) + '...' : t}"`;
-      eventEmoji = '<';
-    } else if (adkEvent.content && adkEvent.content.parts) {
-      const hasText = adkEvent.content.parts.some(p => p.text);
-      const hasAudio = adkEvent.content.parts.some(p => p.inlineData);
-
-      if (hasText) {
-        const textPart = adkEvent.content.parts.find(p => p.text);
-        if (textPart && textPart.text) {
-          const t = textPart.text;
-          eventSummary = `Text: "${t.length > 80 ? t.substring(0, 80) + '...' : t}"`;
-          eventEmoji = '#';
-        }
-      }
-
-      if (hasAudio) {
-        const audioPart = adkEvent.content.parts.find(p => p.inlineData);
-        if (audioPart && audioPart.inlineData) {
-          const dataLength = audioPart.inlineData.data ? audioPart.inlineData.data.length : 0;
-          const byteSize = Math.floor(dataLength * 0.75);
-          eventSummary = `Audio: ${byteSize.toLocaleString()} bytes`;
-          eventEmoji = '~';
-        }
-        const sanitizedEvent = sanitizeEventForDisplay(adkEvent);
-        addConsoleEntry('incoming', eventSummary, sanitizedEvent, eventEmoji, author, true);
-      }
-    }
-
-    // Log non-audio-only events
-    const isAudioOnlyEvent = adkEvent.content && adkEvent.content.parts &&
-      adkEvent.content.parts.some(p => p.inlineData) &&
-      !adkEvent.content.parts.some(p => p.text);
-    if (!isAudioOnlyEvent) {
-      const sanitizedEvent = sanitizeEventForDisplay(adkEvent);
-      addConsoleEntry('incoming', eventSummary, sanitizedEvent, eventEmoji, author);
-    }
-
-    // Handle turn complete
-    if (adkEvent.turnComplete === true) {
-      if (currentBubbleElement) {
-        const el = currentBubbleElement.querySelector(".bubble-text");
-        const ti = el.querySelector(".typing-indicator");
-        if (ti) ti.remove();
-      }
-      if (currentOutputTranscriptionElement) {
-        const el = currentOutputTranscriptionElement.querySelector(".bubble-text");
-        const ti = el.querySelector(".typing-indicator");
-        if (ti) ti.remove();
-      }
-      currentMessageId = null;
-      currentBubbleElement = null;
-      currentOutputTranscriptionId = null;
-      currentOutputTranscriptionElement = null;
-      inputTranscriptionFinished = false;
-      hasOutputTranscriptionInTurn = false;
-      return;
-    }
-
-    // Handle interrupted
-    if (adkEvent.interrupted === true) {
-      if (audioPlayerNode) {
-        audioPlayerNode.port.postMessage({ command: "endOfAudio" });
-      }
-      if (currentBubbleElement) {
-        const el = currentBubbleElement.querySelector(".bubble-text");
-        const ti = el.querySelector(".typing-indicator");
-        if (ti) ti.remove();
-        currentBubbleElement.classList.add("interrupted");
-      }
-      if (currentOutputTranscriptionElement) {
-        const el = currentOutputTranscriptionElement.querySelector(".bubble-text");
-        const ti = el.querySelector(".typing-indicator");
-        if (ti) ti.remove();
-        currentOutputTranscriptionElement.classList.add("interrupted");
-      }
-      currentMessageId = null;
-      currentBubbleElement = null;
-      currentOutputTranscriptionId = null;
-      currentOutputTranscriptionElement = null;
-      inputTranscriptionFinished = false;
-      hasOutputTranscriptionInTurn = false;
-      return;
-    }
-
-    // Handle input transcription
-    if (adkEvent.inputTranscription && adkEvent.inputTranscription.text) {
-      const transcriptionText = adkEvent.inputTranscription.text;
-      const isFinished = adkEvent.inputTranscription.finished;
-
-      if (transcriptionText) {
-        if (inputTranscriptionFinished) return;
-
-        if (currentInputTranscriptionId == null) {
-          currentInputTranscriptionId = Math.random().toString(36).substring(7);
-          currentInputTranscriptionElement = createMessageBubble(transcriptionText, true, !isFinished);
-          currentInputTranscriptionElement.id = currentInputTranscriptionId;
-          currentInputTranscriptionElement.classList.add("transcription");
-          messagesDiv.appendChild(currentInputTranscriptionElement);
-        } else {
-          if (currentOutputTranscriptionId == null && currentMessageId == null) {
-            if (isFinished) {
-              updateMessageBubble(currentInputTranscriptionElement, transcriptionText, false);
-            } else {
-              const existingText = currentInputTranscriptionElement.querySelector(".bubble-text").textContent;
-              updateMessageBubble(currentInputTranscriptionElement, existingText + transcriptionText, true);
-            }
-          }
-        }
-
-        if (isFinished) {
-          currentInputTranscriptionId = null;
-          currentInputTranscriptionElement = null;
-          inputTranscriptionFinished = true;
-        }
-        scrollToBottom();
-      }
-    }
-
-    // Handle output transcription
-    if (adkEvent.outputTranscription && adkEvent.outputTranscription.text) {
-      const transcriptionText = adkEvent.outputTranscription.text;
-      const isFinished = adkEvent.outputTranscription.finished;
-      hasOutputTranscriptionInTurn = true;
-
-      if (transcriptionText) {
-        if (currentInputTranscriptionId != null && currentOutputTranscriptionId == null) {
-          const el = currentInputTranscriptionElement.querySelector(".bubble-text");
-          const ti = el.querySelector(".typing-indicator");
-          if (ti) ti.remove();
-          currentInputTranscriptionId = null;
-          currentInputTranscriptionElement = null;
-          inputTranscriptionFinished = true;
-        }
-
-        if (currentOutputTranscriptionId == null) {
-          currentOutputTranscriptionId = Math.random().toString(36).substring(7);
-          currentOutputTranscriptionElement = createMessageBubble(transcriptionText, false, !isFinished);
-          currentOutputTranscriptionElement.id = currentOutputTranscriptionId;
-          currentOutputTranscriptionElement.classList.add("transcription");
-          messagesDiv.appendChild(currentOutputTranscriptionElement);
-        } else {
-          if (isFinished) {
-            updateMessageBubble(currentOutputTranscriptionElement, transcriptionText, false);
-          } else {
-            const existingText = currentOutputTranscriptionElement.querySelector(".bubble-text").textContent;
-            updateMessageBubble(currentOutputTranscriptionElement, existingText + transcriptionText, true);
-          }
-        }
-
-        if (isFinished) {
-          currentOutputTranscriptionId = null;
-          currentOutputTranscriptionElement = null;
-        }
-        scrollToBottom();
-      }
-    }
-
-    // Handle content events (text or audio)
-    if (adkEvent.content && adkEvent.content.parts) {
-      const parts = adkEvent.content.parts;
-
-      if (currentInputTranscriptionId != null && currentMessageId == null && currentOutputTranscriptionId == null) {
-        const el = currentInputTranscriptionElement.querySelector(".bubble-text");
-        const ti = el.querySelector(".typing-indicator");
-        if (ti) ti.remove();
-        currentInputTranscriptionId = null;
-        currentInputTranscriptionElement = null;
-        inputTranscriptionFinished = true;
-      }
-
-      for (const part of parts) {
-        // Audio
-        if (part.inlineData) {
-          const mimeType = part.inlineData.mimeType;
-          const data = part.inlineData.data;
-          if (mimeType && mimeType.startsWith("audio/pcm") && audioPlayerNode) {
-            audioPlayerNode.port.postMessage(base64ToArray(data));
-          }
-        }
-
-        // Text
-        if (part.text) {
-          if (part.thought) continue;
-          if (!adkEvent.partial && hasOutputTranscriptionInTurn) continue;
-
-          if (currentMessageId == null) {
-            currentMessageId = Math.random().toString(36).substring(7);
-            currentBubbleElement = createMessageBubble(part.text, false, true);
-            currentBubbleElement.id = currentMessageId;
-            messagesDiv.appendChild(currentBubbleElement);
-          } else {
-            const existingText = currentBubbleElement.querySelector(".bubble-text").textContent;
-            updateMessageBubble(currentBubbleElement, existingText + part.text, true);
-          }
-          scrollToBottom();
-        }
-      }
-    }
-  };
-
-  websocket.onclose = function () {
-    console.log("WebSocket connection closed.");
-    updateConnectionStatus(false);
-    document.getElementById("sendButton").disabled = true;
-    addSystemMessage("Connection closed. Reconnecting in 5 seconds...");
-    addConsoleEntry('error', 'WebSocket Disconnected', { status: 'closed', reconnecting: true }, '!', 'system');
-    setTimeout(() => {
-      addConsoleEntry('outgoing', 'Reconnecting...', { userId, sessionId }, '~', 'system');
-      connectWebsocket();
-    }, 5000);
-  };
-
-  websocket.onerror = function (e) {
-    console.log("WebSocket error: ", e);
-    updateConnectionStatus(false);
-    addConsoleEntry('error', 'WebSocket Error', { error: e.type }, '!', 'system');
-  };
-}
-connectWebsocket();
-
-// --- Form submit ---
-function addSubmitHandler() {
-  messageForm.onsubmit = function (e) {
+// ---------------------------------------------------------------------------
+// Form submit
+// ---------------------------------------------------------------------------
+function setupForm() {
+  messageForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const message = messageInput.value.trim();
-    if (message) {
-      const userBubble = createMessageBubble(message, true, false);
-      messagesDiv.appendChild(userBubble);
-      scrollToBottom();
-      messageInput.value = "";
-      sendMessage(message);
-    }
-    return false;
-  };
-}
+    const text = messageInput.value.trim();
+    if (!text) return;
 
-function sendMessage(message) {
-  if (websocket && websocket.readyState === WebSocket.OPEN) {
-    websocket.send(JSON.stringify({ type: "text", text: message }));
-    addConsoleEntry('outgoing', 'User: ' + message, null, '>', 'user');
-  }
-}
+    const bubble = createBubble(text, true);
+    messagesDiv.appendChild(bubble);
+    scrollChat();
+    messageInput.value = "";
+    sendText(text);
 
-// --- Base64 decode ---
-function base64ToArray(base64) {
-  let standardBase64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-  while (standardBase64.length % 4) standardBase64 += '=';
-  const binaryString = window.atob(standardBase64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-  return bytes.buffer;
-}
-
-// --- Camera ---
-const cameraButton = document.getElementById("cameraButton");
-const cameraModal = document.getElementById("cameraModal");
-const cameraPreview = document.getElementById("cameraPreview");
-const closeCameraModal = document.getElementById("closeCameraModal");
-const cancelCamera = document.getElementById("cancelCamera");
-const captureImageBtn = document.getElementById("captureImage");
-let cameraStream = null;
-
-async function openCameraPreview() {
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 768 }, height: { ideal: 768 }, facingMode: 'user' }
-    });
-    cameraPreview.srcObject = cameraStream;
-    cameraModal.classList.add('show');
-  } catch (error) {
-    addSystemMessage(`Camera error: ${error.message}`);
-    addConsoleEntry('error', 'Camera failed', { error: error.message }, '!', 'system');
-  }
-}
-
-function closeCameraPreview() {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop());
-    cameraStream = null;
-  }
-  cameraPreview.srcObject = null;
-  cameraModal.classList.remove('show');
-}
-
-function captureImageFromPreview() {
-  if (!cameraStream) { addSystemMessage('No camera stream'); return; }
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = cameraPreview.videoWidth;
-    canvas.height = cameraPreview.videoHeight;
-    canvas.getContext('2d').drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
-
-    const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    const imageBubble = createImageBubble(imageDataUrl, true);
-    messagesDiv.appendChild(imageBubble);
-    scrollToBottom();
-
-    canvas.toBlob((blob) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result.split(',')[1];
-        sendImage(base64data);
-      };
-      reader.readAsDataURL(blob);
-      addConsoleEntry('outgoing', `Image: ${blob.size} bytes`, { size: blob.size, type: 'image/jpeg' }, '>', 'user');
-    }, 'image/jpeg', 0.85);
-
-    closeCameraPreview();
-  } catch (error) {
-    addSystemMessage(`Capture error: ${error.message}`);
-  }
-}
-
-function sendImage(base64Image) {
-  if (websocket && websocket.readyState === WebSocket.OPEN) {
-    websocket.send(JSON.stringify({ type: "image", data: base64Image, mimeType: "image/jpeg" }));
-  }
-}
-
-cameraButton.addEventListener("click", openCameraPreview);
-closeCameraModal.addEventListener("click", closeCameraPreview);
-cancelCamera.addEventListener("click", closeCameraPreview);
-captureImageBtn.addEventListener("click", captureImageFromPreview);
-cameraModal.addEventListener("click", (event) => {
-  if (event.target === cameraModal) closeCameraPreview();
-});
-
-// --- Audio ---
-let audioPlayerNode;
-let audioPlayerContext;
-let audioRecorderNode;
-let audioRecorderContext;
-let micStream;
-
-import { startAudioPlayerWorklet } from "./audio-player.js";
-import { startAudioRecorderWorklet } from "./audio-recorder.js";
-
-function startAudio() {
-  startAudioPlayerWorklet().then(([node, ctx]) => {
-    audioPlayerNode = node;
-    audioPlayerContext = ctx;
-  });
-  startAudioRecorderWorklet(audioRecorderHandler).then(([node, ctx, stream]) => {
-    audioRecorderNode = node;
-    audioRecorderContext = ctx;
-    micStream = stream;
+    setHeroTranscript(`"${truncate(text, 80)}"`);
+    setHeroStatus("Processing...");
   });
 }
 
-const startAudioButton = document.getElementById("startAudioButton");
-startAudioButton.addEventListener("click", () => {
-  startAudioButton.disabled = true;
-  startAudio();
-  is_audio = true;
-  addSystemMessage("Audio mode enabled — speak to Forge");
-  addConsoleEntry('outgoing', 'Audio enabled', { status: 'active' }, '~', 'system');
-});
-
-function audioRecorderHandler(pcmData) {
-  if (websocket && websocket.readyState === WebSocket.OPEN && is_audio) {
-    websocket.send(pcmData);
-  }
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+function base64ToArrayBuffer(b64) {
+  let std = b64.replace(/-/g, "+").replace(/_/g, "/");
+  while (std.length % 4) std += "=";
+  const bin = atob(std);
+  const buf = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return buf;
 }
+
+function rndId() {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+function truncate(str, len) {
+  if (!str) return "";
+  return str.length > len ? str.substring(0, len) + "..." : str;
+}
+
+function escapeHtml(s) {
+  if (!s) return "";
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+function init() {
+  initPipeline();
+  setupForm();
+  setupDragDrop();
+  setupFileInputs();
+  setupCamera();
+  setupAudio();
+  setupPresets();
+  setupConsole();
+  connect();
+
+  setInterval(refreshAssets, 15000);
+}
+
+init();

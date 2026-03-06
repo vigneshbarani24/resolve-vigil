@@ -1,8 +1,8 @@
-"""TubeForge tool functions — ADK FunctionTools auto-wrapped from Python functions.
+"""TubeForge tool functions — called by the server-side tool dispatcher.
 
-Each module exposes a single function that ADK auto-wraps into a FunctionTool
-based on type hints and docstrings. Import them in agent.py to register with
-the root_agent.
+Each module exposes a single function that takes typed parameters plus
+a ToolContext for session state. The dispatcher in app.py maps Gemini
+function_call events to these functions.
 """
 
 from tools.script_generator import generate_script

@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from google.adk.tools import ToolContext
+from tools.context import ToolContext
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -1,75 +1,326 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TubeForge — AI Video Studio</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/src/app.js" type="module"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TubeForge - AI Video Studio</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#DC2626",
+              "primary-hover": "#b91c1c",
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            keyframes: {
+              pulseRing: {
+                "0%": { transform: "scale(0.8)", opacity: "0.5" },
+                "100%": { transform: "scale(2)", opacity: "0" },
+              },
+              spinSlow: {
+                "0%": { transform: "rotate(0deg)" },
+                "100%": { transform: "rotate(360deg)" },
+              },
+            },
+            animation: {
+              "pulse-ring": "pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              "spin-slow": "spinSlow 3s linear infinite",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/static/style.css" />
   </head>
+  <body class="bg-white font-display text-zinc-900 antialiased h-screen overflow-hidden flex">
 
-  <body>
-    <header>
-      <h1>TubeForge</h1>
-      <div class="subtitle">AI Creative Director for YouTube Videos</div>
-      <div class="connection-status">
-        <span class="status-indicator" id="statusIndicator"></span>
-        <span id="statusText">Connecting...</span>
-      </div>
-    </header>
-
-    <div class="main-layout">
-      <div class="container">
-        <div id="messages"></div>
-
-        <div class="input-container">
-          <form id="messageForm">
-            <div class="input-wrapper">
-              <input
-                type="text"
-                id="message"
-                name="message"
-                placeholder="Tell Forge what video you want to create..."
-                autocomplete="off"
-              />
-              <button type="submit" id="sendButton" disabled>Send</button>
-              <button type="button" id="startAudioButton">Start Audio</button>
-              <button type="button" id="cameraButton">Camera</button>
-            </div>
-          </form>
+    <!-- Sidebar -->
+    <aside class="w-60 flex-shrink-0 flex flex-col justify-between border-r border-zinc-200 bg-zinc-50 h-full z-20">
+      <!-- Top -->
+      <div class="p-4 flex flex-col gap-6">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-2">
+          <div class="size-8 rounded-lg bg-primary flex items-center justify-center text-white">
+            <span class="material-symbols-outlined !text-[20px]">mic</span>
+          </div>
+          <h1 class="text-zinc-900 text-base font-bold tracking-tight">TubeForge</h1>
         </div>
-      </div>
 
-      <div class="console-panel">
-        <div class="console-header">
-          <h2>Event Console</h2>
-          <div class="console-controls">
-            <label class="console-checkbox">
-              <input type="checkbox" id="showAudioEvents">
-              <span>Show audio</span>
-            </label>
-            <button id="clearConsole" class="console-clear-btn">Clear</button>
+        <!-- Nav -->
+        <nav class="flex flex-col gap-1">
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-200 text-zinc-900">
+            <span class="material-symbols-outlined !text-[20px]">dashboard</span>
+            <span class="text-sm font-medium">Studio</span>
+          </a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900 transition-colors">
+            <span class="material-symbols-outlined !text-[20px]">inventory_2</span>
+            <span class="text-sm font-medium">Assets</span>
+          </a>
+        </nav>
+
+        <!-- Content DNA Selector -->
+        <div class="pt-4 border-t border-zinc-200">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-2 mb-2 block">Style Preset</label>
+          <div class="flex flex-col gap-1" id="presetList">
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium bg-primary/10 text-primary border border-primary/20 transition-colors" data-preset="documentary">Documentary</button>
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors" data-preset="educational">Educational</button>
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors" data-preset="dramatic">Dramatic</button>
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors" data-preset="cinematic">Cinematic</button>
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors" data-preset="fun">Fun</button>
+            <button class="preset-btn w-full text-left px-3 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:bg-zinc-100 transition-colors" data-preset="story">Story</button>
           </div>
         </div>
-        <div id="consoleContent" class="console-content"></div>
+      </div>
+
+      <!-- Bottom -->
+      <div class="p-4 border-t border-zinc-200">
+        <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 bg-white">
+          <span class="size-2 rounded-full bg-red-500 transition-colors" id="statusDot"></span>
+          <span class="text-xs font-medium text-zinc-600" id="statusLabel">Connecting</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+
+      <!-- Voice Command Hero -->
+      <section class="h-56 flex-shrink-0 border-b border-zinc-200 bg-white flex flex-col items-center justify-center relative" id="voiceHero">
+        <div class="relative flex flex-col items-center gap-5">
+          <!-- Orb -->
+          <div class="relative size-16 flex items-center justify-center">
+            <div class="absolute inset-0 rounded-full border-2 border-zinc-200" id="orbRingBase"></div>
+            <div class="absolute inset-0 rounded-full bg-primary/20 animate-pulse-ring hidden" id="orbPulse1"></div>
+            <div class="absolute inset-0 rounded-full bg-primary/10 animate-pulse-ring delay-75 hidden" id="orbPulse2"></div>
+            <button
+              id="voiceBtn"
+              class="relative size-16 rounded-full bg-gradient-to-br from-primary to-orange-600 shadow-[0_0_40px_-10px_rgba(220,38,38,0.5)] flex items-center justify-center text-white hover:scale-105 transition-transform cursor-pointer z-10"
+              title="Toggle voice mode"
+            >
+              <span class="material-symbols-outlined !text-[32px]">mic</span>
+            </button>
+          </div>
+
+          <!-- Transcript / Status -->
+          <div class="text-center max-w-2xl px-4">
+            <h2 class="text-xl md:text-2xl font-bold text-zinc-900 tracking-tight leading-tight" id="heroTranscript">
+              Drop a photo or speak to start creating
+            </h2>
+            <p class="mt-1.5 text-zinc-400 text-sm font-medium" id="heroStatus">Ready</p>
+          </div>
+        </div>
+
+        <!-- Dot pattern background -->
+        <div class="absolute inset-0 pointer-events-none opacity-[0.03]" style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 24px 24px;"></div>
+      </section>
+
+      <!-- Pipeline Bar -->
+      <section class="flex-shrink-0 border-b border-zinc-100 bg-zinc-50/50 px-6 py-3">
+        <div class="flex items-center gap-2 justify-center" id="pipelineSteps">
+          <!-- Populated by ui.js -->
+        </div>
+      </section>
+
+      <!-- Workspace (Upload Hero / Script Preview / Chat) -->
+      <section class="flex-1 flex overflow-hidden">
+
+        <!-- Left: Chat + Upload -->
+        <div class="w-[380px] flex-shrink-0 border-r border-zinc-200 flex flex-col bg-white">
+          <!-- Chat header -->
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
+            <div class="size-7 rounded-full bg-primary/10 flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[16px] text-primary">smart_toy</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-zinc-900">Forge</h3>
+              <span class="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Creative Director</span>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 scroll-smooth" id="messages"></div>
+
+          <!-- Upload Zone (shown initially, hidden after first image) -->
+          <div class="px-4 pb-3" id="uploadHero">
+            <div
+              class="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-zinc-200 rounded-xl bg-zinc-50/50 cursor-pointer hover:border-primary/40 hover:bg-primary/[0.02] transition-all"
+              id="dropZone"
+            >
+              <span class="material-symbols-outlined text-zinc-300 !text-[40px]">add_photo_alternate</span>
+              <div class="text-center">
+                <p class="text-sm font-medium text-zinc-700">Drop a photo to begin</p>
+                <p class="text-xs text-zinc-400 mt-0.5">or click to browse</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="border-t border-zinc-100 p-3 bg-zinc-50/50">
+            <form id="messageForm" class="flex gap-2">
+              <div class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 bg-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                <label class="cursor-pointer text-zinc-400 hover:text-zinc-600 transition-colors" title="Upload image">
+                  <span class="material-symbols-outlined !text-[18px]">attach_file</span>
+                  <input type="file" id="fileUpload" accept="image/*" hidden />
+                </label>
+                <input
+                  type="text"
+                  id="messageInput"
+                  placeholder="Tell Forge what to create..."
+                  autocomplete="off"
+                  class="flex-1 text-sm border-none outline-none bg-transparent placeholder:text-zinc-400"
+                />
+              </div>
+              <button
+                type="submit"
+                id="sendBtn"
+                disabled
+                class="size-10 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary-hover disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed transition-colors"
+                title="Send"
+              >
+                <span class="material-symbols-outlined !text-[18px]">send</span>
+              </button>
+              <button
+                type="button"
+                id="cameraBtn"
+                class="size-10 rounded-lg border border-zinc-200 bg-white text-zinc-500 flex items-center justify-center hover:bg-zinc-50 hover:text-zinc-700 transition-colors"
+                title="Camera capture"
+              >
+                <span class="material-symbols-outlined !text-[18px]">photo_camera</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right: Script Preview / Detail View -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-zinc-50/30">
+          <!-- Script Preview (hidden until script generated) -->
+          <div class="hidden flex-1 flex flex-col overflow-hidden" id="scriptPreview">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-white">
+              <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary !text-[20px]">description</span>
+                <h3 class="text-sm font-semibold text-zinc-900">Script Preview</h3>
+                <span class="text-xs text-zinc-500 font-mono bg-zinc-100 px-2 py-0.5 rounded" id="scriptMeta"></span>
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6" id="sceneCards">
+              <!-- Populated by ui.js -->
+            </div>
+          </div>
+
+          <!-- Output Panel (thumbnails, video, assets) -->
+          <div class="flex-1 flex flex-col overflow-y-auto p-6 gap-6" id="outputArea">
+            <!-- Thumbnail Section -->
+            <div class="hidden" id="thumbnailSection">
+              <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Thumbnail</h3>
+              <div class="rounded-xl overflow-hidden border border-zinc-200 bg-white shadow-sm">
+                <img id="thumbnailImg" alt="Generated thumbnail" class="w-full h-auto" />
+              </div>
+            </div>
+
+            <!-- Video Section -->
+            <div class="hidden" id="videoSection">
+              <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Final Video</h3>
+              <div class="rounded-xl overflow-hidden border border-zinc-200 bg-black shadow-sm">
+                <video id="videoPlayer" controls class="w-full"></video>
+              </div>
+              <a
+                id="downloadVideoBtn"
+                download
+                class="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+              >
+                <span class="material-symbols-outlined !text-[16px]">download</span>
+                Download Video
+              </a>
+            </div>
+
+            <!-- Asset Grid -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Assets</h3>
+                <span class="bg-zinc-100 text-zinc-500 text-[10px] px-1.5 py-0.5 rounded-full font-mono" id="assetCount">0</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2" id="assetGrid"></div>
+            </div>
+
+            <!-- Empty state -->
+            <div class="flex-1 flex flex-col items-center justify-center text-zinc-300 gap-3 min-h-[200px]" id="emptyState">
+              <span class="material-symbols-outlined !text-[48px] opacity-50">movie_creation</span>
+              <p class="text-sm font-medium text-zinc-400">Your generated content will appear here</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Status Bar -->
+      <footer class="h-8 flex-shrink-0 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between px-4 text-[11px] text-zinc-400 font-mono">
+        <div class="flex items-center gap-3">
+          <span id="audioStatus">Mic: Off</span>
+          <span class="text-zinc-200">|</span>
+          <span id="pipelineStatusText">Idle</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="timerDisplay">0:00</span>
+          <button id="toggleConsole" class="px-2 py-0.5 rounded border border-zinc-200 hover:bg-zinc-100 hover:text-zinc-600 transition-colors text-[10px] uppercase tracking-wider">Console</button>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Console Drawer -->
+    <div class="fixed bottom-8 left-60 right-0 h-[280px] bg-zinc-900 border-t border-zinc-700 z-50 flex flex-col transform translate-y-full transition-transform duration-300" id="consoleDrawer">
+      <div class="flex items-center justify-between px-4 py-2 bg-zinc-800 border-b border-zinc-700 flex-shrink-0">
+        <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Event Console</h3>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1.5 text-[10px] text-zinc-500 cursor-pointer">
+            <input type="checkbox" id="showAudioEvents" class="rounded border-zinc-600 bg-zinc-800 text-primary focus:ring-primary/20" />
+            Audio
+          </label>
+          <button id="clearConsole" class="px-2 py-0.5 rounded border border-zinc-700 text-zinc-500 text-[10px] hover:bg-zinc-700 hover:text-zinc-300 transition-colors">Clear</button>
+          <button id="closeConsole" class="px-2 py-0.5 rounded border border-zinc-700 text-zinc-500 text-[10px] hover:bg-zinc-700 hover:text-zinc-300 transition-colors">Close</button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed" id="consoleContent"></div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div class="hidden fixed inset-0 z-[100]" id="cameraModal">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="cameraBackdrop"></div>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-xl shadow-2xl border border-zinc-200 w-[560px] max-w-full flex flex-col overflow-hidden animate-in">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+            <h3 class="text-base font-semibold text-zinc-900">Camera Capture</h3>
+            <button id="closeCameraModal" class="size-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+              <span class="material-symbols-outlined !text-[20px]">close</span>
+            </button>
+          </div>
+          <div class="bg-black flex items-center justify-center p-4">
+            <video id="cameraPreview" autoplay playsinline class="w-full max-h-[400px] rounded-lg object-contain"></video>
+          </div>
+          <div class="flex gap-3 justify-end px-5 py-4 border-t border-zinc-100">
+            <button id="cancelCamera" class="px-4 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">Cancel</button>
+            <button id="captureImage" class="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-hover transition-colors flex items-center gap-2">
+              <span class="material-symbols-outlined !text-[16px]">camera</span>
+              Capture & Send
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Camera Preview Modal -->
-    <div id="cameraModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Camera Preview</h3>
-          <button id="closeCameraModal" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <video id="cameraPreview" autoplay playsinline></video>
-        </div>
-        <div class="modal-footer">
-          <button id="cancelCamera" class="btn-secondary">Cancel</button>
-          <button id="captureImage" class="btn-primary">Send Image</button>
-        </div>
-      </div>
-    </div>
+    <!-- Hidden file input for browse -->
+    <input type="file" id="hiddenFileInput" accept="image/*" class="hidden" />
+
+    <script src="/static/src/app.js" type="module"></script>
   </body>
 </html>

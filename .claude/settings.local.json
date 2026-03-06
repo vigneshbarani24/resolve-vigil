@@ -13,7 +13,32 @@
       "WebFetch(domain:docs.cloud.google.com)",
       "WebFetch(domain:gist.githubusercontent.com)",
       "Bash(git clone:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(gcloud auth:*)",
+      "Bash(gcloud config:*)",
+      "Bash(gcloud services:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(tasklist:*)",
+      "Bash(gcloud alpha:*)",
+      "Bash(sort:*)",
+      "Bash(taskkill:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(where ffmpeg:*)",
+      "Bash(choco install:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "WebFetch(domain:geminiliveagentchallenge.devpost.com)",
+      "WebFetch(domain:info.devpost.com)",
+      "WebFetch(domain:algo-mania.com)",
+      "WebFetch(domain:gemini3.devpost.com)",
+      "WebFetch(domain:googleai.devpost.com)",
+      "WebFetch(domain:genuineartificialintelligence.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:medium.com)"
     ]
   }
 }

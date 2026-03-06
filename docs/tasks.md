@@ -253,34 +253,34 @@
 - [ ] Test with `adk web` dev UI for quick validation
 - [ ] **MVP MILESTONE**: All core features working
 
-## Phase 6: Frontend Polish (Days 11-12)
+## Phase 6: Frontend Polish (Days 11-12) -- COMPLETE
 > **Goal**: Professional-looking UI for demo
 > **Depends on**: Phase 5 (MVP complete)
 
 ### 6.1 UI Improvements
-- [ ] Dark theme (studio/creative feel)
-- [ ] Upload area with drag-and-drop
-- [ ] Camera toggle button
-- [ ] Niche preset selector (buttons)
-- [ ] Status indicators: listening / processing / generating / ready
-- [ ] **Files**: `tubeforge/frontend/index.html`, `tubeforge/frontend/style.css`
+- [x] Dark theme (studio/creative feel) -- deep dark #08080d + YouTube red #ff3d3d
+- [x] Upload area with drag-and-drop -- workspace hero zone
+- [x] Camera toggle button -- modal capture flow
+- [x] Niche preset selector (buttons) -- 6 presets: Documentary, Educational, Dramatic, Fun, Cinematic, Story
+- [x] Status indicators: listening / processing / generating / ready -- pipeline dots in header + detailed steps in output panel
+- [x] **Files**: `tubeforge/frontend/index.html`, `tubeforge/frontend/style.css`
 
 ### 6.2 Preview Panel
-- [ ] Script text with scene images in scrollable view
+- [x] Script text with scene images in scrollable view -- scene cards with image, narration, duration
 - [ ] Image click-to-enlarge
 - [ ] "Regenerate" button per image
-- [ ] **File**: `tubeforge/frontend/src/ui.js`
+- [x] **File**: `tubeforge/frontend/src/ui.js`
 
 ### 6.3 Progress & Output
-- [ ] Progress bar showing generation stages
-- [ ] Video player for final preview (HTML5 video element)
-- [ ] Download button (prominent, centered)
-- [ ] Thumbnail preview
+- [x] Progress bar showing generation stages -- 6-stage pipeline stepper
+- [x] Video player for final preview (HTML5 video element) -- in output panel
+- [x] Download button (prominent, centered) -- red download button
+- [x] Thumbnail preview -- in output panel
 
 ### 6.4 Mobile Responsive
-- [ ] Camera input works on mobile browsers
-- [ ] Touch-friendly controls
-- [ ] Responsive layout
+- [x] Camera input works on mobile browsers
+- [x] Touch-friendly controls
+- [x] Responsive layout -- stacked at 768px breakpoint
 
 ## Phase 7: Deploy + Harden (Days 13-14)
 > **Goal**: Running on Cloud Run, battle-tested
