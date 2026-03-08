@@ -615,7 +615,11 @@ class ViewSession extends HTMLElement {
                 // Update issue panel with the detected issue
                 const issuePanel = this.querySelector('#issue-panel');
                 if (issuePanel) {
-                    const issueData = result ? (typeof result === 'string' ? JSON.parse(result) : result) : args;
+                    let issueData = result ? (typeof result === 'string' ? JSON.parse(result) : result) : args;
+                    // Tool returns {success, issue: {...}, message} — extract the inner issue
+                    if (issueData.issue) issueData = issueData.issue;
+                    // Fallback: if still no title, use args directly
+                    if (!issueData.title && args.title) issueData = args;
                     issuePanel.addIssue(issueData);
                 }
                 break;
