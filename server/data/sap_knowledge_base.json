@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "title": "Sales Order Creation Fails with Pricing Error",
+    "description": "When creating a sales order in VA01, the system throws a pricing error because condition records are missing or expired. Check VK13 for valid condition records and ensure the pricing procedure is correctly assigned.",
+    "module": "SD",
+    "error_code": "V1321",
+    "keywords": ["pricing", "condition", "VA01", "sales order", "VK13"],
+    "resolution": "1. Check condition records in VK13\n2. Verify pricing procedure assignment in OVKK\n3. Check customer/material master pricing data\n4. Review condition exclusion in OV31"
+  },
+  {
+    "id": 2,
+    "title": "Goods Receipt Posting Fails in MIGO",
+    "description": "MIGO goods receipt posting fails with various errors. Common causes include missing material master views, blocked purchase orders, or period lock issues.",
+    "module": "MM",
+    "error_code": "M7021",
+    "keywords": ["MIGO", "goods receipt", "posting", "material", "purchase order"],
+    "resolution": "1. Check posting date is in an open period (OB52)\n2. Verify material master has MRP and Accounting views\n3. Ensure PO is not blocked or closed\n4. Check goods receipt tolerance in ME22N"
+  },
+  {
+    "id": 3,
+    "title": "User Authorization Issues in SAP",
+    "description": "Users receive authorization errors when trying to execute transactions. Use SU53 immediately after the error to identify the missing authorization object.",
+    "module": "BASIS",
+    "error_code": "ME045",
+    "keywords": ["authorization", "SU53", "permission", "access", "role", "profile"],
+    "resolution": "1. Run SU53 immediately after the error\n2. Note the missing authorization object and field values\n3. Check user's role assignments in SU01\n4. Request BASIS team to update the role in PFCG"
+  },
+  {
+    "id": 4,
+    "title": "Delivery Type Configuration Error",
+    "description": "Delivery creation fails because the delivery type is not configured for the order type in customizing. This is a configuration issue in SPRO.",
+    "module": "SD",
+    "error_code": "VG035",
+    "keywords": ["delivery", "VL01N", "order type", "customizing", "SPRO"],
+    "resolution": "1. Go to SPRO > SD > Shipping > Deliveries\n2. Check delivery type assignment to order type\n3. Verify shipping point determination\n4. Check item category determination in VOV4"
+  },
+  {
+    "id": 5,
+    "title": "Cost Center Not Valid for Posting Period",
+    "description": "Posting fails because the cost center is not valid for the specified period. Check the cost center master data validity dates.",
+    "module": "CO",
+    "error_code": "KI235",
+    "keywords": ["cost center", "posting", "period", "KS03", "controlling"],
+    "resolution": "1. Display cost center in KS03\n2. Check validity dates (From/To)\n3. Extend validity using KS02 if needed\n4. Verify fiscal year variant assignment"
+  },
+  {
+    "id": 6,
+    "title": "Invoice Verification Three-Way Match Failure",
+    "description": "MIRO invoice verification fails due to quantity or price differences between the purchase order, goods receipt, and invoice. Check tolerance settings.",
+    "module": "MM",
+    "error_code": "",
+    "keywords": ["MIRO", "invoice", "three-way match", "tolerance", "price", "quantity"],
+    "resolution": "1. Compare PO price vs invoice price\n2. Check goods receipt quantities in MB51\n3. Review tolerance settings in OMR6\n4. Check if invoice is blocked for payment in MRBR"
+  },
+  {
+    "id": 7,
+    "title": "Background Job Failed or Cancelled",
+    "description": "Background jobs in SM37 show failed or cancelled status. Check the job log for detailed error messages and investigate the root cause.",
+    "module": "BASIS",
+    "error_code": "",
+    "keywords": ["SM37", "background job", "failed", "cancelled", "batch", "scheduling"],
+    "resolution": "1. Check job log in SM37 (select job > Job Log)\n2. Review ABAP dump if applicable (ST22)\n3. Verify batch user has necessary authorizations\n4. Check system resources in SM50/SM66\n5. Reschedule with SM36 if needed"
+  },
+  {
+    "id": 8,
+    "title": "Material Master Data Incomplete",
+    "description": "Transactions fail because material master data is missing required organizational views (purchasing, MRP, accounting, etc.).",
+    "module": "MM",
+    "error_code": "BM001",
+    "keywords": ["material master", "MM01", "MM02", "views", "organizational level"],
+    "resolution": "1. Check existing views in MM03\n2. Extend material to required plant/storage location using MM01\n3. Maintain minimum required fields in each view\n4. For mass update, use transaction MASS"
+  },
+  {
+    "id": 9,
+    "title": "GL Account Posting Error",
+    "description": "Financial postings fail because the GL account does not exist or is not valid for the company code and fiscal year.",
+    "module": "FI",
+    "error_code": "F5003",
+    "keywords": ["GL account", "chart of accounts", "FS00", "posting", "company code"],
+    "resolution": "1. Check GL account in FS00\n2. Verify chart of accounts assignment\n3. Check account group permissions\n4. Ensure account is not blocked for posting\n5. Create account if needed with proper field status group"
+  },
+  {
+    "id": 10,
+    "title": "Transport Request Locked or Stuck",
+    "description": "Transport requests in SE09/SE10 are locked by another user or stuck in an intermediate state. This blocks development and configuration changes.",
+    "module": "BASIS",
+    "error_code": "",
+    "keywords": ["transport", "SE09", "SE10", "locked", "release", "STMS"],
+    "resolution": "1. Check lock entries in SM12\n2. If user has left, delete the lock entry\n3. Release the transport in SE09\n4. Import using STMS\n5. Check transport logs for errors"
+  }
+]

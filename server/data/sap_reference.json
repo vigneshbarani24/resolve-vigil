@@ -1,0 +1,176 @@
+{
+  "errors": {
+    "VG035": {
+      "message": "Delivery type not defined for order type",
+      "module": "SD",
+      "cause": "The delivery type in the sales order is not properly configured for the selected order type in SPRO.",
+      "resolution": "1. Go to SPRO > Sales and Distribution > Shipping > Deliveries > Define Delivery Types\n2. Check that the delivery type is assigned to the order type\n3. Verify the item category determination in VOV4",
+      "severity": "medium"
+    },
+    "M7021": {
+      "message": "No posting date entered",
+      "module": "MM",
+      "cause": "The posting date field is empty in the goods movement transaction (MIGO).",
+      "resolution": "1. Enter a valid posting date in the header area\n2. Ensure the posting date falls within an open fiscal period\n3. Check FM period lock via transaction OB52",
+      "severity": "low"
+    },
+    "F5003": {
+      "message": "Account not found in chart of accounts",
+      "module": "FI",
+      "cause": "The GL account number entered does not exist in the assigned chart of accounts.",
+      "resolution": "1. Verify the GL account number via FS00\n2. Check the correct chart of accounts is assigned to the company code\n3. Create the account if it doesn't exist using FS00 or via mass upload",
+      "severity": "medium"
+    },
+    "VK011": {
+      "message": "Condition record already exists",
+      "module": "SD",
+      "cause": "A pricing condition record with the same key combination already exists in the condition table.",
+      "resolution": "1. Go to VK12 to display existing condition records\n2. Check the validity dates — they may overlap\n3. Either modify the existing record or change the validity period of the new one",
+      "severity": "low"
+    },
+    "ME045": {
+      "message": "Authorization check failed for purchase order",
+      "module": "MM",
+      "cause": "The user does not have the required authorization object (M_BEST_BSA or M_BEST_EKG) for the purchase order type or purchasing group.",
+      "resolution": "1. Check user authorizations via SU53 immediately after the error\n2. Request the BASIS team to add the missing authorization object\n3. Verify the purchasing group assignment in the user master (SU01)",
+      "severity": "high"
+    },
+    "KI235": {
+      "message": "Cost center does not exist for the period",
+      "module": "CO",
+      "cause": "The cost center is either not created or not valid for the posting period.",
+      "resolution": "1. Check cost center master data in KS03\n2. Verify the validity dates of the cost center\n3. Extend the validity period if necessary using KS02",
+      "severity": "medium"
+    },
+    "BM001": {
+      "message": "Material does not exist or is not active",
+      "module": "MM",
+      "cause": "The material number entered is not found in the material master or is flagged for deletion.",
+      "resolution": "1. Check material master in MM03\n2. Verify the material exists in the correct plant\n3. Check if the material is flagged for deletion (deletion flag in MM02)",
+      "severity": "medium"
+    },
+    "V1321": {
+      "message": "Pricing error: Condition record not found",
+      "module": "SD",
+      "cause": "The pricing procedure could not find a valid condition record for the material/customer combination.",
+      "resolution": "1. Check pricing conditions in VK13\n2. Verify the condition type is included in the pricing procedure\n3. Check customer/material info records and condition exclusion groups",
+      "severity": "high"
+    }
+  },
+  "transaction_codes": {
+    "VA01": {
+      "name": "Create Sales Order",
+      "module": "SD",
+      "description": "Create a new sales order. Enter order type, sales org, distribution channel, and division in the initial screen.",
+      "related": ["VA02", "VA03", "VF01", "VL01N"]
+    },
+    "VA02": {
+      "name": "Change Sales Order",
+      "module": "SD",
+      "description": "Modify an existing sales order. Enter the order number to make changes.",
+      "related": ["VA01", "VA03"]
+    },
+    "VA03": {
+      "name": "Display Sales Order",
+      "module": "SD",
+      "description": "View a sales order in display mode (read-only).",
+      "related": ["VA01", "VA02"]
+    },
+    "ME21N": {
+      "name": "Create Purchase Order",
+      "module": "MM",
+      "description": "Create a new purchase order with the enjoy transaction. Supports direct PO creation and conversion from purchase requisitions.",
+      "related": ["ME22N", "ME23N", "MIGO", "MIRO"]
+    },
+    "ME22N": {
+      "name": "Change Purchase Order",
+      "module": "MM",
+      "description": "Modify an existing purchase order.",
+      "related": ["ME21N", "ME23N"]
+    },
+    "ME23N": {
+      "name": "Display Purchase Order",
+      "module": "MM",
+      "description": "View a purchase order in display mode.",
+      "related": ["ME21N", "ME22N"]
+    },
+    "MIGO": {
+      "name": "Goods Movement",
+      "module": "MM",
+      "description": "Post goods movements including goods receipt, goods issue, transfer posting, and stock transfer.",
+      "related": ["MB51", "MB52", "ME21N"]
+    },
+    "MIRO": {
+      "name": "Invoice Verification",
+      "module": "MM",
+      "description": "Enter and verify vendor invoices against purchase orders and goods receipts.",
+      "related": ["MIGO", "ME21N", "FBL1N"]
+    },
+    "FB60": {
+      "name": "Enter Vendor Invoice",
+      "module": "FI",
+      "description": "Post vendor invoices directly in Financial Accounting (without MM integration).",
+      "related": ["FB65", "FBL1N", "F-53"]
+    },
+    "FB01": {
+      "name": "Post Document",
+      "module": "FI",
+      "description": "Create general FI posting documents including journal entries.",
+      "related": ["FB02", "FB03", "FB50"]
+    },
+    "MM01": {
+      "name": "Create Material Master",
+      "module": "MM",
+      "description": "Create a new material master record with all organizational views (basic data, purchasing, MRP, accounting, etc.).",
+      "related": ["MM02", "MM03", "MM04"]
+    },
+    "XK01": {
+      "name": "Create Vendor Master (Centrally)",
+      "module": "MM/FI",
+      "description": "Create a vendor master record with both general data and company code data.",
+      "related": ["XK02", "XK03", "FK01"]
+    },
+    "SU01": {
+      "name": "User Maintenance",
+      "module": "BASIS",
+      "description": "Create, change, and display user master records. Assign roles, profiles, and set passwords.",
+      "related": ["SU53", "SU10", "PFCG"]
+    },
+    "SM37": {
+      "name": "Job Overview",
+      "module": "BASIS",
+      "description": "Monitor and manage background jobs. View job status, logs, and scheduling details.",
+      "related": ["SM36", "SM21", "SM50"]
+    },
+    "VL01N": {
+      "name": "Create Outbound Delivery",
+      "module": "SD",
+      "description": "Create an outbound delivery with reference to a sales order.",
+      "related": ["VL02N", "VL03N", "VA01"]
+    },
+    "VF01": {
+      "name": "Create Billing Document",
+      "module": "SD",
+      "description": "Create billing documents (invoices) with reference to deliveries or sales orders.",
+      "related": ["VF02", "VF03", "VL01N"]
+    },
+    "CO01": {
+      "name": "Create Production Order",
+      "module": "PP",
+      "description": "Create a production order manually. Enter material, plant, and order type.",
+      "related": ["CO02", "CO03", "MD04"]
+    },
+    "SE38": {
+      "name": "ABAP Editor",
+      "module": "ABAP",
+      "description": "Create, modify, and execute ABAP programs and reports.",
+      "related": ["SE80", "SE37", "SE11"]
+    },
+    "SPRO": {
+      "name": "Customizing",
+      "module": "Cross",
+      "description": "SAP Implementation Guide (IMG). Entry point for all configuration and customization activities.",
+      "related": []
+    }
+  }
+}
