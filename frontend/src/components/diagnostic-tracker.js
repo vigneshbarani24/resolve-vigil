@@ -163,14 +163,14 @@ class DiagnosticTracker extends HTMLElement {
                     width: 36px;
                     height: 36px;
                     border-radius: 50%;
-                    border: 2px solid rgba(255,255,255,0.12);
-                    background: rgba(255,255,255,0.03);
+                    border: 2px solid rgba(255,255,255,0.15);
+                    background: rgba(255,255,255,0.04);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                     transition: all 0.3s ease;
-                    color: rgba(255,255,255,0.3);
+                    color: rgba(255,255,255,0.5);
                     padding: 0;
                     font-family: inherit;
                     position: relative;
@@ -227,13 +227,13 @@ class DiagnosticTracker extends HTMLElement {
                 .step-num {
                     font-size: 0.75rem;
                     font-weight: 700;
-                    opacity: 0.4;
+                    opacity: 0.6;
                 }
 
                 .step-label {
                     font-size: 0.68rem;
                     font-weight: 700;
-                    color: rgba(255,255,255,0.35);
+                    color: rgba(255,255,255,0.55);
                     text-align: center;
                     white-space: nowrap;
                     transition: color 0.3s;

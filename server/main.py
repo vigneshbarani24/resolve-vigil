@@ -180,10 +180,20 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     text = message["text"]
                     try:
                         payload = json.loads(text)
-                        if isinstance(payload, dict) and payload.get("type") == "image":
-                            image_data = base64.b64decode(payload["data"])
-                            await video_input_queue.put(image_data)
-                            continue
+                        if isinstance(payload, dict):
+                            # Direct image upload: {"type": "image", "data": "<base64>"}
+                            if payload.get("type") == "image" and payload.get("data"):
+                                image_data = base64.b64decode(payload["data"])
+                                await video_input_queue.put(image_data)
+                                continue
+                            # Screen share frames: {"realtime_input": {"media_chunks": [{"data": "...", "mime_type": "image/jpeg"}]}}
+                            if "realtime_input" in payload:
+                                chunks = payload["realtime_input"].get("media_chunks", [])
+                                for chunk in chunks:
+                                    if chunk.get("data") and chunk.get("mime_type", "").startswith("image/"):
+                                        image_data = base64.b64decode(chunk["data"])
+                                        await video_input_queue.put(image_data)
+                                continue
                     except json.JSONDecodeError:
                         pass
                     await text_input_queue.put(text)
@@ -213,7 +223,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         await asyncio.wait_for(run_session(), timeout=SESSION_TIME_LIMIT)
     except asyncio.TimeoutError:
         logger.info("Session time limit reached")
-        await websocket.close(code=1000, reason="Session time limit reached")
     except Exception as e:
         logger.error(f"Error in Gemini session: {e}")
     finally:
