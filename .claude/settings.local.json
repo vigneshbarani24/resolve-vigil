@@ -42,7 +42,9 @@
       "Bash(xargs grep:*)",
       "Bash(cp:*)",
       "Bash(rm:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat:*)"
     ]
   }
 }
