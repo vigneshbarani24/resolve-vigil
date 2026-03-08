@@ -88,5 +88,50 @@
     "error_code": "",
     "keywords": ["transport", "SE09", "SE10", "locked", "release", "STMS"],
     "resolution": "1. Check lock entries in SM12\n2. If user has left, delete the lock entry\n3. Release the transport in SE09\n4. Import using STMS\n5. Check transport logs for errors"
+  },
+  {
+    "id": 11,
+    "title": "PGI Fails — Batch Cannot Be Determined for Delivery",
+    "description": "Post Goods Issue (PGI) fails with error VL244 'Batch cannot be determined' when processing outbound delivery in VL02N. The system cannot automatically determine a batch for the material because batch determination rules are missing, no stock exists in the specified batch, or the batch search strategy is not configured for the delivery type/plant combination. This commonly occurs after Go-Live when batch management was enabled on the material master but the corresponding batch determination customizing was not transported.",
+    "module": "SD",
+    "error_code": "VL244",
+    "keywords": ["PGI", "batch", "VL02N", "VL244", "delivery", "goods issue", "batch determination", "outbound delivery", "shipping", "stock"],
+    "resolution": "1. Open delivery in VL02N and go to the item level — check the Batch field. If empty, batch determination failed.\n2. Check material master in MM03 — go to Purchasing view and confirm 'Batch Management' indicator is active.\n3. Check available batch stock: run MB52 for the material/plant/storage location — verify batches exist with unrestricted stock.\n4. If stock exists but batch wasn't picked, check batch determination customizing:\n   a. SPRO > Logistics Execution > Shipping > Picking > Determine Batch Determination Process\n   b. Verify condition records exist in VCH1 for the batch search strategy\n   c. Check classification: CL02 for batch class, CT04 for characteristics\n5. Manual workaround: In VL02N, manually enter the batch number at item level, then retry PGI.\n6. If batch determination config is missing entirely, escalate to functional consultant for SPRO configuration — this requires a transport request.\n7. Run VL06G (List of Outbound Deliveries for Goods Issue) to check if other deliveries for same material are also affected — indicates systemic config gap."
+  },
+  {
+    "id": 12,
+    "title": "Purchase Order Release Strategy — Cannot Determine Approver",
+    "description": "Purchase order creation or release fails with error ME390 'Release strategy could not be determined' or ME038 'Release not yet completely effected' in ME21N/ME28. The system cannot find a matching release strategy for the PO based on the combination of purchasing organization, plant, material group, and total PO value. This typically occurs when a new purchasing org or plant is added but the release strategy conditions were not extended, or when PO value exceeds all defined release code thresholds.",
+    "module": "MM",
+    "error_code": "ME390",
+    "keywords": ["purchase order", "release", "approval", "ME21N", "ME28", "ME390", "release strategy", "approver", "workflow", "purchasing"],
+    "resolution": "1. Open the PO in ME23N — check the Release Strategy tab. Note which release strategy was assigned (or if none was found).\n2. If no strategy assigned: Check release strategy customizing in SPRO > MM > Purchasing > Purchase Order > Release Procedure:\n   a. Define Release Groups (T-code: OME1)\n   b. Define Release Codes (T-code: OME2)\n   c. Define Release Strategies with classification conditions\n3. Check the classification conditions: CL02 for class type 032 — verify the characteristics (PO value, purchasing org, doc type) match the failing PO.\n4. If strategy IS assigned but release is stuck:\n   a. Check ME23N > Release Strategy tab — which release codes are still pending\n   b. Verify the approver has the correct role in SU01 (authorization object M_EINK_FRG)\n   c. Check SU53 for the approver to identify missing auth objects\n5. Check if workflow is active: SWIA (Workitem Analysis) — verify the work item was created and routed to the correct approver's inbox (SBWP).\n6. Emergency: If business-critical, a user with release code authority can force-release via ME28 — but log this as an exception for audit trail.\n7. For systemic fix, ensure release strategy conditions cover all purchasing org/plant/value combinations — run ME2M to find other POs stuck in same state."
+  },
+  {
+    "id": 13,
+    "title": "User Account Locked — Too Many Failed Login Attempts",
+    "description": "User reports they cannot log in to SAP. Account is locked due to exceeding the maximum number of failed login attempts defined in the security policy. This is a common P3 ticket that requires identity verification before unlocking.",
+    "module": "BASIS",
+    "error_code": "SU_USER_LOCKED",
+    "keywords": ["locked", "login", "SU01", "unlock", "password", "user account", "authentication", "security"],
+    "resolution": "1. SECURITY FIRST: Verify caller identity per company security protocol (voice verification or manager email confirmation).\n2. Check user status in SU01 — User tab shows lock status.\n3. If locked by administrator: Only unlock with manager approval. Check who locked and why.\n4. If locked by failed logins: Unlock in SU01 > Lock/Unlock button, or use SU10 for mass unlock.\n5. If password expired: Reset password in SU01 > Password tab. User must change on first login.\n6. Check login audit trail in SM20 (Security Audit Log) to verify the failed attempts are legitimate.\n7. If repeated lockouts, investigate: wrong password saved in browser, RFC connections with old password (SM59), batch jobs running under this user (SM37)."
+  },
+  {
+    "id": 14,
+    "title": "IDOC Stuck in Status 51 — Application Document Not Posted",
+    "description": "Inbound IDOC is stuck in status 51 (Application document not posted) in WE02/WE05. The IDOC was received by SAP but the application layer rejected it — usually due to master data mismatch, missing config, or duplicate document check.",
+    "module": "SD/MM",
+    "error_code": "IDOC_51",
+    "keywords": ["IDOC", "WE02", "WE05", "status 51", "EDI", "interface", "inbound", "posting error"],
+    "resolution": "1. Check IDOC status in WE02/WE05 — filter by status 51.\n2. Double-click the IDOC > Status Records tab — read the detailed error message.\n3. Common causes:\n   a. Master data mismatch: Partner profile, customer/vendor number, material number not found — check WE20 partner profiles.\n   b. Missing config: Message type not assigned to process code — check WE42.\n   c. Duplicate: Document already posted — check by IDOC reference number.\n4. Fix the root cause in master data or config.\n5. Reprocess the IDOC: BD87 (Reprocess IDOCs) — select the IDOC number and execute.\n6. If mass reprocessing needed, use RBDMANIN report via SE38.\n7. Monitor in WE05 — status should change to 53 (Application document posted successfully)."
+  },
+  {
+    "id": 15,
+    "title": "Month-End Close — Posting Period Not Open",
+    "description": "Financial or logistics postings fail because the fiscal period is not open. Users see 'Posting only possible in periods X' error. Critical during month-end close when periods need to be opened/closed carefully.",
+    "module": "FI",
+    "error_code": "F5091",
+    "keywords": ["posting period", "OB52", "month end", "fiscal period", "close", "open period", "F5091"],
+    "resolution": "1. Check current open periods in OB52 (or S_ALR_87003642 for display).\n2. Two period intervals:\n   a. Period 1: Normal postings (current month)\n   b. Period 2: Special postings (month-end adjustments by authorized users)\n3. To open a new period: OB52 > Change the 'From Period/Year' and 'To Period/Year' for the relevant account type.\n4. Account types: A=Assets, D=Customers, K=Vendors, M=Materials, S=GL Accounts, +=All\n5. IMPORTANT: Close the previous period AFTER all postings are confirmed complete.\n6. If user-specific: Check if they have authorization for the special period (auth object F_BKPF_BUP).\n7. For logistics: Also check MMPV (period for materials management) — MM periods are separate from FI periods."
   }
 ]

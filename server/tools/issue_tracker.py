@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 # In-memory issue store per session
 _SESSION_ISSUES: List[Dict] = []
 
+_current_session = None
+
+def set_session(session):
+    global _current_session
+    _current_session = session
+
 
 def create_issue(
     title: str,
@@ -37,6 +43,10 @@ def create_issue(
 
     _SESSION_ISSUES.append(issue)
     logger.info(f"Issue detected: [{severity}] {title}")
+
+    if _current_session:
+        _current_session.issues.append(issue)
+        _current_session.update_checkpoint("initiation", "Capture error details", "complete", f"{title}")
 
     return json.dumps({
         "success": True,

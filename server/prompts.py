@@ -146,3 +146,26 @@ or T-code?"
 
 Max 1-2 sentences. Get straight to triage.
 """
+
+LANGUAGE_INSTRUCTION_TEMPLATE: str = """
+
+# Language
+You MUST respond in {language}. All your spoken responses and conversational text must be in {language}.
+However, all ITSM tickets, RCA reports, error code lookups, and technical documentation must remain in English regardless of the conversation language.
+Tool function calls and their parameters must always be in English.
+"""
+
+SUPPORTED_LANGUAGES = [
+    "English", "German", "French", "Spanish", "Portuguese",
+    "Japanese", "Chinese", "Korean", "Hindi", "Arabic",
+    "Turkish", "Italian", "Dutch", "Polish", "Thai",
+    "Vietnamese", "Indonesian", "Malay", "Tamil", "Telugu"
+]
+
+
+def get_system_prompt(language: str = "English") -> str:
+    """Get system prompt with optional language instruction."""
+    prompt = DEFAULT_SYSTEM_PROMPT
+    if language and language != "English":
+        prompt += LANGUAGE_INSTRUCTION_TEMPLATE.format(language=language)
+    return prompt

@@ -28,6 +28,12 @@ def _load_kb():
 
 _load_kb()
 
+_current_session = None
+
+def set_session(session):
+    global _current_session
+    _current_session = session
+
 
 def search_knowledge_base(query: str, max_results: int = 3) -> str:
     """Search the SAP knowledge base for relevant articles."""
@@ -56,6 +62,10 @@ def search_knowledge_base(query: str, max_results: int = 3) -> str:
             scored.append((score, article))
 
     scored.sort(key=lambda x: x[0], reverse=True)
+
+    if _current_session and scored:
+        _current_session.update_checkpoint("diagnosis", "Search knowledge base", "complete", f"Found {len(scored)} results for '{query}'")
+
     results = [item[1] for item in scored[:max_results]]
 
     return json.dumps({

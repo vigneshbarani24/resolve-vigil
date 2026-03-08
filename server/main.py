@@ -8,7 +8,7 @@ import uuid
 from typing import Dict, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from server.gemini_live import GeminiLive
 from server.config_utils import get_project_id
 from server.tools import register_all_tools, TOOL_DECLARATIONS
+from server.session_state import create_session, get_session, end_session
 
 load_dotenv(override=True)
 
@@ -60,9 +61,16 @@ async def get_status():
 @app.post("/api/auth")
 async def authenticate(request: Request):
     try:
+        body = {}
+        try:
+            body = await request.json()
+        except:
+            pass
+        language = body.get("language", "English")
         session_token = str(uuid.uuid4())
         cleanup_tokens()
         valid_tokens[session_token] = time.time()
+        create_session(session_token, language)
         return {"session_token": session_token, "session_time_limit": SESSION_TIME_LIMIT}
     except Exception as e:
         logger.error(f"Auth error: {e}")
@@ -80,6 +88,14 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     del valid_tokens[token]
     logger.info("WebSocket connection accepted")
 
+    session = get_session(token)
+    if session:
+        from server.tools import issue_tracker, itsm, kb_search, sap_lookup
+        issue_tracker.set_session(session)
+        itsm.set_session(session)
+        kb_search.set_session(session)
+        sap_lookup.set_session(session)
+
     setup_config = None
     try:
         message = await websocket.receive_text()
@@ -89,6 +105,16 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             logger.info("Received setup configuration from client")
     except Exception as e:
         logger.warning(f"Error receiving setup config: {e}")
+
+    async def emit_session_state():
+        if session:
+            try:
+                await websocket.send_json({
+                    "type": "session_state",
+                    "data": session.generate_call_summary()
+                })
+            except:
+                pass
 
     audio_input_queue = asyncio.Queue()
     video_input_queue = asyncio.Queue()
@@ -123,6 +149,14 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 existing_fds.append(td)
         setup_config["tools"]["function_declarations"] = existing_fds
         logger.info(f"Total tool declarations sent to Gemini: {len(existing_fds)}")
+
+    # Apply language-aware system prompt (server-side augmentation)
+    if session and setup_config and session.language != "English":
+        from server.prompts import LANGUAGE_INSTRUCTION_TEMPLATE
+        existing_instructions = setup_config.get("system_instruction", "")
+        if existing_instructions:
+            setup_config["system_instruction"] = existing_instructions + LANGUAGE_INSTRUCTION_TEMPLATE.format(language=session.language)
+            logger.info(f"Applied language instruction: {session.language}")
 
     async def receive_from_client():
         try:
@@ -159,6 +193,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         ):
             if event:
                 await websocket.send_json(event)
+                # Emit session state after tool events
+                if isinstance(event, dict) and event.get("type") in ("tool_call", "tool_result", "server_tool_call"):
+                    await emit_session_state()
 
     try:
         await asyncio.wait_for(run_session(), timeout=SESSION_TIME_LIMIT)
@@ -168,6 +205,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     except Exception as e:
         logger.error(f"Error in Gemini session: {e}")
     finally:
+        end_session(token)
         receive_task.cancel()
         try:
             await websocket.close()
@@ -179,6 +217,35 @@ async def get_tickets():
     """Get all ITSM tickets created during sessions."""
     from server.tools.itsm import get_all_tickets
     return {"tickets": get_all_tickets()}
+
+@app.get("/api/session/{token}/summary")
+async def get_session_summary(token: str):
+    session = get_session(token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return JSONResponse(content=session.generate_call_summary())
+
+@app.get("/api/session/{token}/rca")
+async def get_session_rca(token: str):
+    session = get_session(token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    rca_text = session.generate_rca()
+    return PlainTextResponse(
+        content=rca_text,
+        headers={"Content-Disposition": f'attachment; filename="guardian-rca-{token[:8]}.txt"'}
+    )
+
+@app.get("/api/session/{token}/transcript")
+async def get_session_transcript(token: str):
+    session = get_session(token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    transcript_text = session.generate_transcript_export()
+    return PlainTextResponse(
+        content=transcript_text,
+        headers={"Content-Disposition": f'attachment; filename="guardian-transcript-{token[:8]}.txt"'}
+    )
 
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):

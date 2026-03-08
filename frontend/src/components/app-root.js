@@ -1,5 +1,6 @@
 import './view-home.js';
 import './view-session.js';
+import './view-summary.js';
 
 class AppRoot extends HTMLElement {
     constructor() {
@@ -82,6 +83,8 @@ class AppRoot extends HTMLElement {
 
         this.addEventListener('navigate', (e) => {
             this.state.view = e.detail.view;
+            this.state.language = e.detail.language || 'English';
+            this.state.token = e.detail.token || null;
             this.render();
         });
     }
@@ -136,6 +139,13 @@ class AppRoot extends HTMLElement {
                 break;
             case 'session':
                 currentView = document.createElement('view-session');
+                currentView.setAttribute('language', this.state.language || 'English');
+                break;
+            case 'summary':
+                currentView = document.createElement('view-summary');
+                if (this.state.token) {
+                    currentView.setAttribute('token', this.state.token);
+                }
                 break;
             default:
                 currentView = document.createElement('view-home');

@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 # In-memory ticket store (replace with ITSM API in production)
 _TICKETS: Dict[str, Dict] = {}
 
+_current_session = None
+
+def set_session(session):
+    global _current_session
+    _current_session = session
+
 
 def create_itsm_ticket(
     title: str,
@@ -47,6 +53,10 @@ def create_itsm_ticket(
 
     _TICKETS[ticket_id] = ticket
     logger.info(f"Created ITSM ticket: {ticket_id} - {title}")
+
+    if _current_session:
+        _current_session.tickets.append(ticket)
+        _current_session.update_checkpoint("resolution", "Create ITSM ticket", "complete", f"Ticket {ticket_id}")
 
     return json.dumps({
         "success": True,
@@ -82,6 +92,14 @@ def update_itsm_ticket(
         })
 
     ticket["updated_at"] = datetime.now().isoformat()
+
+    if _current_session:
+        # Update ticket in session too
+        for i, t in enumerate(_current_session.tickets):
+            if t.get("ticket_id") == ticket_id:
+                _current_session.tickets[i] = ticket
+                break
+
     logger.info(f"Updated ITSM ticket: {ticket_id}")
 
     return json.dumps({

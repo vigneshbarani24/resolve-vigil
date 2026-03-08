@@ -55,6 +55,41 @@
       "cause": "The pricing procedure could not find a valid condition record for the material/customer combination.",
       "resolution": "1. Check pricing conditions in VK13\n2. Verify the condition type is included in the pricing procedure\n3. Check customer/material info records and condition exclusion groups",
       "severity": "high"
+    },
+    "VL244": {
+      "message": "Batch cannot be determined",
+      "module": "SD",
+      "cause": "The system could not automatically determine a batch for the delivery item. Batch determination rules are missing, no stock exists for available batches, or the batch search strategy is not configured for the plant/delivery type combination.",
+      "resolution": "1. Check batch stock in MB52 for the material/plant\n2. Verify batch determination config in SPRO > Logistics Execution > Shipping > Picking\n3. Check condition records in VCH1 for the batch search strategy\n4. Manual workaround: enter batch directly in VL02N at item level\n5. If config missing, escalate for transport",
+      "severity": "high"
+    },
+    "ME390": {
+      "message": "Release strategy could not be determined",
+      "module": "MM",
+      "cause": "No release strategy matches the purchase order's characteristics (purchasing org, plant, material group, PO value). Either the release strategy conditions don't cover this combination, or classification is misconfigured.",
+      "resolution": "1. Check release strategy customizing in SPRO > MM > Purchasing > PO > Release Procedure\n2. Verify classification conditions in CL02 (class type 032)\n3. Ensure characteristics match the PO values\n4. Check release codes and groups in OME1/OME2\n5. Emergency release via ME28 if business-critical",
+      "severity": "high"
+    },
+    "ME038": {
+      "message": "Release not yet completely effected",
+      "module": "MM",
+      "cause": "The purchase order requires additional release codes before it can be processed. One or more approvers have not yet released the PO.",
+      "resolution": "1. Check pending release codes in ME23N > Release Strategy tab\n2. Verify approver has auth object M_EINK_FRG\n3. Check approver's workflow inbox (SBWP)\n4. Use SWIA for work item analysis",
+      "severity": "medium"
+    },
+    "F5091": {
+      "message": "Posting only possible in periods XXXX",
+      "module": "FI",
+      "cause": "The posting date falls in a fiscal period that is not open for the account type being posted.",
+      "resolution": "1. Check open periods in OB52\n2. Open the required period for the relevant account type\n3. For MM postings, also check MMPV\n4. Verify user has authorization for special periods (F_BKPF_BUP)",
+      "severity": "high"
+    },
+    "SU_USER_LOCKED": {
+      "message": "User account is locked",
+      "module": "BASIS",
+      "cause": "User account is locked due to too many failed login attempts or administrator lock.",
+      "resolution": "1. Verify caller identity per security protocol\n2. Check lock status in SU01\n3. Unlock via SU01 Lock/Unlock button\n4. Reset password if expired\n5. Check SM20 audit log for failed login attempts",
+      "severity": "medium"
     }
   },
   "transaction_codes": {
@@ -171,6 +206,108 @@
       "module": "Cross",
       "description": "SAP Implementation Guide (IMG). Entry point for all configuration and customization activities.",
       "related": []
+    },
+    "VL02N": {
+      "name": "Change Outbound Delivery",
+      "module": "SD",
+      "description": "Change an existing outbound delivery. Used for picking confirmation, packing, and Post Goods Issue (PGI). Enter delivery number to modify.",
+      "related": ["VL01N", "VL03N", "VL06G", "VA01"]
+    },
+    "VL03N": {
+      "name": "Display Outbound Delivery",
+      "module": "SD",
+      "description": "Display an outbound delivery in read-only mode. Check delivery status, PGI status, and item details.",
+      "related": ["VL01N", "VL02N"]
+    },
+    "VL06G": {
+      "name": "List of Outbound Deliveries for Goods Issue",
+      "module": "SD",
+      "description": "Display list of deliveries ready for goods issue. Filter by shipping point, delivery date, and status. Used for mass PGI processing.",
+      "related": ["VL02N", "VL01N"]
+    },
+    "MB52": {
+      "name": "List of Warehouse Stocks on Hand",
+      "module": "MM",
+      "description": "Display stock overview per material, plant, and storage location. Shows unrestricted, quality inspection, and blocked stock including batch details.",
+      "related": ["MB51", "MMBE", "MIGO"]
+    },
+    "MB51": {
+      "name": "Material Document List",
+      "module": "MM",
+      "description": "Display material document list filtered by material, plant, movement type, posting date. Essential for tracking goods movements history.",
+      "related": ["MB52", "MIGO"]
+    },
+    "ME28": {
+      "name": "Release Purchase Order",
+      "module": "MM",
+      "description": "Release (approve) purchase orders. Select POs by release group, release code, purchasing group, or PO number. Supports collective and individual release.",
+      "related": ["ME21N", "ME23N", "ME29N"]
+    },
+    "SU53": {
+      "name": "Authorization Check Display",
+      "module": "BASIS",
+      "description": "Display the last failed authorization check for a user. Must be run IMMEDIATELY after the authorization error occurs. Shows the missing authorization object, field, and required values.",
+      "related": ["SU01", "PFCG", "SU10"]
+    },
+    "SM12": {
+      "name": "Display and Delete Locks",
+      "module": "BASIS",
+      "description": "Display all enqueue lock entries in the system. Used to find and delete stale locks that block other users from processing documents.",
+      "related": ["SM50", "SM66"]
+    },
+    "SM20": {
+      "name": "Security Audit Log",
+      "module": "BASIS",
+      "description": "Analyze the security audit log. Shows login attempts, transaction starts, RFC calls, and other security-relevant events.",
+      "related": ["SM21", "SU01"]
+    },
+    "WE02": {
+      "name": "Display IDOC",
+      "module": "Cross",
+      "description": "Display individual IDOC with full details including control record, data records, and status records. Filter by IDOC number, message type, partner.",
+      "related": ["WE05", "WE20", "BD87"]
+    },
+    "WE05": {
+      "name": "IDOC Lists",
+      "module": "Cross",
+      "description": "Display IDOC overview list with filtering by date, status, direction, message type. Quick view of IDOC processing status across the system.",
+      "related": ["WE02", "BD87", "WE20"]
+    },
+    "BD87": {
+      "name": "Reprocess IDOCs",
+      "module": "Cross",
+      "description": "Manually reprocess failed IDOCs (status 51, 56, 61, etc.). Select by IDOC number or date range and resubmit for processing.",
+      "related": ["WE02", "WE05"]
+    },
+    "OB52": {
+      "name": "Open/Close Posting Periods",
+      "module": "FI",
+      "description": "Maintain posting period variants. Open and close fiscal periods for different account types (Assets, Customers, Vendors, GL, Materials).",
+      "related": ["MMPV", "FB01"]
+    },
+    "MMPV": {
+      "name": "Close Period for Material Management",
+      "module": "MM",
+      "description": "Open or close posting periods specifically for Materials Management. MM periods are separate from FI posting periods.",
+      "related": ["OB52", "MIGO"]
+    },
+    "VCH1": {
+      "name": "Create Batch Search Strategy (Condition Records)",
+      "module": "SD/MM",
+      "description": "Maintain condition records for batch determination search strategy. Defines which batches to select based on classification characteristics.",
+      "related": ["VCH2", "VCH3", "CL02"]
+    },
+    "MMRV": {
+      "name": "Allow Posting to Previous Period",
+      "module": "MM",
+      "description": "Toggle whether postings are allowed to the previous MM period. Used during month-end close to allow late postings.",
+      "related": ["MMPV", "OB52"]
+    },
+    "PFCG": {
+      "name": "Role Maintenance",
+      "module": "BASIS",
+      "description": "Create, change, and maintain authorization roles. Define menu structure and generate authorization profiles for user access control.",
+      "related": ["SU01", "SU53", "SU10"]
     }
   }
 }

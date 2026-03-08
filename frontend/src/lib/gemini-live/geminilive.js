@@ -231,13 +231,13 @@ export class GeminiLiveAPI {
     functionToCall.runFunction(parameters);
   }
 
-  async connect(token) {
+  async connect(token, language = "English") {
     try {
       // 1. Authenticate
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recaptcha_token: token }),
+        body: JSON.stringify({ recaptcha_token: token, language: language }),
       });
 
       if (!response.ok) {

@@ -144,7 +144,38 @@ class ViewHome extends HTMLElement {
                         </div>
                     </div>
 
-                    <div style="margin-top: calc(var(--spacing-xxl) * 1.2); width: 100%; display: flex; justify-content: center;">
+                    <div style="margin-top: var(--spacing-xl); width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--spacing-md);">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                            <label for="language-select" style="font-size: 0.85rem; font-weight: 700; color: var(--color-text-sub); text-transform: uppercase; letter-spacing: 0.05em;">Language</label>
+                            <select id="language-select" style="
+                                padding: 8px 16px;
+                                border-radius: var(--radius-full);
+                                background: var(--color-surface);
+                                color: var(--color-text-main);
+                                border: var(--glass-border);
+                                font-family: inherit;
+                                font-size: 0.9rem;
+                                cursor: pointer;
+                                backdrop-filter: blur(10px);
+                                outline: none;
+                            ">
+                                <option value="English">English</option>
+                                <option value="German">German</option>
+                                <option value="French">French</option>
+                                <option value="Spanish">Spanish</option>
+                                <option value="Portuguese">Portuguese</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Korean">Korean</option>
+                                <option value="Hindi">Hindi</option>
+                                <option value="Arabic">Arabic</option>
+                                <option value="Turkish">Turkish</option>
+                                <option value="Italian">Italian</option>
+                                <option value="Dutch">Dutch</option>
+                                <option value="Tamil">Tamil</option>
+                                <option value="Telugu">Telugu</option>
+                            </select>
+                        </div>
                         <button id="start-btn" class="mystic-btn">
                             Connect to Guardian
                         </button>
@@ -179,6 +210,7 @@ class ViewHome extends HTMLElement {
         }
 
         this.querySelector('#start-btn').addEventListener('click', () => {
+            const language = this.querySelector('#language-select').value;
             this.style.filter = 'blur(10px) brightness(1.2)';
             this.style.opacity = '0';
             this.style.transform = 'scale(1.05)';
@@ -187,7 +219,7 @@ class ViewHome extends HTMLElement {
             setTimeout(() => {
                 this.dispatchEvent(new CustomEvent('navigate', {
                     bubbles: true,
-                    detail: { view: 'session' }
+                    detail: { view: 'session', language }
                 }));
             }, 500);
         });

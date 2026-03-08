@@ -3,6 +3,8 @@ import { AudioStreamer, AudioPlayer, ScreenCapture } from '../lib/gemini-live/me
 import './audio-visualizer.js';
 import './live-transcript.js';
 import './issue-panel.js';
+import './diagnostic-tracker.js';
+import './agent-guidance.js';
 
 const SAP_SYSTEM_PROMPT = `You are Jessica, the Senior S-A-P AMS Control Tower veteran for KaarTech — codename "Guardian". You are a Tier 0.5 agent that bridges user intent and technical resolution.
 
@@ -48,6 +50,7 @@ class ViewSession extends HTMLElement {
         this._isSessionConnected = false;
         this.isScreenSharing = false;
         this.isSpeaking = false;
+        this.sessionToken = null;
     }
 
     connectedCallback() {
@@ -189,9 +192,25 @@ class ViewSession extends HTMLElement {
                     position: relative;
                 }
 
-                .issues-section {
-                    width: 280px;
+                .right-panel {
+                    width: 320px;
                     flex-shrink: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--spacing-sm);
+                    overflow-y: auto;
+                    max-height: 600px;
+                }
+
+                .right-panel::-webkit-scrollbar {
+                    width: 3px;
+                }
+                .right-panel::-webkit-scrollbar-thumb {
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 3px;
+                }
+
+                .issues-section {
                     border-radius: var(--radius-lg);
                     background: var(--color-surface);
                     border: var(--glass-border);
@@ -216,9 +235,9 @@ class ViewSession extends HTMLElement {
                     .middle-content {
                         flex-direction: column;
                     }
-                    .issues-section {
+                    .right-panel {
                         width: 100%;
-                        max-height: 200px;
+                        max-height: 300px;
                     }
                 }
             </style>
@@ -254,6 +273,8 @@ class ViewSession extends HTMLElement {
                         <span>Jessica</span>
                         <span style="opacity: 0.3;">|</span>
                         <span style="color: var(--color-accent-primary);">AMS Control Tower</span>
+                        <span id="lang-badge" style="opacity: 0.3; display: none;">|</span>
+                        <span id="lang-label" style="color: var(--color-accent-secondary, #f0ab00); font-size: 0.75rem; display: none;"></span>
                     </div>
                     <div style="
                         border-radius: var(--radius-lg);
@@ -306,13 +327,17 @@ class ViewSession extends HTMLElement {
                         </div>
                     </div>
 
-                    <!-- Transcript + Issues -->
+                    <!-- Transcript + Right Panel -->
                     <div class="middle-content">
                         <div class="transcript-section">
                             <live-transcript id="transcript"></live-transcript>
                         </div>
-                        <div class="issues-section">
-                            <issue-panel id="issue-panel"></issue-panel>
+                        <div class="right-panel">
+                            <diagnostic-tracker id="diagnostic-tracker"></diagnostic-tracker>
+                            <agent-guidance id="agent-guidance"></agent-guidance>
+                            <div class="issues-section">
+                                <issue-panel id="issue-panel"></issue-panel>
+                            </div>
                         </div>
                     </div>
 
@@ -402,8 +427,13 @@ class ViewSession extends HTMLElement {
             statusEl.style.color = 'var(--color-text-sub)';
 
             // Initialize client
+            const language = this.getAttribute('language') || 'English';
+            let systemPrompt = SAP_SYSTEM_PROMPT;
+            if (language && language !== 'English') {
+                systemPrompt += `\n\n# Language\nYou MUST respond in ${language}. All your spoken responses and conversational text must be in ${language}.\nHowever, all ITSM tickets, RCA reports, error code lookups, and technical documentation must remain in English regardless of the conversation language.\nTool function calls and their parameters must always be in English.\n`;
+            }
             this.geminiClient = new GeminiLiveAPI();
-            this.geminiClient.setSystemInstructions(SAP_SYSTEM_PROMPT);
+            this.geminiClient.setSystemInstructions(systemPrompt);
             this.geminiClient.setInputAudioTranscription(true);
             this.geminiClient.setOutputAudioTranscription(true);
             this.geminiClient.setVoice('Kore');
@@ -430,8 +460,8 @@ class ViewSession extends HTMLElement {
                 console.log('Connection closed');
             };
 
-            // Connect
-            await this.geminiClient.connect('');
+            // Connect (pass language for server-side session state)
+            await this.geminiClient.connect('', language);
 
             // Audio player
             this.audioPlayer = new AudioPlayer();
@@ -456,6 +486,15 @@ class ViewSession extends HTMLElement {
             this._isSessionConnected = true;
             statusEl.textContent = 'Connected and listening';
             statusEl.style.color = '#81c784';
+
+            // Show language badge if non-English
+            const lang = this.getAttribute('language') || 'English';
+            if (lang !== 'English') {
+                const langBadge = this.querySelector('#lang-badge');
+                const langLabel = this.querySelector('#lang-label');
+                if (langBadge) langBadge.style.display = '';
+                if (langLabel) { langLabel.style.display = ''; langLabel.textContent = lang; }
+            }
 
             // Enable screen buttons
             this.querySelector('#screen-share-btn').disabled = false;
@@ -530,7 +569,31 @@ class ViewSession extends HTMLElement {
                 break;
 
             default:
-                console.log('Response:', response.type);
+                // Handle custom server events (session_state)
+                if (response.type === 'session_state' || (response.data && response.data.stage)) {
+                    this.handleSessionState(response.data || response);
+                } else {
+                    console.log('Response:', response.type);
+                }
+        }
+    }
+
+    handleSessionState(state) {
+        // Update diagnostic tracker
+        const tracker = this.querySelector('#diagnostic-tracker');
+        if (tracker && tracker.updateFromState) {
+            tracker.updateFromState(state);
+        }
+
+        // Update agent guidance
+        const guidance = this.querySelector('#agent-guidance');
+        if (guidance && state.agent_guidance && guidance.setGuidance) {
+            guidance.setGuidance(state.agent_guidance);
+        }
+
+        // Store session token for summary navigation
+        if (state.session_id && !this.sessionToken) {
+            this.sessionToken = state.session_id;
         }
     }
 
@@ -686,6 +749,17 @@ class ViewSession extends HTMLElement {
         // Finalize transcript
         const transcript = this.querySelector('#transcript');
         if (transcript) transcript.finalizeAll();
+
+        // Navigate to summary view if we have a session token
+        if (this.sessionToken) {
+            const token = this.sessionToken;
+            setTimeout(() => {
+                this.dispatchEvent(new CustomEvent('navigate', {
+                    bubbles: true,
+                    detail: { view: 'summary', token }
+                }));
+            }, 1500);  // Brief delay to let user see final state
+        }
     }
 
     cleanup() {

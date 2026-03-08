@@ -27,6 +27,12 @@ def _load_reference():
 
 _load_reference()
 
+_current_session = None
+
+def set_session(session):
+    global _current_session
+    _current_session = session
+
 
 def lookup_sap_error(error_code: str) -> str:
     """Look up an SAP error/message code and return details."""
@@ -34,6 +40,8 @@ def lookup_sap_error(error_code: str) -> str:
     code_upper = error_code.upper().strip()
 
     if code_upper in errors:
+        if _current_session:
+            _current_session.update_checkpoint("diagnosis", "Lookup error codes", "complete", f"Found error {code_upper}")
         return json.dumps({
             "found": True,
             "error_code": code_upper,
@@ -43,6 +51,8 @@ def lookup_sap_error(error_code: str) -> str:
     # Fuzzy match — check if the code is part of any key
     for key, value in errors.items():
         if code_upper in key or key in code_upper:
+            if _current_session:
+                _current_session.update_checkpoint("diagnosis", "Lookup error codes", "complete", f"Found error {key}")
             return json.dumps({
                 "found": True,
                 "error_code": key,
