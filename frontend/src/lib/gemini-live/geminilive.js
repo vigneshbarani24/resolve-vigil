@@ -73,6 +73,10 @@ export class MultimodalLiveResponseMessage {
       } else if (data?.type === "interrupted") {
         console.log("SERVER INTERRUPTED event");
         this.type = MultimodalLiveResponseType.INTERRUPTED;
+      } else if (data?.type === "session_state") {
+        console.log("SESSION STATE:", data.data);
+        this.type = "SESSION_STATE";
+        this.data = data.data;
       } else if (data?.type === "error") {
         console.log("SERVER ERROR:", data.error);
         this.type = MultimodalLiveResponseType.ERROR;
@@ -248,6 +252,7 @@ export class GeminiLiveAPI {
 
       const data = await response.json();
       const sessionToken = data.session_token;
+      this.sessionToken = sessionToken;  // Store for post-session summary
 
       // 2. Connect WebSocket
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";

@@ -84,15 +84,26 @@ class SessionState:
         return self.stage
 
     def update_checkpoint(self, stage: str, label: str, status: str, detail: str = "") -> bool:
-        """Update a specific checkpoint's status and detail."""
+        """Update a specific checkpoint's status and detail. Auto-advances stage."""
         for cp in self.checkpoints:
             if cp.stage == stage and cp.label == label:
                 cp.status = status
                 cp.detail = detail
                 cp.timestamp = datetime.now().isoformat()
                 logger.info(f"Checkpoint updated: [{stage}] {label} -> {status}")
+                # Auto-advance: if any checkpoint in a later stage completes,
+                # advance the current stage to at least that stage
+                self._auto_advance_to(stage)
                 return True
         return False
+
+    def _auto_advance_to(self, target_stage: str) -> None:
+        """Advance current stage to target if target is ahead."""
+        current_idx = STAGE_ORDER.index(self.stage) if self.stage in STAGE_ORDER else 0
+        target_idx = STAGE_ORDER.index(target_stage) if target_stage in STAGE_ORDER else 0
+        if target_idx > current_idx:
+            self.stage = target_stage
+            logger.info(f"Auto-advanced to stage: {self.stage}")
 
     def add_transcript(self, speaker: str, text: str) -> None:
         """Add a transcript entry."""

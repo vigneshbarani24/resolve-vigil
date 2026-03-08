@@ -47,6 +47,25 @@ def create_issue(
     if _current_session:
         _current_session.issues.append(issue)
         _current_session.update_checkpoint("initiation", "Capture error details", "complete", f"{title}")
+        # Infer module from transaction code if available
+        if transaction_code and not _current_session.module:
+            tcode = transaction_code.upper()
+            if tcode.startswith(("VA", "VL", "VF")):
+                _current_session.module = "SD"
+            elif tcode.startswith(("ME", "MI", "MB", "MM")):
+                _current_session.module = "MM"
+            elif tcode.startswith(("FB", "FK", "FS", "FBL")):
+                _current_session.module = "FI"
+            elif tcode.startswith(("CO", "KS", "KI")):
+                _current_session.module = "CO"
+            elif tcode.startswith(("SM", "SU", "SE", "SP")):
+                _current_session.module = "BASIS"
+            if _current_session.module:
+                _current_session.update_checkpoint("initiation", "Identify SAP module", "complete", _current_session.module)
+        # Set priority from severity
+        if severity and not _current_session.priority:
+            _current_session.priority = severity
+            _current_session.update_checkpoint("initiation", "Assess business impact", "complete", f"Priority: {severity}")
 
     return json.dumps({
         "success": True,

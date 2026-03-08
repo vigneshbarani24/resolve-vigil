@@ -56,7 +56,9 @@ def create_itsm_ticket(
 
     if _current_session:
         _current_session.tickets.append(ticket)
+        _current_session.update_checkpoint("resolution", "Document root cause", "complete", f"RCA for {title}")
         _current_session.update_checkpoint("resolution", "Create ITSM ticket", "complete", f"Ticket {ticket_id}")
+        _current_session.update_checkpoint("resolution", "Generate RCA report", "complete", "RCA available for download")
 
     return json.dumps({
         "success": True,

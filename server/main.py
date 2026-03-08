@@ -153,10 +153,22 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     # Apply language-aware system prompt (server-side augmentation)
     if session and setup_config and session.language != "English":
         from server.prompts import LANGUAGE_INSTRUCTION_TEMPLATE
-        existing_instructions = setup_config.get("system_instruction", "")
-        if existing_instructions:
-            setup_config["system_instruction"] = existing_instructions + LANGUAGE_INSTRUCTION_TEMPLATE.format(language=session.language)
-            logger.info(f"Applied language instruction: {session.language}")
+        lang_suffix = LANGUAGE_INSTRUCTION_TEMPLATE.format(language=session.language)
+        si = setup_config.get("system_instruction")
+        if isinstance(si, dict):
+            # system_instruction is {"parts": [{"text": "..."}]}
+            try:
+                si["parts"][0]["text"] += lang_suffix
+            except (KeyError, IndexError, TypeError):
+                pass
+        elif isinstance(si, str) and si:
+            setup_config["system_instruction"] = si + lang_suffix
+        logger.info(f"Applied language instruction: {session.language}")
+
+    # Emit initial session state so frontend tracker shows "Initiation" as active
+    if session:
+        session.update_checkpoint("initiation", "Capture error details", "active")
+        await emit_session_state()
 
     async def receive_from_client():
         try:

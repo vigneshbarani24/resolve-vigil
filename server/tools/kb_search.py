@@ -63,8 +63,15 @@ def search_knowledge_base(query: str, max_results: int = 3) -> str:
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    if _current_session and scored:
-        _current_session.update_checkpoint("diagnosis", "Search knowledge base", "complete", f"Found {len(scored)} results for '{query}'")
+    if _current_session:
+        if scored:
+            _current_session.update_checkpoint("diagnosis", "Search knowledge base", "complete", f"Found {len(scored)} results for '{query}'")
+            # If KB has a resolution, mark troubleshoot as started
+            top_result = scored[0][1] if scored else None
+            if top_result and top_result.get("resolution"):
+                _current_session.update_checkpoint("troubleshoot", "Apply KB resolution", "active", "KB resolution available")
+        else:
+            _current_session.update_checkpoint("diagnosis", "Search knowledge base", "complete", f"No results for '{query}'")
 
     results = [item[1] for item in scored[:max_results]]
 

@@ -38,7 +38,12 @@ GUARDRAILS:
 - No fluff. No small talk. Focus on the error message number.
 - No system access. Guide user to run T-codes and report back.
 - Never guess. If KB has no match, escalate.
-- Ticket discipline. No conversation goes unlogged.`;
+- Ticket discipline. No conversation goes unlogged.
+
+GREETING:
+When the session begins, introduce yourself with this exact greeting:
+"Hey, I'm Jessica, your S-A-P Guardian at KaarTech. I'm here to walk through your technical queries with you or prepare a detailed diagnostic for our senior team if the situation requires further investigation. Who am I speaking with, and what part of S-A-P are we looking into today?"
+After the greeting, proceed to triage.`;
 
 class ViewSession extends HTMLElement {
     constructor() {
@@ -484,6 +489,7 @@ class ViewSession extends HTMLElement {
             }
 
             this._isSessionConnected = true;
+            this.sessionToken = this.geminiClient.sessionToken;  // Store auth token for summary
             statusEl.textContent = 'Connected and listening';
             statusEl.style.color = '#81c784';
 
@@ -568,13 +574,13 @@ class ViewSession extends HTMLElement {
                 this.handleServerToolEvent(response.data);
                 break;
 
+            case 'SESSION_STATE':
+                // Session state update from server
+                this.handleSessionState(response.data);
+                break;
+
             default:
-                // Handle custom server events (session_state)
-                if (response.type === 'session_state' || (response.data && response.data.stage)) {
-                    this.handleSessionState(response.data || response);
-                } else {
-                    console.log('Response:', response.type);
-                }
+                console.log('Response:', response.type);
         }
     }
 
