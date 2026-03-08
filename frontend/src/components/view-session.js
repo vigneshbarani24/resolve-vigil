@@ -4,24 +4,39 @@ import './audio-visualizer.js';
 import './live-transcript.js';
 import './issue-panel.js';
 
-const SAP_SYSTEM_PROMPT = `You are an expert SAP consultant from KaarTech, providing real-time helpdesk support.
+const SAP_SYSTEM_PROMPT = `You are Jessica, the Senior S-A-P AMS Control Tower veteran for KaarTech — codename "Guardian". You are a Tier 0.5 agent that bridges user intent and technical resolution.
 
-CAPABILITIES:
-- Users share their SAP screen via screen sharing. Analyze what you see.
-- Identify transaction codes (VA01, ME21N, MM01, etc.), error messages, field values, navigation paths.
-- Provide clear, step-by-step voice guidance to resolve issues.
-- Be specific about what to click, type, and where to navigate.
+PERSONALITY:
+- Skeptical but helpful: "Trust, but verify." Users unintentionally omit steps.
+- SLA-obsessed: Categorize issues into P1 (Showstopper), P2 (Critical), P3 (Standard).
+- Defensive solutioning: Don't just fix errors; ensure they don't bounce back.
+- Professional, authoritative, technically precise. Max 2-3 sentences per response.
+- Pronounce S-A-P as individual letters. Never say "Sap." T-codes with pauses: "V-A... zero... one."
 
-ISSUE DETECTION:
-- When you identify a problem, error, or issue the user is experiencing, ALWAYS call the "create_issue" tool to log it.
-- Detect issues from: error messages on screen, user descriptions of problems, repeated failed attempts, configuration issues.
-- Assign appropriate severity: "critical" for system-down/data-loss, "high" for blocking issues, "medium" for workflow problems, "low" for cosmetic/minor.
+PROTOCOL:
+1. Triage (First 30s): Assess impact. "Is this affecting just your ID, or the whole team?" Capture error number, T-code, module.
+2. Sanity Check: Force recreation. "/n before the T-code." Watch them input data live. Rule out stale buffers, variant drift, human error.
+3. Speed Loop: Command user to run diagnostic T-codes (S-U-5-3, S-M-1-2, M-M-R-V, S-M-3-7) and report results.
+4. Fix or Escalate: If KB fix works, close it. If not, escalate with full Ironclad RCA.
 
-BEHAVIOR:
-- Be patient, professional, and thorough.
-- If you see an error message, explain what it means and how to fix it.
-- Reference specific SAP fields, buttons, and menu paths.
-- When the user's issue is resolved, summarize what was done.`;
+SCREEN ANALYSIS:
+- When users share screens, identify T-codes, error messages, field values, navigation paths, ALV grids.
+
+TOOLS — USE AGGRESSIVELY:
+- search_knowledge_base: Search FIRST before responding to any error.
+- lookup_sap_error: Look up error codes immediately when spotted.
+- lookup_transaction_code: Get T-code details.
+- create_issue: Log every detected problem to the issue panel.
+- create_itsm_ticket: Every conversation gets a ticket. Use AMS Diagnostic Report format.
+- update_itsm_ticket: Update tickets with resolution or escalation notes.
+- diagnose_sap_issue: Cross-reference KB, error codes, and transaction context.
+
+GUARDRAILS:
+- Direct commands only. Never "I am checking." Say "Run S-M-1-2 and tell me what you see."
+- No fluff. No small talk. Focus on the error message number.
+- No system access. Guide user to run T-codes and report back.
+- Never guess. If KB has no match, escalate.
+- Ticket discipline. No conversation goes unlogged.`;
 
 class ViewSession extends HTMLElement {
     constructor() {
@@ -30,7 +45,7 @@ class ViewSession extends HTMLElement {
         this.audioStreamer = null;
         this.audioPlayer = null;
         this.screenCapture = null;
-        this.isConnected = false;
+        this._isSessionConnected = false;
         this.isScreenSharing = false;
         this.isSpeaking = false;
     }
@@ -185,12 +200,16 @@ class ViewSession extends HTMLElement {
                 }
 
                 .session-bottom {
-                    margin-top: var(--spacing-lg);
-                    margin-bottom: var(--spacing-xxl);
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
                     display: flex;
                     flex-direction: column;
-                    gap: var(--spacing-lg);
                     align-items: center;
+                    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+                    background: linear-gradient(transparent, var(--color-bg) 30%);
+                    z-index: 20;
                 }
 
                 @media (max-width: 768px) {
@@ -227,14 +246,14 @@ class ViewSession extends HTMLElement {
                 </svg>
             </button>
 
-            <div class="container" style="max-width: 1000px; justify-content: space-between; min-height: 100vh; position: relative; padding-bottom: var(--spacing-xl);">
+            <div class="container" style="max-width: 1000px; justify-content: space-between; min-height: 100vh; position: relative; padding-bottom: 140px;">
 
                 <div class="session-header" style="margin-top: var(--spacing-xl);">
-                    <h2>SAP Helpdesk</h2>
+                    <h2>Guardian</h2>
                     <div class="session-mode-pill">
-                        <span>Voice</span>
-                        <span style="opacity: 0.3;">+</span>
-                        <span style="color: var(--color-accent-primary);">Screen Analysis</span>
+                        <span>Jessica</span>
+                        <span style="opacity: 0.3;">|</span>
+                        <span style="color: var(--color-accent-primary);">AMS Control Tower</span>
                     </div>
                     <div style="
                         border-radius: var(--radius-lg);
@@ -244,7 +263,7 @@ class ViewSession extends HTMLElement {
                         max-width: 800px;
                     ">
                         <p style="font-size: 0.95rem; opacity: 0.7; margin: 0;">
-                            Share your SAP screen and describe your issue. The agent will analyze and guide you.
+                            Share your S-A-P screen and describe the error. Jessica will triage and guide you.
                         </p>
                     </div>
                 </div>
@@ -387,7 +406,7 @@ class ViewSession extends HTMLElement {
             this.geminiClient.setSystemInstructions(SAP_SYSTEM_PROMPT);
             this.geminiClient.setInputAudioTranscription(true);
             this.geminiClient.setOutputAudioTranscription(true);
-            this.geminiClient.setVoice('Puck');
+            this.geminiClient.setVoice('Kore');
             this.geminiClient.setResponseModalities(['AUDIO']);
 
             // Tools are registered server-side (see server/tools/registry.py)
@@ -434,7 +453,7 @@ class ViewSession extends HTMLElement {
                 modelViz.connect(this.audioPlayer.audioContext, this.audioPlayer.gainNode);
             }
 
-            this.isConnected = true;
+            this._isSessionConnected = true;
             statusEl.textContent = 'Connected and listening';
             statusEl.style.color = '#81c784';
 
@@ -452,8 +471,8 @@ class ViewSession extends HTMLElement {
             const micBtn = this.querySelector('#mic-btn');
             micBtn.classList.remove('active');
             micBtn.innerHTML = `
-                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Start Session</span>
-                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">Describe your SAP issue</span>
+                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Talk to Jessica</span>
+                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">What's your error message number?</span>
             `;
 
             const statusEl = this.querySelector('#connection-status');
@@ -636,15 +655,15 @@ class ViewSession extends HTMLElement {
 
     endSession() {
         this.cleanup();
-        this.isConnected = false;
+        this._isSessionConnected = false;
         this.isSpeaking = false;
 
         const micBtn = this.querySelector('#mic-btn');
         if (micBtn) {
             micBtn.classList.remove('active');
             micBtn.innerHTML = `
-                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Start Session</span>
-                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">Describe your SAP issue</span>
+                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Talk to Jessica</span>
+                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">What's your error message number?</span>
             `;
         }
 

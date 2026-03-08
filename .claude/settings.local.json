@@ -44,7 +44,8 @@
       "Bash(rm:*)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(start:*)"
     ]
   }
 }

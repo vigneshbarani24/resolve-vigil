@@ -89,7 +89,7 @@ class ViewHome extends HTMLElement {
                 <div id="particles-host" style="position: absolute; inset: 0; pointer-events: none;"></div>
 
                 <div class="content-wrapper">
-                    <h1 class="mystic-title">SAP Helpdesk Agent</h1>
+                    <h1 class="mystic-title">Guardian</h1>
 
                     <p style="
                         font-family: var(--font-heading);
@@ -101,7 +101,7 @@ class ViewHome extends HTMLElement {
                         text-align: center;
                         max-width: 600px;
                     ">
-                        Voice-powered SAP support with real-time screen analysis
+                        SAP AMS Control Tower &mdash; Tier 0.5 Live Agent
                     </p>
 
                     <div class="feature-cards">
@@ -115,7 +115,7 @@ class ViewHome extends HTMLElement {
                                 </svg>
                             </div>
                             <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Voice Interaction</h3>
-                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Talk naturally with your AI SAP consultant</p>
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Talk to Jessica, your AMS Control Tower veteran</p>
                         </div>
 
                         <div class="card" style="text-align: center; padding: var(--spacing-lg);">
@@ -139,14 +139,14 @@ class ViewHome extends HTMLElement {
                                     <line x1="16" y1="17" x2="8" y2="17"/>
                                 </svg>
                             </div>
-                            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Auto Issue Tracking</h3>
-                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">AI detects and logs SAP issues automatically</p>
+                            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Ironclad RCA</h3>
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Auto-generates diagnostic reports with full ticket lifecycle</p>
                         </div>
                     </div>
 
                     <div style="margin-top: calc(var(--spacing-xxl) * 1.2); width: 100%; display: flex; justify-content: center;">
                         <button id="start-btn" class="mystic-btn">
-                            Start Helpdesk Session
+                            Connect to Guardian
                         </button>
                     </div>
 
@@ -160,23 +160,6 @@ class ViewHome extends HTMLElement {
                     </div>
                 </div>
 
-                <div style="
-                    position: absolute;
-                    bottom: var(--spacing-lg);
-                    left: 0;
-                    right: 0;
-                    font-size: 0.75rem;
-                    opacity: 0.4;
-                    max-width: 600px;
-                    margin: 0 auto;
-                    line-height: 1.5;
-                    text-align: center;
-                    padding: 0 var(--spacing-md);
-                    z-index: 15;
-                    color: var(--color-text-sub);
-                ">
-                    Built by <strong>KaarTech UK</strong> for the Gemini Live Agent Challenge
-                </div>
             </div>
         `;
 
