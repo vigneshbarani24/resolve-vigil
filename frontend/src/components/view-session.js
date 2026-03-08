@@ -61,81 +61,116 @@ class ViewSession extends HTMLElement {
     connectedCallback() {
         this.innerHTML = `
             <style>
-                .session-layout {
+                .session-shell {
                     display: flex;
                     flex-direction: column;
-                    min-height: 100vh;
-                    position: relative;
-                    padding: var(--spacing-lg);
-                    padding-top: var(--spacing-xxl);
+                    height: 100vh;
+                    overflow: hidden;
+                    padding: 0;
                 }
 
-                .session-header {
-                    text-align: center;
-                    margin-bottom: var(--spacing-lg);
-                }
-
-                .session-header h2 {
-                    font-size: 1.5rem;
-                    margin-bottom: 2px;
-                }
-
-                .session-mode-pill {
-                    font-size: 0.85rem;
-                    font-weight: 700;
-                    color: var(--color-text-sub);
+                /* ─── Top bar ─── */
+                .session-topbar {
                     display: flex;
                     align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    background: rgba(0,0,0,0.04);
-                    padding: 4px 12px;
-                    border-radius: var(--radius-full);
-                    width: fit-content;
-                    margin: 0 auto;
-                    border: 1px solid rgba(0,0,0,0.05);
+                    justify-content: space-between;
+                    padding: 10px 20px;
+                    border-bottom: 1px solid rgba(255,255,255,0.06);
+                    flex-shrink: 0;
+                    background: rgba(0,0,0,0.15);
                 }
 
-                .session-main {
+                .topbar-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .back-btn {
+                    background: transparent;
+                    border: none;
+                    cursor: pointer;
+                    padding: 6px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    color: var(--color-text-main);
+                    opacity: 0.6;
+                    transition: opacity 0.2s;
+                }
+                .back-btn:hover { opacity: 1; }
+
+                .topbar-title {
+                    font-size: 0.95rem;
+                    font-weight: 800;
+                    letter-spacing: 0.03em;
+                }
+
+                .topbar-subtitle {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: var(--color-accent-primary, #4d9ff7);
+                    opacity: 0.8;
+                }
+
+                .topbar-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                .lang-pill {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: var(--color-accent-secondary, #f0ab00);
+                    background: rgba(240, 171, 0, 0.1);
+                    border: 1px solid rgba(240, 171, 0, 0.2);
+                    padding: 2px 10px;
+                    border-radius: var(--radius-full);
+                    display: none;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                }
+
+                /* ─── Diagnostic tracker strip ─── */
+                .tracker-strip {
+                    padding: 8px 24px;
+                    border-bottom: 1px solid rgba(255,255,255,0.04);
+                    flex-shrink: 0;
+                    background: rgba(0,0,0,0.08);
+                }
+
+                /* ─── Main content area ─── */
+                .session-body {
+                    flex: 1;
+                    display: flex;
+                    gap: 0;
+                    overflow: hidden;
+                    min-height: 0;
+                }
+
+                /* Left column: screen share */
+                .col-screen {
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    align-items: center;
-                    gap: 16px;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    width: 100%;
-                }
-
-                .viz-row {
-                    width: 100%;
-                    height: 100px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                }
-
-                .screen-section {
-                    width: 100%;
-                    max-width: 800px;
-                    position: relative;
+                    border-right: 1px solid rgba(255,255,255,0.06);
+                    min-width: 0;
                 }
 
                 .screen-preview-box {
-                    width: 100%;
-                    aspect-ratio: 16/9;
-                    border-radius: var(--radius-lg);
-                    overflow: hidden;
-                    background: rgba(0,0,0,0.3);
-                    border: var(--glass-border);
+                    flex: 1;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    background: rgba(0,0,0,0.2);
                     position: relative;
+                    overflow: hidden;
+                    min-height: 0;
                 }
 
-                .screen-preview-box video {
+                .screen-preview-box video,
+                .screen-preview-box img {
                     width: 100%;
                     height: 100%;
                     object-fit: contain;
@@ -146,175 +181,222 @@ class ViewSession extends HTMLElement {
                     flex-direction: column;
                     align-items: center;
                     gap: 8px;
-                    opacity: 0.4;
+                    opacity: 0.3;
                 }
 
                 .screen-controls {
                     display: flex;
-                    gap: var(--spacing-sm);
-                    margin-top: var(--spacing-sm);
+                    gap: 8px;
+                    padding: 8px 12px;
                     justify-content: center;
+                    border-top: 1px solid rgba(255,255,255,0.04);
+                    background: rgba(0,0,0,0.1);
                 }
 
                 .screen-btn-sm {
-                    padding: 6px 14px;
-                    font-size: 0.8rem;
+                    padding: 5px 12px;
+                    font-size: 0.72rem;
                     font-weight: 700;
                     border-radius: var(--radius-full);
-                    background: var(--color-surface);
+                    background: rgba(255,255,255,0.04);
                     color: var(--color-text-main);
-                    border: var(--glass-border);
+                    border: 1px solid rgba(255,255,255,0.08);
                     cursor: pointer;
                     transition: all 0.2s;
                     display: flex;
                     align-items: center;
-                    gap: 6px;
+                    gap: 5px;
                 }
-
                 .screen-btn-sm:hover {
                     background: var(--color-accent-glow);
                     border-color: var(--color-accent-primary);
                     color: var(--color-accent-primary);
                 }
-
+                .screen-btn-sm:disabled {
+                    opacity: 0.4;
+                    cursor: default;
+                }
                 .screen-btn-sm.active-share {
                     background: rgba(229, 115, 115, 0.15);
                     border-color: var(--color-danger);
                     color: var(--color-danger);
                 }
 
-                .middle-content {
-                    width: 100%;
+                /* Center column: transcript */
+                .col-transcript {
+                    flex: 1;
                     display: flex;
-                    gap: var(--spacing-md);
-                    flex: 1;
-                    min-height: 250px;
-                }
-
-                .transcript-section {
-                    flex: 1;
+                    flex-direction: column;
+                    border-right: 1px solid rgba(255,255,255,0.06);
                     min-width: 0;
-                    position: relative;
+                    overflow: hidden;
                 }
 
-                .right-panel {
+                .col-transcript live-transcript {
+                    flex: 1;
+                    overflow-y: auto;
+                }
+
+                /* Right column: panels */
+                .col-panels {
                     width: 320px;
                     flex-shrink: 0;
                     display: flex;
                     flex-direction: column;
-                    gap: var(--spacing-sm);
+                    gap: 0;
                     overflow-y: auto;
-                    max-height: 600px;
+                }
+                .col-panels::-webkit-scrollbar { width: 3px; }
+                .col-panels::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+                .panel-section {
+                    padding: 10px 14px;
+                    border-bottom: 1px solid rgba(255,255,255,0.04);
                 }
 
-                .right-panel::-webkit-scrollbar {
-                    width: 3px;
-                }
-                .right-panel::-webkit-scrollbar-thumb {
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 3px;
-                }
-
-                .issues-section {
-                    border-radius: var(--radius-lg);
-                    background: var(--color-surface);
-                    border: var(--glass-border);
-                    backdrop-filter: var(--backdrop-blur);
-                    overflow: hidden;
+                /* ─── Bottom bar: visualizers + CTA ─── */
+                .session-footer {
+                    display: flex;
+                    align-items: center;
+                    gap: 0;
+                    border-top: 1px solid rgba(255,255,255,0.08);
+                    flex-shrink: 0;
+                    background: rgba(0,0,0,0.2);
+                    height: 80px;
                 }
 
-                .session-bottom {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
+                .viz-cell {
+                    flex: 1;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
-                    background: linear-gradient(transparent, var(--color-bg) 30%);
-                    z-index: 20;
+                    justify-content: center;
+                    gap: 2px;
+                    padding: 6px 16px;
+                    height: 100%;
+                    min-width: 0;
                 }
 
+                .viz-cell audio-visualizer {
+                    width: 100%;
+                    height: 48px;
+                }
+
+                .viz-label {
+                    font-size: 0.6rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.12em;
+                    opacity: 0.5;
+                }
+
+                .viz-label.you { color: #81c784; }
+                .viz-label.jessica { color: var(--color-accent-primary, #4d9ff7); }
+
+                .cta-cell {
+                    flex-shrink: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 8px 20px;
+                    gap: 4px;
+                }
+
+                .session-cta-compact {
+                    padding: 10px 28px;
+                    border-radius: var(--radius-full);
+                    border: 2px solid var(--color-accent-primary, #4d9ff7);
+                    background: rgba(77, 159, 247, 0.08);
+                    color: var(--color-accent-primary, #4d9ff7);
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-size: 0.85rem;
+                    font-weight: 800;
+                    letter-spacing: 0.05em;
+                    text-transform: uppercase;
+                    transition: all 0.25s ease;
+                    white-space: nowrap;
+                }
+                .session-cta-compact:hover {
+                    background: rgba(77, 159, 247, 0.18);
+                    transform: scale(1.03);
+                }
+                .session-cta-compact.active {
+                    border-color: var(--color-danger, #e57373);
+                    background: rgba(229, 115, 115, 0.12);
+                    color: var(--color-danger, #e57373);
+                    animation: ctaPulse 2s ease-in-out infinite;
+                }
+
+                @keyframes ctaPulse {
+                    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0); }
+                    50% { box-shadow: 0 0 16px 2px rgba(229, 115, 115, 0.15); }
+                }
+
+                .status-text {
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    letter-spacing: 0.06em;
+                    text-transform: uppercase;
+                    height: 1em;
+                    transition: all 0.3s;
+                }
+
+                /* ─── Responsive ─── */
+                @media (max-width: 1024px) {
+                    .col-panels { width: 260px; }
+                }
                 @media (max-width: 768px) {
-                    .middle-content {
-                        flex-direction: column;
-                    }
-                    .right-panel {
-                        width: 100%;
-                        max-height: 300px;
-                    }
+                    .session-body { flex-direction: column; }
+                    .col-screen { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); max-height: 35vh; }
+                    .col-transcript { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+                    .col-panels { width: 100%; max-height: 200px; flex-direction: row; overflow-x: auto; }
+                    .session-footer { height: 70px; }
                 }
             </style>
 
-            <button id="back-btn" style="
-                position: fixed;
-                top: var(--spacing-md);
-                left: var(--spacing-md);
-                background: transparent;
-                border: none;
-                cursor: pointer;
-                padding: 8px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                opacity: 0.7;
-                transition: opacity 0.2s;
-                z-index: 10;
-                color: var(--color-text-main);
-            ">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="19" y1="12" x2="5" y2="12"/>
-                    <polyline points="12 19 5 12 12 5"/>
-                </svg>
-            </button>
-
-            <div class="container" style="max-width: 1000px; justify-content: space-between; min-height: 100vh; position: relative; padding-bottom: 140px;">
-
-                <div class="session-header" style="margin-top: var(--spacing-xl);">
-                    <h2>Guardian</h2>
-                    <div class="session-mode-pill">
-                        <span>Jessica</span>
-                        <span style="opacity: 0.3;">|</span>
-                        <span style="color: var(--color-accent-primary);">AMS Control Tower</span>
-                        <span id="lang-badge" style="opacity: 0.3; display: none;">|</span>
-                        <span id="lang-label" style="color: var(--color-accent-secondary, #f0ab00); font-size: 0.75rem; display: none;"></span>
+            <div class="session-shell">
+                <!-- ═══ Top bar ═══ -->
+                <div class="session-topbar">
+                    <div class="topbar-left">
+                        <button class="back-btn" id="back-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+                            </svg>
+                        </button>
+                        <div>
+                            <div class="topbar-title">Guardian</div>
+                            <div class="topbar-subtitle">Jessica &middot; AMS Control Tower</div>
+                        </div>
                     </div>
-                    <div style="
-                        border-radius: var(--radius-lg);
-                        padding: var(--spacing-sm) var(--spacing-lg);
-                        display: inline-block;
-                        margin-top: var(--spacing-sm);
-                        max-width: 800px;
-                    ">
-                        <p style="font-size: 0.95rem; opacity: 0.7; margin: 0;">
-                            Share your S-A-P screen and describe the error. Jessica will triage and guide you.
-                        </p>
+                    <div class="topbar-right">
+                        <span class="lang-pill" id="lang-pill"></span>
                     </div>
                 </div>
 
-                <div class="session-main">
-                    <!-- Model Visualizer (AI voice) -->
-                    <div class="viz-row">
-                        <audio-visualizer id="model-viz"></audio-visualizer>
-                    </div>
+                <!-- ═══ Diagnostic tracker ═══ -->
+                <div class="tracker-strip">
+                    <diagnostic-tracker id="diagnostic-tracker"></diagnostic-tracker>
+                </div>
 
-                    <!-- Screen Share Preview -->
-                    <div class="screen-section" id="screen-section">
+                <!-- ═══ Three-column body ═══ -->
+                <div class="session-body">
+                    <!-- Left: Screen share -->
+                    <div class="col-screen">
                         <div class="screen-preview-box" id="screen-preview-box">
                             <div class="screen-placeholder-inner" id="screen-placeholder">
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
                                     <line x1="8" y1="21" x2="16" y2="21"/>
                                     <line x1="12" y1="17" x2="12" y2="21"/>
                                 </svg>
-                                <span style="font-size: 0.85rem;">Share your SAP screen</span>
+                                <span style="font-size: 0.78rem;">Share your SAP screen</span>
                             </div>
                         </div>
                         <div class="screen-controls" id="screen-controls">
                             <button class="screen-btn-sm" id="screen-share-btn" disabled>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
                                     <line x1="8" y1="21" x2="16" y2="21"/>
                                     <line x1="12" y1="17" x2="12" y2="21"/>
@@ -322,7 +404,7 @@ class ViewSession extends HTMLElement {
                                 Share Screen
                             </button>
                             <button class="screen-btn-sm" id="screenshot-btn" disabled>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                                     <circle cx="8.5" cy="8.5" r="1.5"/>
                                     <polyline points="21 15 16 10 5 21"/>
@@ -332,47 +414,42 @@ class ViewSession extends HTMLElement {
                         </div>
                     </div>
 
-                    <!-- Transcript + Right Panel -->
-                    <div class="middle-content">
-                        <div class="transcript-section">
-                            <live-transcript id="transcript"></live-transcript>
-                        </div>
-                        <div class="right-panel">
-                            <diagnostic-tracker id="diagnostic-tracker"></diagnostic-tracker>
+                    <!-- Center: Transcript -->
+                    <div class="col-transcript">
+                        <live-transcript id="transcript"></live-transcript>
+                    </div>
+
+                    <!-- Right: Panels -->
+                    <div class="col-panels">
+                        <div class="panel-section">
                             <agent-guidance id="agent-guidance"></agent-guidance>
-                            <div class="issues-section">
-                                <issue-panel id="issue-panel"></issue-panel>
-                            </div>
+                        </div>
+                        <div class="panel-section" style="flex: 1;">
+                            <issue-panel id="issue-panel"></issue-panel>
                         </div>
                     </div>
+                </div>
 
-                    <!-- User Visualizer (mic) -->
-                    <div class="viz-row">
-                        <audio-visualizer id="user-viz"></audio-visualizer>
+                <!-- ═══ Footer: Visualizers + CTA ═══ -->
+                <div class="session-footer">
+                    <div class="viz-cell">
+                        <span class="viz-label you">You</span>
+                        <audio-visualizer id="user-viz" color="#81c784"></audio-visualizer>
+                    </div>
+
+                    <div class="cta-cell">
+                        <button class="session-cta-compact" id="mic-btn">Start Session</button>
+                        <span class="status-text" id="connection-status"></span>
+                    </div>
+
+                    <div class="viz-cell">
+                        <span class="viz-label jessica">Jessica</span>
+                        <audio-visualizer id="model-viz" color="#4d9ff7"></audio-visualizer>
                     </div>
                 </div>
-
-                <!-- CTA Button -->
-                <div class="session-bottom">
-                    <button id="mic-btn" class="session-cta-btn">
-                        <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Start Session</span>
-                        <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">Describe your SAP issue</span>
-                    </button>
-
-                    <p id="connection-status" style="
-                        margin-top: var(--spacing-sm);
-                        font-size: 0.9rem;
-                        font-weight: 700;
-                        height: 1.2em;
-                        transition: all 0.3s ease;
-                        letter-spacing: 0.05em;
-                        text-transform: uppercase;
-                    "></p>
-                </div>
-
-                <!-- Hidden file input for screenshot upload -->
-                <input type="file" id="file-input" accept="image/*" style="display: none;" />
             </div>
+
+            <input type="file" id="file-input" accept="image/*" style="display: none;" />
         `;
 
         this.bindEvents();
@@ -407,10 +484,7 @@ class ViewSession extends HTMLElement {
 
             if (this.isSpeaking) {
                 micBtn.classList.add('active');
-                micBtn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                    <span style="font-weight: 800; font-size: 1.1rem; letter-spacing: 0.05em; text-transform: uppercase;">End Session</span>
-                `;
+                micBtn.textContent = 'End Session';
                 await this.startSession(statusEl);
             } else {
                 micBtn.classList.remove('active');
@@ -496,10 +570,8 @@ class ViewSession extends HTMLElement {
             // Show language badge if non-English
             const lang = this.getAttribute('language') || 'English';
             if (lang !== 'English') {
-                const langBadge = this.querySelector('#lang-badge');
-                const langLabel = this.querySelector('#lang-label');
-                if (langBadge) langBadge.style.display = '';
-                if (langLabel) { langLabel.style.display = ''; langLabel.textContent = lang; }
+                const langPill = this.querySelector('#lang-pill');
+                if (langPill) { langPill.style.display = ''; langPill.textContent = lang; }
             }
 
             // Enable screen buttons
@@ -515,13 +587,10 @@ class ViewSession extends HTMLElement {
 
             const micBtn = this.querySelector('#mic-btn');
             micBtn.classList.remove('active');
-            micBtn.innerHTML = `
-                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Talk to Jessica</span>
-                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">What's your error message number?</span>
-            `;
+            micBtn.textContent = 'Start Session';
 
             const statusEl = this.querySelector('#connection-status');
-            statusEl.textContent = err.status === 429 ? 'Rate limited - try again later' : 'Failed to connect';
+            statusEl.textContent = err.status === 429 ? 'Rate limited' : 'Connection failed';
             statusEl.style.color = '#e57373';
         }
     }
@@ -734,10 +803,7 @@ class ViewSession extends HTMLElement {
         const micBtn = this.querySelector('#mic-btn');
         if (micBtn) {
             micBtn.classList.remove('active');
-            micBtn.innerHTML = `
-                <span style="font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; letter-spacing: 0.02em;">Talk to Jessica</span>
-                <span style="font-size: 0.85rem; opacity: 0.9; font-style: italic;">What's your error message number?</span>
-            `;
+            micBtn.textContent = 'Start Session';
         }
 
         const statusEl = this.querySelector('#connection-status');

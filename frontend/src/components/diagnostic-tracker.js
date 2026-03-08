@@ -1,6 +1,6 @@
 /**
- * Diagnostic Tracker - 4-stage diagnostic pipeline with expandable checkpoints
- * Stages: Initiation, Diagnosis, Troubleshoot, Resolution
+ * Diagnostic Tracker — Horizontal stepper progress rail
+ * Mission-control style with glowing nodes and progress lines
  */
 class DiagnosticTracker extends HTMLElement {
     constructor() {
@@ -24,16 +24,10 @@ class DiagnosticTracker extends HTMLElement {
         }
     }
 
-    /**
-     * Update from diagnostic state.
-     * @param {{ stage: string, checkpoints: Array<{stage: string, label: string, status: string, timestamp?: string, detail?: string}> }} state
-     */
     updateFromState(state) {
         if (!state) return;
-
         const activeStage = state.stage || '';
         this._checkpoints = state.checkpoints || [];
-
         const stageOrder = ['initiation', 'diagnosis', 'troubleshoot', 'resolution'];
         const activeIdx = stageOrder.indexOf(activeStage.toLowerCase());
 
@@ -44,41 +38,15 @@ class DiagnosticTracker extends HTMLElement {
             return { ...s, status };
         });
 
-        // Auto-expand the active stage
-        if (activeIdx >= 0) {
-            this._expandedStage = stageOrder[activeIdx];
-        }
+        if (activeIdx >= 0) this._expandedStage = stageOrder[activeIdx];
 
-        // Mark stages as skipped if any checkpoint in that stage is skipped and stage is complete
         for (const s of this._stages) {
-            const stageCheckpoints = this._checkpoints.filter(
-                c => c.stage && c.stage.toLowerCase() === s.key
-            );
-            const allSkipped = stageCheckpoints.length > 0 && stageCheckpoints.every(c => c.status === 'skipped');
-            if (allSkipped && s.status === 'complete') {
+            const cps = this._checkpoints.filter(c => c.stage?.toLowerCase() === s.key);
+            if (cps.length > 0 && cps.every(c => c.status === 'skipped') && s.status === 'complete') {
                 s.status = 'skipped';
             }
         }
-
         this.renderPipeline();
-    }
-
-    _getStageIcon(status) {
-        switch (status) {
-            case 'complete': return '<span class="stage-icon complete">&#10003;</span>';
-            case 'active': return '<span class="stage-icon active">&#9673;</span>';
-            case 'skipped': return '<span class="stage-icon skipped">&#8211;</span>';
-            default: return '<span class="stage-icon pending">&#9675;</span>';
-        }
-    }
-
-    _getCheckpointIcon(status) {
-        switch (status) {
-            case 'complete': return '<span class="cp-icon complete">&#10003;</span>';
-            case 'active': return '<span class="cp-icon active">&#9679;</span>';
-            case 'skipped': return '<span class="cp-icon skipped">&#8211;</span>';
-            default: return '<span class="cp-icon pending">&#9675;</span>';
-        }
     }
 
     _handleStageClick(key) {
@@ -87,57 +55,62 @@ class DiagnosticTracker extends HTMLElement {
     }
 
     renderPipeline() {
-        const container = this.shadowRoot.querySelector('.pipeline-body');
-        if (!container) return;
+        const rail = this.shadowRoot.querySelector('.rail');
+        const details = this.shadowRoot.querySelector('.checkpoint-details');
+        if (!rail || !details) return;
 
-        // Render stage indicators
-        const stagesHtml = this._stages.map((s, i) => {
+        // Render rail nodes
+        rail.innerHTML = this._stages.map((s, i) => {
+            const isLast = i === this._stages.length - 1;
+            const nextStatus = !isLast ? this._stages[i + 1].status : 'pending';
+            const lineFill = s.status === 'complete' || s.status === 'skipped' ? 'filled' : '';
             const isExpanded = this._expandedStage === s.key;
-            const stageCheckpoints = this._checkpoints.filter(
-                c => c.stage && c.stage.toLowerCase() === s.key
-            );
-
-            const connector = i < this._stages.length - 1
-                ? `<span class="connector ${this._stages[i + 1].status === 'pending' ? '' : 'filled'}"></span>`
-                : '';
-
-            const checkpointsHtml = stageCheckpoints.length > 0 ? `
-                <div class="checkpoints ${isExpanded ? 'expanded' : ''}">
-                    ${stageCheckpoints.map(cp => `
-                        <div class="checkpoint-item">
-                            ${this._getCheckpointIcon(cp.status)}
-                            <div class="cp-content">
-                                <span class="cp-label">${cp.label}</span>
-                                ${cp.detail ? `<span class="cp-detail">${cp.detail}</span>` : ''}
-                            </div>
-                            ${cp.timestamp ? `<span class="cp-time">${cp.timestamp}</span>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '';
+            const cps = this._checkpoints.filter(c => c.stage?.toLowerCase() === s.key);
+            const doneCount = cps.filter(c => c.status === 'complete').length;
 
             return `
-                <div class="stage-group">
-                    <div class="stage-row">
-                        <button class="stage-btn ${s.status}" data-stage="${s.key}" aria-expanded="${isExpanded}">
-                            ${this._getStageIcon(s.status)}
-                            <span class="stage-label">${s.label}</span>
-                            ${stageCheckpoints.length > 0 ? `<span class="expand-arrow ${isExpanded ? 'open' : ''}">&blacktriangledown;</span>` : ''}
-                        </button>
-                        ${connector}
-                    </div>
-                    ${checkpointsHtml}
+                <div class="step">
+                    <button class="node ${s.status} ${isExpanded ? 'selected' : ''}" data-stage="${s.key}" title="${s.label}">
+                        ${s.status === 'complete' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                        : s.status === 'active' ? `<span class="pulse-dot"></span>`
+                        : s.status === 'skipped' ? '—'
+                        : `<span class="step-num">${i + 1}</span>`}
+                    </button>
+                    <span class="step-label ${s.status}">${s.label}</span>
+                    ${cps.length > 0 ? `<span class="step-count ${s.status}">${doneCount}/${cps.length}</span>` : ''}
                 </div>
+                ${!isLast ? `<div class="connector ${lineFill}"><div class="connector-fill"></div></div>` : ''}
             `;
         }).join('');
 
-        container.innerHTML = stagesHtml;
+        // Render expanded checkpoints
+        const expanded = this._stages.find(s => s.key === this._expandedStage);
+        const cps = expanded ? this._checkpoints.filter(c => c.stage?.toLowerCase() === expanded.key) : [];
+
+        if (cps.length > 0) {
+            details.innerHTML = `
+                <div class="details-header">${expanded.label} Checkpoints</div>
+                <div class="details-list">
+                    ${cps.map(cp => `
+                        <div class="cp-row">
+                            <span class="cp-status ${cp.status}">
+                                ${cp.status === 'complete' ? '✓' : cp.status === 'active' ? '◉' : cp.status === 'skipped' ? '—' : '○'}
+                            </span>
+                            <span class="cp-text">${cp.label}</span>
+                            ${cp.detail ? `<span class="cp-detail">${cp.detail}</span>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            details.classList.add('visible');
+        } else {
+            details.innerHTML = '';
+            details.classList.remove('visible');
+        }
 
         // Attach click handlers
-        container.querySelectorAll('.stage-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this._handleStageClick(btn.dataset.stage);
-            });
+        rail.querySelectorAll('.node').forEach(btn => {
+            btn.addEventListener('click', () => this._handleStageClick(btn.dataset.stage));
         });
     }
 
@@ -150,241 +123,251 @@ class DiagnosticTracker extends HTMLElement {
                     font-family: 'Nunito', system-ui, sans-serif;
                 }
 
-                .panel-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 8px 12px;
-                    border-bottom: 1px solid rgba(255,255,255,0.06);
+                .tracker {
+                    background: var(--color-surface, rgba(255,255,255,0.04));
+                    border: 1px solid rgba(255,255,255,0.06);
+                    border-radius: 14px;
+                    padding: 16px 20px 12px;
                 }
 
-                .panel-title {
-                    font-size: 0.8rem;
-                    font-weight: 700;
+                .tracker-label {
+                    font-size: 0.65rem;
+                    font-weight: 800;
                     text-transform: uppercase;
-                    letter-spacing: 0.05em;
+                    letter-spacing: 0.1em;
                     color: var(--color-accent-secondary, #f0ab00);
+                    margin-bottom: 14px;
                     display: flex;
                     align-items: center;
                     gap: 6px;
                 }
 
-                .pipeline-body {
-                    padding: 12px;
+                .rail {
                     display: flex;
                     align-items: flex-start;
-                    gap: 0;
-                    overflow-x: auto;
+                    justify-content: space-between;
+                    position: relative;
                 }
 
-                .stage-group {
+                .step {
                     display: flex;
                     flex-direction: column;
-                    align-items: flex-start;
+                    align-items: center;
+                    gap: 6px;
+                    position: relative;
+                    z-index: 2;
                     flex-shrink: 0;
                 }
 
-                .stage-row {
-                    display: flex;
-                    align-items: center;
-                }
-
-                .stage-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
+                .node {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    border: 2px solid rgba(255,255,255,0.12);
                     background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(255,255,255,0.06);
-                    border-radius: 10px;
-                    padding: 6px 10px;
-                    color: var(--color-text-main, #eaddcf);
-                    font-family: inherit;
-                    font-size: 0.78rem;
-                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     cursor: pointer;
-                    transition: all 0.2s ease;
-                    white-space: nowrap;
+                    transition: all 0.3s ease;
+                    color: rgba(255,255,255,0.3);
+                    padding: 0;
+                    font-family: inherit;
+                    position: relative;
                 }
 
-                .stage-btn:hover {
+                .node:hover {
                     border-color: var(--color-accent-primary, #4d9ff7);
-                    background: rgba(77, 159, 247, 0.05);
+                    transform: scale(1.1);
                 }
 
-                .stage-btn.active {
+                .node.selected {
+                    transform: scale(1.15);
+                }
+
+                .node.complete {
+                    border-color: #81c784;
+                    background: rgba(129, 199, 132, 0.15);
+                    color: #81c784;
+                    box-shadow: 0 0 12px rgba(129, 199, 132, 0.2);
+                }
+
+                .node.active {
                     border-color: var(--color-accent-primary, #4d9ff7);
-                    background: rgba(77, 159, 247, 0.08);
-                    animation: pulse 2s ease-in-out infinite;
+                    background: rgba(77, 159, 247, 0.12);
+                    color: var(--color-accent-primary, #4d9ff7);
+                    box-shadow: 0 0 16px rgba(77, 159, 247, 0.25);
+                    animation: nodePulse 2.5s ease-in-out infinite;
                 }
 
-                .stage-btn.complete {
-                    border-color: rgba(129, 199, 132, 0.3);
-                    background: rgba(129, 199, 132, 0.05);
+                .node.skipped {
+                    border-color: rgba(240, 171, 0, 0.4);
+                    background: rgba(240, 171, 0, 0.08);
+                    color: #f0ab00;
                 }
 
-                .stage-btn.skipped {
-                    border-color: rgba(240, 171, 0, 0.3);
-                    background: rgba(240, 171, 0, 0.05);
+                @keyframes nodePulse {
+                    0%, 100% { box-shadow: 0 0 8px rgba(77, 159, 247, 0.15); }
+                    50% { box-shadow: 0 0 20px rgba(77, 159, 247, 0.35); }
                 }
 
-                @keyframes pulse {
-                    0%, 100% { box-shadow: 0 0 0 0 rgba(77, 159, 247, 0); }
-                    50% { box-shadow: 0 0 8px 2px rgba(77, 159, 247, 0.15); }
+                .pulse-dot {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--color-accent-primary, #4d9ff7);
+                    animation: dotPulse 1.5s ease-in-out infinite;
                 }
 
-                .stage-icon {
-                    font-size: 0.9rem;
-                    line-height: 1;
-                }
-                .stage-icon.complete { color: #81c784; }
-                .stage-icon.active { color: var(--color-accent-primary, #4d9ff7); }
-                .stage-icon.skipped { color: #f0ab00; }
-                .stage-icon.pending { color: rgba(255,255,255,0.3); }
-
-                .stage-label {
-                    color: var(--color-text-main, #eaddcf);
+                @keyframes dotPulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.5; transform: scale(0.7); }
                 }
 
-                .expand-arrow {
-                    font-size: 0.55rem;
+                .step-num {
+                    font-size: 0.75rem;
+                    font-weight: 700;
                     opacity: 0.4;
-                    transition: transform 0.2s ease;
                 }
-                .expand-arrow.open {
-                    transform: rotate(0deg);
-                    opacity: 0.7;
+
+                .step-label {
+                    font-size: 0.68rem;
+                    font-weight: 700;
+                    color: rgba(255,255,255,0.35);
+                    text-align: center;
+                    white-space: nowrap;
+                    transition: color 0.3s;
                 }
-                .expand-arrow:not(.open) {
-                    transform: rotate(-90deg);
+                .step-label.complete { color: #81c784; }
+                .step-label.active { color: var(--color-accent-primary, #4d9ff7); }
+                .step-label.skipped { color: #f0ab00; }
+
+                .step-count {
+                    font-size: 0.6rem;
+                    font-weight: 700;
+                    opacity: 0.4;
+                    font-family: 'JetBrains Mono', monospace;
                 }
+                .step-count.complete { color: #81c784; opacity: 0.7; }
+                .step-count.active { color: var(--color-accent-primary, #4d9ff7); opacity: 0.7; }
 
                 .connector {
-                    display: inline-block;
-                    width: 20px;
+                    flex: 1;
                     height: 2px;
-                    background: rgba(255,255,255,0.1);
-                    margin: 0 2px;
-                    flex-shrink: 0;
-                }
-                .connector.filled {
-                    background: rgba(129, 199, 132, 0.4);
+                    background: rgba(255,255,255,0.08);
+                    margin-top: 18px;
+                    position: relative;
+                    border-radius: 1px;
+                    overflow: hidden;
+                    min-width: 20px;
                 }
 
-                .checkpoints {
+                .connector-fill {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    width: 0;
+                    background: linear-gradient(90deg, #81c784, rgba(129,199,132,0.3));
+                    border-radius: 1px;
+                    transition: width 0.6s ease;
+                }
+
+                .connector.filled .connector-fill {
+                    width: 100%;
+                }
+
+                /* Checkpoint details dropdown */
+                .checkpoint-details {
                     max-height: 0;
                     overflow: hidden;
-                    transition: max-height 0.3s ease, opacity 0.3s ease;
+                    transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.25s ease;
                     opacity: 0;
                     margin-top: 0;
-                    padding-left: 14px;
                 }
-                .checkpoints.expanded {
-                    max-height: 500px;
+
+                .checkpoint-details.visible {
+                    max-height: 300px;
                     opacity: 1;
-                    margin-top: 6px;
+                    margin-top: 12px;
+                    padding-top: 10px;
+                    border-top: 1px solid rgba(255,255,255,0.06);
                 }
 
-                .checkpoint-item {
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 6px;
-                    padding: 4px 8px;
-                    border-radius: 6px;
-                    margin-bottom: 2px;
-                    font-size: 0.78rem;
-                    animation: slideIn 0.2s ease forwards;
+                .details-header {
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    color: rgba(255,255,255,0.4);
+                    margin-bottom: 8px;
                 }
 
-                .cp-icon {
-                    font-size: 0.7rem;
-                    flex-shrink: 0;
-                    margin-top: 2px;
-                }
-                .cp-icon.complete { color: #81c784; }
-                .cp-icon.active { color: var(--color-accent-primary, #4d9ff7); }
-                .cp-icon.skipped { color: #f0ab00; }
-                .cp-icon.pending { color: rgba(255,255,255,0.3); }
-
-                .cp-content {
+                .details-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 1px;
-                    min-width: 0;
+                    gap: 4px;
                 }
 
-                .cp-label {
+                .cp-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                    font-size: 0.78rem;
+                    transition: background 0.2s;
+                }
+
+                .cp-row:hover {
+                    background: rgba(255,255,255,0.03);
+                }
+
+                .cp-status {
+                    font-size: 0.7rem;
+                    width: 16px;
+                    text-align: center;
+                    flex-shrink: 0;
+                }
+                .cp-status.complete { color: #81c784; }
+                .cp-status.active { color: var(--color-accent-primary, #4d9ff7); }
+                .cp-status.skipped { color: #f0ab00; }
+                .cp-status.pending { color: rgba(255,255,255,0.2); }
+
+                .cp-text {
                     color: var(--color-text-main, #eaddcf);
-                    opacity: 0.85;
+                    opacity: 0.8;
+                    flex: 1;
                 }
 
                 .cp-detail {
-                    font-size: 0.7rem;
-                    color: var(--color-text-main, #eaddcf);
-                    opacity: 0.5;
-                    line-height: 1.3;
-                }
-
-                .cp-time {
-                    font-size: 0.65rem;
-                    opacity: 0.35;
-                    margin-left: auto;
+                    font-size: 0.68rem;
+                    color: var(--color-accent-primary, #4d9ff7);
+                    opacity: 0.6;
+                    font-family: 'JetBrains Mono', monospace;
                     flex-shrink: 0;
+                    max-width: 200px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                     white-space: nowrap;
                 }
 
-                @keyframes slideIn {
-                    from { opacity: 0; transform: translateY(4px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-
-                /* Scrollbar */
-                .pipeline-body::-webkit-scrollbar {
-                    height: 3px;
-                }
-                .pipeline-body::-webkit-scrollbar-thumb {
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 3px;
-                }
-
-                /* Responsive: vertical on mobile */
-                @media (max-width: 767px) {
-                    .pipeline-body {
-                        flex-direction: column;
-                        gap: 0;
-                        overflow-x: visible;
-                    }
-
-                    .stage-row {
-                        flex-direction: column;
-                        align-items: flex-start;
-                    }
-
-                    .connector {
-                        width: 2px;
-                        height: 16px;
-                        margin: 2px 0 2px 16px;
-                    }
-
-                    .stage-btn {
-                        width: 100%;
-                    }
-
-                    .checkpoints {
-                        padding-left: 20px;
-                    }
+                @media (max-width: 600px) {
+                    .step-label { font-size: 0.6rem; }
+                    .node { width: 30px; height: 30px; }
+                    .connector { margin-top: 15px; }
+                    .tracker { padding: 12px 14px 10px; }
                 }
             </style>
-            <div class="panel-header">
-                <span class="panel-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
+            <div class="tracker">
+                <div class="tracker-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                     Diagnostic Progress
-                </span>
+                </div>
+                <div class="rail"></div>
+                <div class="checkpoint-details"></div>
             </div>
-            <div class="pipeline-body"></div>
         `;
-
         this.renderPipeline();
     }
 }

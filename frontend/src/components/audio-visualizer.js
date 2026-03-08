@@ -1,7 +1,10 @@
 /**
- * Audio Visualizer - Exact Immergo guitar-string style
+ * Audio Visualizer - Guitar-string waveform with configurable color
+ * Supports `color` attribute for visual distinction (user vs agent)
  */
 class AudioVisualizer extends HTMLElement {
+    static get observedAttributes() { return ['color']; }
+
     constructor() {
         super();
         this.active = false;
@@ -10,6 +13,16 @@ class AudioVisualizer extends HTMLElement {
         this.source = null;
         this.dataArray = null;
         this.animationId = null;
+        this._color = null;
+    }
+
+    get waveColor() {
+        return this._color || this.getAttribute('color') ||
+            getComputedStyle(document.documentElement).getPropertyValue('--color-accent-primary').trim() || '#4d9ff7';
+    }
+
+    attributeChangedCallback(name, oldVal, newVal) {
+        if (name === 'color') this._color = newVal;
     }
 
     connectedCallback() {
@@ -92,7 +105,7 @@ class AudioVisualizer extends HTMLElement {
         this.ctx.beginPath();
         this.ctx.moveTo(0, height / 2);
         this.ctx.lineTo(width, height / 2);
-        this.ctx.strokeStyle = 'var(--color-accent-primary, #4d9ff7)';
+        this.ctx.strokeStyle = this.waveColor;
         this.ctx.lineWidth = 2;
         this.ctx.globalAlpha = 0.3;
         this.ctx.stroke();
@@ -111,7 +124,7 @@ class AudioVisualizer extends HTMLElement {
 
         ctx.clearRect(0, 0, width, height);
         ctx.lineWidth = 3;
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-primary').trim() || '#4d9ff7';
+        ctx.strokeStyle = this.waveColor;
         ctx.beginPath();
 
         const pointsCount = 20;
