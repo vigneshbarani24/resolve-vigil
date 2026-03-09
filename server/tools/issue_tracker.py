@@ -30,6 +30,16 @@ def create_issue(
     steps_to_reproduce: str = "",
 ) -> str:
     """Log a detected issue from the conversation."""
+    # Guard: prevent duplicate issues with the same title
+    for existing in _SESSION_ISSUES:
+        if existing["title"].lower().strip() == title.lower().strip():
+            logger.warning(f"Duplicate issue blocked — '{title}' already logged as issue #{existing['id']}")
+            return json.dumps({
+                "success": False,
+                "issue": existing,
+                "message": f"Issue #{existing['id']} already logged with title '{title}'. No duplicate created."
+            })
+
     issue = {
         "id": len(_SESSION_ISSUES) + 1,
         "title": title,

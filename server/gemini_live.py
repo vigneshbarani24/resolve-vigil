@@ -72,12 +72,41 @@ class GeminiLive:
                 except Exception as e:
                     logger.warning(f"Error parsing tools config: {e}")
 
+            # Parse realtime_input_config (VAD / activity detection settings)
+            if "realtime_input_config" in setup_config:
+                try:
+                    ric = setup_config["realtime_input_config"]
+                    aad = ric.get("automatic_activity_detection", {})
+                    aad_args = {}
+                    if aad.get("disabled"):
+                        aad_args["disabled"] = True
+                    if "silence_duration_ms" in aad:
+                        aad_args["silence_duration_ms"] = aad["silence_duration_ms"]
+                    if "prefix_padding_ms" in aad:
+                        aad_args["prefix_padding_ms"] = aad["prefix_padding_ms"]
+                    if "start_of_speech_sensitivity" in aad:
+                        aad_args["start_of_speech_sensitivity"] = aad["start_of_speech_sensitivity"]
+                    if "end_of_speech_sensitivity" in aad:
+                        aad_args["end_of_speech_sensitivity"] = aad["end_of_speech_sensitivity"]
+
+                    if aad_args:
+                        config_args["realtime_input_config"] = types.RealtimeInputConfig(
+                            automatic_activity_detection=types.AutomaticActivityDetection(**aad_args)
+                        )
+                        logger.info(f"Applied realtime_input_config: {aad_args}")
+                except Exception as e:
+                    logger.warning(f"Error parsing realtime_input_config: {e}")
+
             if "output_audio_transcription" in setup_config:
                 config_args["output_audio_transcription"] = types.AudioTranscriptionConfig()
             if "input_audio_transcription" in setup_config:
                 config_args["input_audio_transcription"] = types.AudioTranscriptionConfig()
 
         config = types.LiveConnectConfig(**config_args)
+        logger.info(f"LiveConnectConfig created: modalities={config_args.get('response_modalities')}, "
+                     f"proactivity={config_args.get('proactivity')}, "
+                     f"realtime_input={config_args.get('realtime_input_config')}, "
+                     f"tools={len(config_args.get('tools', []))} tool groups")
 
         async with self.client.aio.live.connect(model=self.model, config=config) as session:
             async def send_audio():

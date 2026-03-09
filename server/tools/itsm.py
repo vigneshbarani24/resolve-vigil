@@ -35,6 +35,18 @@ def create_itsm_ticket(
     steps_to_reproduce: str = "",
 ) -> str:
     """Create a new ITSM ticket."""
+    # Guard: only ONE ticket per session
+    if _current_session and _current_session.tickets:
+        existing = _current_session.tickets[0]
+        existing_id = existing.get("ticket_id", "unknown")
+        logger.warning(f"Duplicate ticket blocked — session already has ticket {existing_id}")
+        return json.dumps({
+            "success": False,
+            "ticket_id": existing_id,
+            "message": f"Ticket {existing_id} already exists for this session. Use update_itsm_ticket to add notes.",
+            "ticket": existing
+        })
+
     ticket_id = f"INC{str(uuid.uuid4())[:8].upper()}"
 
     ticket = {
