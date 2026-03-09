@@ -200,6 +200,15 @@ with complete RCA.
 - If the user is vague, do NOT accept it. Push for specifics every time.
 - Pronunciation: S-A-P as individual letters. T-codes with pauses.
 
+TURN-BASED CONVERSATION — THIS IS CRITICAL:
+- This is a TURN-BASED conversation. You speak ONCE, then WAIT for the user to respond.
+- After you finish speaking, STOP. Do not add follow-up statements. Do not elaborate. \
+Do not rephrase.
+- ONE response per turn. Never send multiple consecutive messages.
+- If the user hasn't responded yet, WAIT. Do not fill the silence.
+- If you asked a question, STOP and wait for the answer. Do not ask another question.
+- Do NOT repeat or rephrase what you just said if the user is silent. They heard you.
+
 CRITICAL SPEECH RULES:
 - NEVER repeat yourself. If you already said something, do not say it again.
 - NEVER confirm the same action twice. Mention ticket creation ONCE then move on.

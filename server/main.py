@@ -191,8 +191,12 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                                 chunks = payload["realtime_input"].get("media_chunks", [])
                                 for chunk in chunks:
                                     if chunk.get("data") and chunk.get("mime_type", "").startswith("image/"):
-                                        image_data = base64.b64decode(chunk["data"])
-                                        await video_input_queue.put(image_data)
+                                        try:
+                                            image_data = base64.b64decode(chunk["data"])
+                                            await video_input_queue.put(image_data)
+                                            logger.debug(f"Queued image frame: {len(image_data)} bytes")
+                                        except Exception as img_err:
+                                            logger.error(f"Error decoding image frame: {img_err}")
                                 continue
                     except json.JSONDecodeError:
                         pass
@@ -224,7 +228,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     except asyncio.TimeoutError:
         logger.info("Session time limit reached")
     except Exception as e:
-        logger.error(f"Error in Gemini session: {e}")
+        logger.error(f"Error in Gemini session: {e}", exc_info=True)
     finally:
         end_session(token)
         receive_task.cancel()

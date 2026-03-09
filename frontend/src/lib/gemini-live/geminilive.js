@@ -139,10 +139,10 @@ export class GeminiLiveAPI {
     this.responseModalities = ["AUDIO"];
     this.systemInstructions = "";
     this.googleGrounding = false;
-    this.enableAffectiveDialog = true;
+    this.enableAffectiveDialog = false;
     this.voiceName = "Puck";
-    this.temperature = 1.0;
-    this.proactivity = { proactiveAudio: true };
+    this.temperature = 0.7;
+    this.proactivity = { proactiveAudio: false };
     this.inputAudioTranscription = false;
     this.outputAudioTranscription = false;
     this.enableFunctionCalls = false;
