@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Node
+node_modules/
+# NOTE: dist/ is NOT ignored here — it's needed for Cloud Run deploy
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.egg-info/
+build/
+
+# Large binaries
+*.zip
+ffmpeg.zip
+
+# Generated assets
+outputs/
+.genkit/
+
+# Logs
+logs/
+*.log
+
+# Misc
+*.local
+.pytest_cache/
+
+# Frontend source (not needed in container)
+frontend/node_modules/

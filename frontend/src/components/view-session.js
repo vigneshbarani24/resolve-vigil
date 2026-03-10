@@ -627,7 +627,7 @@ class ViewSession extends HTMLElement {
                         <button class="m-back" id="back-btn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         </button>
-                        <span class="m-title">Resolve</span>
+                        <span class="m-title">Guardian</span>
                         <span class="m-subtitle">Jessica</span>
                     </div>
 
