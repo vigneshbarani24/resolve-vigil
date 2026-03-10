@@ -154,7 +154,7 @@ export class GeminiLiveAPI {
     // Automatic activity detection settings — tuned to prevent multi-response
     this.automaticActivityDetection = {
       disabled: false,
-      silence_duration_ms: 3000,
+      silence_duration_ms: 2000,
       prefix_padding_ms: 500,
       end_of_speech_sensitivity: "END_SENSITIVITY_LOW",
       start_of_speech_sensitivity: "START_SENSITIVITY_LOW",

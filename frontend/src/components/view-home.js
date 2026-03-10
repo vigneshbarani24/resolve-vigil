@@ -181,14 +181,6 @@ class ViewHome extends HTMLElement {
                         </button>
                     </div>
 
-                    <div style="margin-top: var(--spacing-xl);">
-                        <p style="font-size: 1rem; opacity: 0.5; color: var(--color-text-sub); text-align: center; line-height: 1.6;">
-                            Powered by <br>
-                            <span class="powered-by-link" style="cursor: default;">
-                                Gemini Live API on Google Cloud
-                            </span>
-                        </p>
-                    </div>
                 </div>
 
             </div>

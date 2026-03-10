@@ -124,6 +124,17 @@ After the greeting, proceed to triage. Immediately ask for their name, the error
 ABSOLUTE RULE — TURN DISCIPLINE:
 After you finish speaking, you MUST yield the floor. Do NOT generate another response until the user speaks next. One turn = one response = then silence. If you have already spoken in this turn, STOP IMMEDIATELY. Do not add anything else. Do not elaborate. Do not rephrase. Do not ask a follow-up question in the same turn. WAIT for the user.`;
 
+const TOOL_META = {
+    search_knowledge_base:  { label: 'KB Search',      color: '#4d9ff7', icon: '🔍' },
+    lookup_sap_error:       { label: 'Error Lookup',    color: '#e57373', icon: '⚠' },
+    lookup_transaction_code:{ label: 'T-Code Lookup',   color: '#ffb74d', icon: '📋' },
+    diagnose_sap_issue:     { label: 'Diagnosis',       color: '#ba68c8', icon: '🔬' },
+    create_issue:           { label: 'Issue Logged',    color: '#ff8a65', icon: '📌' },
+    create_itsm_ticket:     { label: 'Ticket Created',  color: '#81c784', icon: '🎫' },
+    update_itsm_ticket:     { label: 'Ticket Updated',  color: '#81c784', icon: '✏' },
+    research_sap_topic:     { label: 'Web Research',    color: '#4dd0e1', icon: '🌐' },
+};
+
 class ViewSession extends HTMLElement {
     constructor() {
         super();
@@ -139,460 +150,586 @@ class ViewSession extends HTMLElement {
         this._sessionStartTime = null;
         this._cmdToastTimeout = null;
         this._currentPriority = null;
+        this._toolCallCount = 0;
+        this._pendingUserTranscript = '';
+        this._pendingModelTranscript = '';
+        this._panelOpen = false;
+        this._activeTab = 'activity';
+        this._toolEntries = [];
+        this._logEntries = [];
     }
 
     connectedCallback() {
         this.innerHTML = `
             <style>
-                /* ─── Centered breathing layout ─── */
-                .session-wrap {
+                /* ═══════════════════════════════════════════════════
+                   GUARDIAN — Google Meet-Inspired Layout
+                   Center: Conversation  |  Bottom: Controls
+                   Right panel: On-demand activity/logs
+                   ═══════════════════════════════════════════════════ */
+
+                .m-root {
                     display: flex;
                     flex-direction: column;
-                    min-height: 100vh;
-                    padding: var(--spacing-lg);
-                    padding-bottom: 160px;
-                    max-width: 860px;
-                    margin: 0 auto;
-                    width: 100%;
+                    height: 100vh;
+                    overflow: hidden;
+                    background: var(--color-bg);
                 }
 
-                /* ─── Header ─── */
-                .s-header {
+                /* ─── Top Bar ─── */
+                .m-topbar {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    margin-bottom: var(--spacing-md);
-                    padding-top: var(--spacing-sm);
+                    padding: 0 20px;
+                    height: 56px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid rgba(255,255,255,0.04);
                 }
-
-                .s-header-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 14px;
+                .m-topbar-left {
+                    display: flex; align-items: center; gap: 12px;
                 }
-
-                .s-back {
+                .m-back {
                     background: none; border: none; cursor: pointer;
-                    color: var(--color-text-main); opacity: 0.5;
-                    padding: 6px; border-radius: 50%; display: flex;
-                    transition: opacity 0.2s;
+                    color: var(--color-text-main); opacity: 0.3; padding: 6px;
+                    border-radius: 50%; display: flex; transition: all 0.2s;
+                    width: 36px; height: 36px; align-items: center; justify-content: center;
                 }
-                .s-back:hover { opacity: 1; }
-
-                .s-title-group {
-                    display: flex;
-                    align-items: baseline;
-                    gap: 8px;
+                .m-back:hover { opacity: 0.7; background: rgba(255,255,255,0.05); }
+                .m-title {
+                    font-family: var(--font-heading);
+                    font-size: 1rem; font-weight: 700;
+                    color: var(--color-text-main);
                 }
-
-                .s-title {
-                    font-size: 1.1rem;
-                    font-weight: 800;
-                    letter-spacing: 0.02em;
+                .m-subtitle {
+                    font-size: 0.7rem; color: var(--color-text-sub); opacity: 0.6;
+                    margin-left: 8px; font-weight: 600;
                 }
 
-                .s-subtitle {
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                    color: var(--color-accent-primary, #4d9ff7);
+                .m-topbar-center {
+                    display: flex; align-items: center; gap: 14px;
+                    position: absolute; left: 50%; transform: translateX(-50%);
                 }
-
-                .s-lang {
-                    font-size: 0.65rem;
-                    font-weight: 700;
-                    color: var(--color-accent-secondary, #f0ab00);
-                    background: rgba(240,171,0,0.08);
-                    border: 1px solid rgba(240,171,0,0.15);
-                    padding: 2px 10px;
-                    border-radius: var(--radius-full);
-                    display: none;
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
+                .m-live-dot {
+                    width: 8px; height: 8px; border-radius: 50%;
+                    background: #444; transition: all 0.3s;
                 }
-
-                /* ─── Session Timer + SLA ─── */
-                .s-timer-group {
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
+                .m-live-dot.on {
+                    background: #81c784;
+                    box-shadow: 0 0 10px rgba(129,199,132,0.5);
+                    animation: mPulse 2s ease-in-out infinite;
                 }
-
-                .s-timer {
-                    font-size: 0.7rem;
-                    font-weight: 700;
+                @keyframes mPulse {
+                    0%,100% { box-shadow: 0 0 5px rgba(129,199,132,0.3); }
+                    50% { box-shadow: 0 0 14px rgba(129,199,132,0.7); }
+                }
+                .m-status {
+                    font-size: 0.65rem; font-weight: 700;
+                    text-transform: uppercase; letter-spacing: 0.1em;
+                    color: #555; transition: color 0.3s;
+                }
+                .m-status.on { color: #81c784; }
+                .m-timer {
+                    font-size: 0.8rem; font-weight: 700;
                     font-variant-numeric: tabular-nums;
-                    color: var(--color-text-main, #eaddcf);
-                    opacity: 0.6;
-                    letter-spacing: 0.04em;
-                    display: none;
+                    color: var(--color-text-main); opacity: 0;
+                    transition: opacity 0.3s;
                 }
-                .s-timer.visible { display: inline; }
-
-                .s-sla {
-                    font-size: 0.6rem;
-                    font-weight: 800;
-                    padding: 2px 8px;
-                    border-radius: var(--radius-full);
-                    display: none;
-                    letter-spacing: 0.06em;
+                .m-timer.on { opacity: 0.5; }
+                .m-sla {
+                    font-size: 0.6rem; font-weight: 800;
+                    padding: 2px 10px; border-radius: 20px;
+                    display: none; letter-spacing: 0.06em;
                     text-transform: uppercase;
                 }
-                .s-sla.visible { display: inline; }
-                .s-sla.p1 { background: rgba(229,115,115,0.15); color: #e57373; border: 1px solid rgba(229,115,115,0.3); }
-                .s-sla.p2 { background: rgba(255,183,77,0.15); color: #ffb74d; border: 1px solid rgba(255,183,77,0.3); }
-                .s-sla.p3 { background: rgba(129,199,132,0.15); color: #81c784; border: 1px solid rgba(129,199,132,0.3); }
+                .m-sla.visible { display: inline-flex; }
+                .m-sla.p1 { background: rgba(229,115,115,0.12); color: #e57373; border: 1px solid rgba(229,115,115,0.2); }
+                .m-sla.p2 { background: rgba(255,183,77,0.12); color: #ffb74d; border: 1px solid rgba(255,183,77,0.2); }
+                .m-sla.p3 { background: rgba(129,199,132,0.12); color: #81c784; border: 1px solid rgba(129,199,132,0.2); }
 
-                /* ─── T-code Command Overlay ─── */
-                .s-cmd-toast {
-                    position: fixed;
-                    top: 80px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    z-index: 50;
-                    background: rgba(77,159,247,0.12);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(77,159,247,0.25);
-                    border-radius: 12px;
-                    padding: 10px 20px;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    animation: cmdSlideIn 0.3s ease;
-                    max-width: 400px;
-                    pointer-events: auto;
+                .m-topbar-right {
+                    display: flex; align-items: center; gap: 8px;
                 }
-                .s-cmd-toast .cmd-label {
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 0.08em;
-                    color: var(--color-accent-primary, #4d9ff7);
-                    opacity: 0.7;
-                }
-                .s-cmd-toast .cmd-code {
-                    font-size: 1.1rem;
-                    font-weight: 800;
-                    color: var(--color-text-main, #eaddcf);
+                .m-lang {
+                    font-size: 0.6rem; font-weight: 700;
+                    color: var(--color-accent-secondary);
+                    background: rgba(240,171,0,0.06);
+                    border: 1px solid rgba(240,171,0,0.1);
+                    padding: 2px 10px; border-radius: 20px;
+                    display: none; text-transform: uppercase;
                     letter-spacing: 0.06em;
                 }
-                .s-cmd-toast .cmd-copy {
-                    background: rgba(255,255,255,0.08);
-                    border: 1px solid rgba(255,255,255,0.12);
-                    border-radius: 6px;
-                    color: var(--color-text-main, #eaddcf);
-                    cursor: pointer;
-                    font-size: 0.65rem;
-                    font-weight: 700;
-                    padding: 4px 10px;
-                    transition: all 0.2s;
-                }
-                .s-cmd-toast .cmd-copy:hover {
-                    background: rgba(77,159,247,0.15);
-                    border-color: rgba(77,159,247,0.3);
-                }
-                @keyframes cmdSlideIn {
-                    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
 
-                /* ─── Diagnostic tracker ─── */
-                .s-tracker {
-                    margin-bottom: var(--spacing-md);
-                }
-
-                /* ─── Screen share — hidden until active ─── */
-                .s-screen {
-                    display: none;
-                    margin-bottom: var(--spacing-md);
-                    animation: fadeSlideIn 0.3s ease;
-                }
-                .s-screen.visible { display: block; }
-
-                .s-screen-box {
-                    width: 100%;
-                    aspect-ratio: 16/9;
-                    border-radius: var(--radius-lg);
-                    overflow: hidden;
-                    background: rgba(0,0,0,0.25);
-                    border: 1px solid rgba(255,255,255,0.06);
+                /* ─── Main Content ─── */
+                .m-body {
+                    flex: 1;
                     display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    min-height: 0;
                     position: relative;
                 }
-                .s-screen-box video, .s-screen-box img {
+
+                /* Center conversation area */
+                .m-center {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    position: relative;
+                }
+
+                .m-conversation {
+                    flex: 1;
+                    min-height: 0;
+                    overflow: hidden;
+                    padding: 0 24px;
+                }
+                .m-conversation live-transcript {
+                    display: block; height: 100%;
+                }
+
+                /* Screen share preview */
+                .m-screen-bar {
+                    display: none;
+                    padding: 10px 24px;
+                    border-top: 1px solid rgba(255,255,255,0.04);
+                    flex-shrink: 0;
+                }
+                .m-screen-bar.visible { display: block; }
+                .m-screen-box {
+                    max-width: 420px; aspect-ratio: 16/9;
+                    border-radius: 12px; overflow: hidden;
+                    background: rgba(0,0,0,0.3);
+                    border: 1px solid rgba(255,255,255,0.06);
+                }
+                .m-screen-box video, .m-screen-box img {
                     width: 100%; height: 100%; object-fit: contain;
                 }
 
-                /* ─── Transcript — main focus ─── */
-                .s-transcript {
-                    flex: 1;
-                    min-height: 200px;
-                    margin-bottom: var(--spacing-md);
-                }
-
-                /* ─── Floating panels — appear on demand ─── */
-                .s-panels {
+                /* ─── Bottom Controls (Google Meet style) ─── */
+                .m-controls {
                     display: flex;
-                    gap: var(--spacing-sm);
-                    margin-bottom: var(--spacing-md);
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                    padding: 16px 24px;
+                    border-top: 1px solid rgba(255,255,255,0.04);
+                    flex-shrink: 0;
+                    position: relative;
                 }
 
-                .s-panel-slot {
-                    flex: 1;
-                    min-width: 0;
-                    display: none;
-                    animation: fadeSlideIn 0.35s ease;
+                /* Round control buttons */
+                .m-ctrl-btn {
+                    width: 48px; height: 48px;
+                    border-radius: 50%;
+                    border: none;
+                    display: flex; align-items: center; justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.19, 1, 0.22, 1);
+                    position: relative;
+                    background: rgba(255,255,255,0.08);
+                    color: var(--color-text-main);
                 }
-                .s-panel-slot.visible { display: block; }
+                .m-ctrl-btn:hover {
+                    background: rgba(255,255,255,0.14);
+                    transform: scale(1.05);
+                }
+                .m-ctrl-btn:disabled {
+                    opacity: 0.25; cursor: default;
+                    transform: none !important;
+                }
+                .m-ctrl-btn:disabled:hover {
+                    background: rgba(255,255,255,0.08);
+                }
+                .m-ctrl-btn.active-share {
+                    background: rgba(229,115,115,0.15);
+                    color: #e57373;
+                }
+                .m-ctrl-btn svg { flex-shrink: 0; }
 
-                @keyframes fadeSlideIn {
-                    from { opacity: 0; transform: translateY(8px); }
-                    to { opacity: 1; transform: translateY(0); }
+                /* Tooltip */
+                .m-ctrl-btn .m-tip {
+                    position: absolute; bottom: calc(100% + 8px);
+                    left: 50%; transform: translateX(-50%);
+                    background: rgba(0,0,0,0.85); color: #fff;
+                    font-size: 0.65rem; font-weight: 600;
+                    padding: 4px 10px; border-radius: 6px;
+                    white-space: nowrap; pointer-events: none;
+                    opacity: 0; transition: opacity 0.15s;
+                }
+                .m-ctrl-btn:hover .m-tip { opacity: 1; }
+
+                /* The big mic/end button */
+                .m-mic-btn {
+                    width: 56px; height: 56px;
+                    border-radius: 50%;
+                    border: none;
+                    background: var(--color-accent-primary);
+                    color: #fff;
+                    display: flex; align-items: center; justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+                    box-shadow: 0 4px 20px rgba(77,159,247,0.3);
+                }
+                .m-mic-btn:hover {
+                    transform: scale(1.08);
+                    box-shadow: 0 6px 28px rgba(77,159,247,0.45);
+                }
+                .m-mic-btn.active {
+                    background: #ea4335;
+                    box-shadow: 0 4px 20px rgba(234,67,53,0.35);
+                }
+                .m-mic-btn.active:hover {
+                    box-shadow: 0 6px 28px rgba(234,67,53,0.5);
                 }
 
-                /* ─── Bottom bar — fixed ─── */
-                .s-bottom {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    z-index: 20;
-                    background: linear-gradient(transparent, var(--color-bg) 25%);
-                    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg);
+                /* Divider between left/right groups */
+                .m-ctrl-divider {
+                    width: 1px; height: 28px;
+                    background: rgba(255,255,255,0.06);
+                    margin: 0 6px;
                 }
 
-                .s-bottom-inner {
-                    max-width: 860px;
-                    margin: 0 auto;
+                /* Visualizers in control bar */
+                .m-viz-pair {
+                    display: flex; align-items: center; gap: 10px;
+                }
+                .m-viz-slot {
+                    display: flex; flex-direction: column;
+                    align-items: center; gap: 1px; width: 70px;
+                }
+                .m-viz-slot audio-visualizer { width: 100%; height: 30px; }
+                .m-viz-tag {
+                    font-size: 0.5rem; font-weight: 800;
+                    text-transform: uppercase; letter-spacing: 0.1em;
+                    opacity: 0.4;
+                }
+                .m-viz-tag.you { color: #81c784; }
+                .m-viz-tag.jess { color: var(--color-accent-primary); }
+
+                /* Panel toggle badge */
+                .m-badge {
+                    position: absolute; top: -4px; right: -4px;
+                    min-width: 16px; height: 16px;
+                    border-radius: 8px;
+                    background: var(--color-accent-primary);
+                    color: #fff; font-size: 0.55rem; font-weight: 800;
+                    display: none; align-items: center; justify-content: center;
+                    padding: 0 4px;
+                }
+                .m-badge.visible { display: flex; }
+
+                /* Right controls group (panel toggles) */
+                .m-right-controls {
+                    position: absolute; right: 24px;
+                    display: flex; align-items: center; gap: 8px;
+                }
+
+                /* ═══ Side Panel (slides in like GMeet) ═══ */
+                .m-panel {
+                    width: 0;
+                    overflow: hidden;
+                    transition: width 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+                    border-left: 1px solid transparent;
                     display: flex;
                     flex-direction: column;
-                    align-items: center;
-                    gap: 8px;
-                }
-
-                /* Visualizer row */
-                .s-viz-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 16px;
-                    width: 100%;
-                    max-width: 600px;
-                }
-
-                .s-viz-side {
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 3px;
-                    min-width: 0;
-                }
-
-                .s-viz-side audio-visualizer {
-                    width: 100%;
-                    height: 44px;
-                }
-
-                .s-viz-label {
-                    font-size: 0.58rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 0.14em;
-                    opacity: 0.7;
-                }
-                .s-viz-label.you { color: #81c784; }
-                .s-viz-label.jessica { color: var(--color-accent-primary, #4d9ff7); }
-
-                /* CTA */
-                .s-cta {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 6px;
                     flex-shrink: 0;
                 }
+                .m-panel.open {
+                    width: 380px;
+                    border-left-color: rgba(255,255,255,0.05);
+                }
 
-                .s-cta-btn {
-                    padding: 14px 36px;
-                    border-radius: var(--radius-full, 9999px);
-                    border: none;
-                    background: var(--color-accent-primary, #4d9ff7);
-                    color: #fff;
-                    cursor: pointer;
-                    font-family: inherit;
-                    font-size: 0.95rem;
-                    font-weight: 800;
-                    letter-spacing: 0.04em;
-                    transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
-                    white-space: nowrap;
-                    box-shadow: 0 4px 16px rgba(77,159,247,0.25);
+                .m-panel-inner {
+                    width: 380px;
                     display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-                .s-cta-btn:hover {
-                    transform: translateY(-2px) scale(1.03);
-                    box-shadow: 0 8px 24px rgba(77,159,247,0.35);
-                    filter: brightness(1.1);
-                }
-                .s-cta-btn.active {
-                    background: var(--color-danger, #e57373);
-                    box-shadow: 0 4px 16px rgba(229,115,115,0.3);
-                }
-                .s-cta-btn.active:hover {
-                    box-shadow: 0 8px 24px rgba(229,115,115,0.4);
+                    flex-direction: column;
+                    height: 100%;
+                    min-height: 0;
                 }
 
-                .s-status {
-                    font-size: 0.65rem;
-                    font-weight: 700;
-                    letter-spacing: 0.05em;
-                    text-transform: uppercase;
-                    height: 1em;
-                    transition: all 0.3s;
-                }
-
-                /* ─── Action chips — screen share / screenshot ─── */
-                .s-actions {
+                /* Panel header with tabs */
+                .m-panel-header {
                     display: flex;
-                    gap: 8px;
-                    justify-content: center;
-                    margin-bottom: var(--spacing-sm);
-                    flex-wrap: wrap;
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                    flex-shrink: 0;
                 }
-
-                .s-chip {
-                    padding: 6px 14px;
-                    font-size: 0.75rem;
+                .m-tab {
+                    flex: 1;
+                    padding: 12px 0;
+                    font-size: 0.72rem;
                     font-weight: 700;
-                    border-radius: var(--radius-full);
-                    background: rgba(255,255,255,0.04);
-                    color: var(--color-text-main);
-                    border: 1px solid rgba(255,255,255,0.1);
+                    text-align: center;
+                    color: var(--color-text-sub);
                     cursor: pointer;
+                    border-bottom: 2px solid transparent;
                     transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    background: none; border-top: none; border-left: none; border-right: none;
+                    font-family: inherit;
                 }
-                .s-chip:hover {
-                    opacity: 1;
-                    background: rgba(77,159,247,0.08);
-                    border-color: rgba(77,159,247,0.2);
+                .m-tab:hover { color: var(--color-text-main); }
+                .m-tab.active {
                     color: var(--color-accent-primary);
-                }
-                .s-chip:disabled { opacity: 0.3; cursor: default; }
-                .s-chip:disabled:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); color: var(--color-text-main); }
-                .s-chip.active-share {
-                    background: rgba(229,115,115,0.1);
-                    border-color: rgba(229,115,115,0.3);
-                    color: var(--color-danger);
-                    opacity: 1;
+                    border-bottom-color: var(--color-accent-primary);
                 }
 
-                @media (max-width: 600px) {
-                    .session-wrap { padding: var(--spacing-sm); }
-                    .s-viz-row { max-width: 100%; gap: 10px; }
-                    .s-cta-btn { width: 48px; height: 48px; }
-                    .s-panels { flex-direction: column; }
+                /* Panel content */
+                .m-panel-body {
+                    flex: 1; overflow-y: auto; min-height: 0;
+                    padding: 12px;
                 }
+                .m-panel-section { display: none; }
+                .m-panel-section.active { display: block; }
+
+                /* ─── Activity Tab (Tool Calls) ─── */
+                .m-tool-entry {
+                    display: flex; align-items: flex-start; gap: 10px;
+                    padding: 10px 12px;
+                    border-radius: 10px;
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.04);
+                    margin-bottom: 8px;
+                    animation: mSlideIn 0.3s ease;
+                }
+                @keyframes mSlideIn {
+                    from { opacity: 0; transform: translateX(10px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                .m-tool-pip {
+                    width: 4px; height: 100%; min-height: 32px;
+                    border-radius: 2px; flex-shrink: 0;
+                }
+                .m-tool-body { flex: 1; min-width: 0; }
+                .m-tool-head {
+                    display: flex; align-items: center; justify-content: space-between;
+                    margin-bottom: 4px;
+                }
+                .m-tool-name {
+                    font-size: 0.75rem; font-weight: 700;
+                    display: flex; align-items: center; gap: 6px;
+                }
+                .m-tool-time {
+                    font-size: 0.6rem; opacity: 0.35;
+                    font-variant-numeric: tabular-nums;
+                }
+                .m-tool-args {
+                    font-size: 0.68rem; color: var(--color-text-sub);
+                    opacity: 0.6; line-height: 1.4;
+                    word-break: break-word;
+                }
+                .m-tool-result {
+                    font-size: 0.65rem; color: #81c784;
+                    margin-top: 4px; opacity: 0.7;
+                }
+                .m-empty {
+                    text-align: center; padding: 40px 20px;
+                    color: var(--color-text-sub); opacity: 0.3;
+                    font-size: 0.85rem;
+                }
+
+                /* ─── Transcript Tab ─── */
+                .m-tx-entry {
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    margin-bottom: 6px;
+                    font-size: 0.78rem;
+                    line-height: 1.5;
+                    animation: mSlideIn 0.3s ease;
+                }
+                .m-tx-entry.user {
+                    background: rgba(240,171,0,0.04);
+                    border-left: 3px solid rgba(240,171,0,0.3);
+                }
+                .m-tx-entry.model {
+                    background: rgba(77,159,247,0.04);
+                    border-left: 3px solid rgba(77,159,247,0.3);
+                }
+                .m-tx-head {
+                    display: flex; align-items: center; justify-content: space-between;
+                    margin-bottom: 2px;
+                }
+                .m-tx-role {
+                    font-size: 0.6rem; font-weight: 800;
+                    text-transform: uppercase; letter-spacing: 0.08em;
+                    opacity: 0.5;
+                }
+                .m-tx-time {
+                    font-size: 0.55rem; opacity: 0.3;
+                    font-variant-numeric: tabular-nums;
+                }
+                .m-tx-text {
+                    color: var(--color-text-main); opacity: 0.8;
+                }
+
+                /* ─── Logs Tab ─── */
+                .m-log-entry {
+                    font-family: 'JetBrains Mono', 'Courier New', monospace;
+                    font-size: 0.62rem;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    margin-bottom: 3px;
+                    color: var(--color-text-sub);
+                    opacity: 0.7;
+                    line-height: 1.5;
+                    word-break: break-all;
+                    animation: mSlideIn 0.2s ease;
+                }
+                .m-log-entry .hl { color: var(--color-accent-primary); font-weight: 700; }
+                .m-log-entry .val { color: var(--color-accent-secondary); }
+                .m-log-entry .key { color: #ba68c8; }
+                .m-log-entry .err { color: #e57373; }
+                .m-log-entry.tool { border-left: 2px solid #ba68c8; }
+                .m-log-entry.ws { border-left: 2px solid var(--color-accent-primary); }
+                .m-log-entry.error { border-left: 2px solid #e57373; }
+                .m-log-entry.event { border-left: 2px solid var(--color-accent-secondary); }
+                .m-log-entry.info { border-left: 2px solid #4dd0e1; }
+
+                /* ─── T-code Toast ─── */
+                .m-cmd-toast {
+                    position: fixed; top: 64px; left: 50%;
+                    transform: translateX(-50%); z-index: 100;
+                    background: rgba(77,159,247,0.1);
+                    backdrop-filter: blur(16px);
+                    border: 1px solid rgba(77,159,247,0.2);
+                    border-radius: 12px; padding: 8px 18px;
+                    display: flex; align-items: center; gap: 12px;
+                    animation: cmdIn 0.3s ease;
+                }
+                .m-cmd-toast .cmd-label { font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-accent-primary); opacity: 0.7; }
+                .m-cmd-toast .cmd-code { font-size: 1rem; font-weight: 800; color: var(--color-text-main); letter-spacing: 0.06em; }
+                .m-cmd-toast .cmd-copy { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-main); cursor: pointer; font-size: 0.58rem; font-weight: 700; padding: 3px 9px; transition: all 0.2s; }
+                .m-cmd-toast .cmd-copy:hover { background: rgba(77,159,247,0.12); }
+                @keyframes cmdIn { from { opacity:0; transform: translateX(-50%) translateY(-8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+                /* ─── Mobile ─── */
+                @media (max-width: 768px) {
+                    .m-topbar-center { display: none; }
+                    .m-panel.open { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; background: var(--color-bg); }
+                    .m-panel-inner { width: 100%; }
+                    .m-controls { padding: 12px 16px; gap: 8px; }
+                    .m-mic-btn { width: 48px; height: 48px; }
+                    .m-ctrl-btn { width: 40px; height: 40px; }
+                    .m-right-controls { position: static; }
+                    .m-controls { flex-wrap: wrap; justify-content: center; }
+                }
+
+                /* Scrollbar in panel */
+                .m-panel-body::-webkit-scrollbar { width: 3px; }
+                .m-panel-body::-webkit-scrollbar-track { background: transparent; }
+                .m-panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
             </style>
 
-            <div class="session-wrap">
-                <!-- Header -->
-                <div class="s-header">
-                    <div class="s-header-left">
-                        <button class="s-back" id="back-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            <div class="m-root">
+                <!-- Top Bar -->
+                <div class="m-topbar">
+                    <div class="m-topbar-left">
+                        <button class="m-back" id="back-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        </button>
+                        <span class="m-title">Guardian</span>
+                        <span class="m-subtitle">Jessica</span>
+                    </div>
+
+                    <div class="m-topbar-center">
+                        <span class="m-live-dot" id="live-dot"></span>
+                        <span class="m-status" id="connection-status">Offline</span>
+                        <span class="m-timer" id="session-timer">00:00</span>
+                        <span class="m-sla" id="sla-badge"></span>
+                    </div>
+
+                    <div class="m-topbar-right">
+                        <span class="m-lang" id="lang-pill"></span>
+                    </div>
+                </div>
+
+                <!-- Main Body -->
+                <div class="m-body">
+                    <!-- Center: Conversation -->
+                    <div class="m-center">
+                        <div class="m-conversation">
+                            <live-transcript id="transcript"></live-transcript>
+                        </div>
+                        <div class="m-screen-bar" id="screen-section">
+                            <div class="m-screen-box" id="screen-preview-box"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel (slides in on demand) -->
+                    <div class="m-panel" id="side-panel">
+                        <div class="m-panel-inner">
+                            <div class="m-panel-header">
+                                <button class="m-tab active" data-tab="activity">Activity</button>
+                                <button class="m-tab" data-tab="transcript">Transcript</button>
+                                <button class="m-tab" data-tab="logs">Logs</button>
+                            </div>
+                            <div class="m-panel-body">
+                                <div class="m-panel-section active" id="tab-activity">
+                                    <div class="m-empty" id="activity-empty">Agent activity will appear here</div>
+                                </div>
+                                <div class="m-panel-section" id="tab-transcript">
+                                    <div class="m-empty" id="transcript-empty">Conversation transcript will appear here</div>
+                                </div>
+                                <div class="m-panel-section" id="tab-logs">
+                                    <div class="m-empty" id="logs-empty">System logs will appear here</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Controls (Google Meet style) -->
+                <div class="m-controls">
+                    <!-- Left group: Media controls -->
+                    <button class="m-ctrl-btn" id="screen-share-btn" disabled>
+                        <span class="m-tip">Share Screen</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </button>
+                    <button class="m-ctrl-btn" id="screenshot-btn" disabled>
+                        <span class="m-tip">Paste Image</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </button>
+
+                    <div class="m-ctrl-divider"></div>
+
+                    <!-- Center: Viz + Mic -->
+                    <div class="m-viz-pair">
+                        <div class="m-viz-slot">
+                            <audio-visualizer id="user-viz" color="#81c784"></audio-visualizer>
+                            <span class="m-viz-tag you">You</span>
+                        </div>
+
+                        <button class="m-mic-btn" id="mic-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
                             </svg>
                         </button>
-                        <div class="s-title-group">
-                            <span class="s-title">Guardian</span>
-                            <span class="s-subtitle">Jessica</span>
-                        </div>
-                    </div>
-                    <div class="s-timer-group">
-                        <span class="s-timer" id="session-timer">00:00</span>
-                        <span class="s-sla" id="sla-badge"></span>
-                        <span class="s-lang" id="lang-pill"></span>
-                    </div>
-                </div>
 
-                <!-- Diagnostic tracker -->
-                <div class="s-tracker">
-                    <diagnostic-tracker id="diagnostic-tracker"></diagnostic-tracker>
-                </div>
-
-                <!-- Action chips -->
-                <div class="s-actions">
-                    <button class="s-chip" id="screen-share-btn" disabled>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                            <line x1="8" y1="21" x2="16" y2="21"/>
-                            <line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                        Share Screen
-                    </button>
-                    <button class="s-chip" id="screenshot-btn" disabled title="Upload image or paste from clipboard (Ctrl+V)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                        Screenshot / Paste
-                    </button>
-                </div>
-
-                <!-- Screen share — only visible when sharing -->
-                <div class="s-screen" id="screen-section">
-                    <div class="s-screen-box" id="screen-preview-box">
-                    </div>
-                </div>
-
-                <!-- Transcript -->
-                <div class="s-transcript">
-                    <live-transcript id="transcript"></live-transcript>
-                </div>
-
-                <!-- Floating panels — appear when data arrives -->
-                <div class="s-panels">
-                    <div class="s-panel-slot" id="guidance-slot">
-                        <agent-guidance id="agent-guidance"></agent-guidance>
-                    </div>
-                    <div class="s-panel-slot" id="issues-slot">
-                        <issue-panel id="issue-panel"></issue-panel>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Fixed bottom bar -->
-            <div class="s-bottom">
-                <div class="s-bottom-inner">
-                    <div class="s-viz-row">
-                        <div class="s-viz-side">
-                            <span class="s-viz-label you">You</span>
-                            <audio-visualizer id="user-viz" color="#81c784"></audio-visualizer>
-                        </div>
-
-                        <div class="s-cta">
-                            <button class="s-cta-btn" id="mic-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                                    <line x1="12" y1="19" x2="12" y2="23"/>
-                                    <line x1="8" y1="23" x2="16" y2="23"/>
-                                </svg>
-                                Start Session
-                            </button>
-                            <span class="s-status" id="connection-status"></span>
-                        </div>
-
-                        <div class="s-viz-side">
-                            <span class="s-viz-label jessica">Jessica</span>
+                        <div class="m-viz-slot">
                             <audio-visualizer id="model-viz" color="#4d9ff7"></audio-visualizer>
+                            <span class="m-viz-tag jess">Jessica</span>
                         </div>
+                    </div>
+
+                    <div class="m-ctrl-divider"></div>
+
+                    <!-- Right group: Panel toggles -->
+                    <div class="m-right-controls">
+                        <button class="m-ctrl-btn" id="toggle-activity-btn">
+                            <span class="m-tip">Activity</span>
+                            <span class="m-badge" id="tool-badge">0</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        </button>
+                        <button class="m-ctrl-btn" id="toggle-transcript-btn">
+                            <span class="m-tip">Transcript</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </button>
+                        <button class="m-ctrl-btn" id="toggle-logs-btn">
+                            <span class="m-tip">Logs</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -605,9 +742,7 @@ class ViewSession extends HTMLElement {
 
     disconnectedCallback() {
         this.cleanup();
-        if (this._pasteHandler) {
-            document.removeEventListener('paste', this._pasteHandler);
-        }
+        if (this._pasteHandler) document.removeEventListener('paste', this._pasteHandler);
     }
 
     bindEvents() {
@@ -620,23 +755,14 @@ class ViewSession extends HTMLElement {
 
         backBtn.addEventListener('click', () => {
             this.cleanup();
-            this.dispatchEvent(new CustomEvent('navigate', {
-                bubbles: true,
-                detail: { view: 'home' }
-            }));
+            this.dispatchEvent(new CustomEvent('navigate', { bubbles: true, detail: { view: 'home' } }));
         });
 
-        // Mic / Session toggle
         micBtn.addEventListener('click', async () => {
             this.isSpeaking = !this.isSpeaking;
-
             if (this.isSpeaking) {
                 micBtn.classList.add('active');
-                micBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="6" y="6" width="12" height="12" rx="1"/>
-                    </svg>
-                    End Session`;
+                micBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
                 await this.startSession(statusEl);
             } else {
                 micBtn.classList.remove('active');
@@ -644,14 +770,21 @@ class ViewSession extends HTMLElement {
             }
         });
 
-        // Screen share toggle
         screenShareBtn.addEventListener('click', () => this.toggleScreenShare());
-
-        // Screenshot upload
         screenshotBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => this.handleScreenshotUpload(e));
 
-        // Clipboard paste (Ctrl+V / Cmd+V anywhere on page)
+        // Panel toggle buttons
+        this.querySelector('#toggle-activity-btn').addEventListener('click', () => this._togglePanel('activity'));
+        this.querySelector('#toggle-transcript-btn').addEventListener('click', () => this._togglePanel('transcript'));
+        this.querySelector('#toggle-logs-btn').addEventListener('click', () => this._togglePanel('logs'));
+
+        // Tab switching
+        this.querySelectorAll('.m-tab').forEach(tab => {
+            tab.addEventListener('click', () => this._switchTab(tab.dataset.tab));
+        });
+
+        // Paste handler
         this._pasteHandler = (e) => {
             if (!this._isSessionConnected) return;
             const items = e.clipboardData?.items;
@@ -674,12 +807,101 @@ class ViewSession extends HTMLElement {
         document.addEventListener('paste', this._pasteHandler);
     }
 
+    _togglePanel(tab) {
+        const panel = this.querySelector('#side-panel');
+        if (this._panelOpen && this._activeTab === tab) {
+            panel.classList.remove('open');
+            this._panelOpen = false;
+        } else {
+            panel.classList.add('open');
+            this._panelOpen = true;
+            this._switchTab(tab);
+        }
+    }
+
+    _switchTab(tab) {
+        this._activeTab = tab;
+        this.querySelectorAll('.m-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+        this.querySelectorAll('.m-panel-section').forEach(s => s.classList.remove('active'));
+        this.querySelector(`#tab-${tab}`)?.classList.add('active');
+    }
+
+    // ─── Panel data methods ───
+    _addToolEntry(name, args, result, meta, time) {
+        this._toolCallCount++;
+        const badge = this.querySelector('#tool-badge');
+        badge.textContent = this._toolCallCount;
+        badge.classList.add('visible');
+
+        const container = this.querySelector('#tab-activity');
+        const empty = this.querySelector('#activity-empty');
+        if (empty) empty.remove();
+
+        const argsStr = JSON.stringify(args || {}).slice(0, 120);
+        let resultStr = '';
+        if (result) {
+            try {
+                const r = typeof result === 'string' ? JSON.parse(result) : result;
+                if (r.title) resultStr = r.title;
+                else if (r.ticket_id) resultStr = `Ticket ${r.ticket_id}`;
+                else if (r.source_count) resultStr = `${r.source_count} sources found`;
+                else resultStr = JSON.stringify(r).slice(0, 60);
+            } catch { resultStr = String(result).slice(0, 60); }
+        }
+
+        const entry = document.createElement('div');
+        entry.className = 'm-tool-entry';
+        entry.innerHTML = `
+            <div class="m-tool-pip" style="background:${meta.color}"></div>
+            <div class="m-tool-body">
+                <div class="m-tool-head">
+                    <span class="m-tool-name" style="color:${meta.color}">${meta.icon || ''} ${meta.label}</span>
+                    <span class="m-tool-time">${time}</span>
+                </div>
+                <div class="m-tool-args">${argsStr}</div>
+                ${resultStr ? `<div class="m-tool-result">${resultStr}</div>` : ''}
+            </div>
+        `;
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    _addTranscriptEntry(role, text, time) {
+        const container = this.querySelector('#tab-transcript');
+        const empty = this.querySelector('#transcript-empty');
+        if (empty) empty.remove();
+
+        const entry = document.createElement('div');
+        entry.className = `m-tx-entry ${role}`;
+        entry.innerHTML = `
+            <div class="m-tx-head">
+                <span class="m-tx-role">${role === 'user' ? 'You' : 'Jessica'}</span>
+                <span class="m-tx-time">${time}</span>
+            </div>
+            <div class="m-tx-text">${text}</div>
+        `;
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    _addLogEntry(type, html) {
+        const container = this.querySelector('#tab-logs');
+        const empty = this.querySelector('#logs-empty');
+        if (empty) empty.remove();
+
+        const entry = document.createElement('div');
+        entry.className = `m-log-entry ${type}`;
+        entry.innerHTML = html;
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ─── Session lifecycle ───
     async startSession(statusEl) {
         try {
-            statusEl.textContent = 'Connecting...';
-            statusEl.style.color = 'var(--color-text-sub)';
+            statusEl.textContent = 'Connecting';
+            statusEl.classList.remove('on');
 
-            // Initialize client
             const language = this.getAttribute('language') || 'English';
             let systemPrompt = SAP_SYSTEM_PROMPT;
             if (language && language !== 'English') {
@@ -691,315 +913,253 @@ class ViewSession extends HTMLElement {
             this.geminiClient.setOutputAudioTranscription(true);
             this.geminiClient.setVoice('Kore');
             this.geminiClient.setResponseModalities(['AUDIO']);
-
             this.geminiClient.setEnableFunctionCalls(true);
 
-            this.geminiClient.onReceiveResponse = (response) => {
-                this.handleResponse(response);
-            };
-
+            this.geminiClient.onReceiveResponse = (r) => this.handleResponse(r);
             this.geminiClient.onConnectionStarted = () => {
-                console.log('Connection started');
+                this._addLogEntry('ws', '<span class="hl">WS_OPEN</span> WebSocket session established');
             };
-
-            this.geminiClient.onError = (error) => {
-                console.error('Gemini error:', error);
+            this.geminiClient.onError = (e) => {
+                console.error('Gemini error:', e);
+                this._addLogEntry('error', `<span class="hl">WS_ERROR</span> <span class="err">${e?.message || e}</span>`);
             };
-
             this.geminiClient.onClose = () => {
-                console.log('Connection closed');
+                this._addLogEntry('ws', '<span class="hl">WS_CLOSE</span> WebSocket disconnected');
             };
 
             await this.geminiClient.connect('', language);
 
-            // Audio player
             this.audioPlayer = new AudioPlayer();
             await this.audioPlayer.init();
-
-            // Audio streamer
             this.audioStreamer = new AudioStreamer(this.geminiClient);
             await this.audioStreamer.start();
 
-            // Connect visualizers
             const userViz = this.querySelector('#user-viz');
             const modelViz = this.querySelector('#model-viz');
-
-            if (this.audioStreamer.audioContext && this.audioStreamer.source) {
-                userViz.connect(this.audioStreamer.audioContext, this.audioStreamer.source);
-            }
-
-            if (this.audioPlayer.audioContext && this.audioPlayer.gainNode) {
-                modelViz.connect(this.audioPlayer.audioContext, this.audioPlayer.gainNode);
-            }
+            if (this.audioStreamer.audioContext && this.audioStreamer.source) userViz.connect(this.audioStreamer.audioContext, this.audioStreamer.source);
+            if (this.audioPlayer.audioContext && this.audioPlayer.gainNode) modelViz.connect(this.audioPlayer.audioContext, this.audioPlayer.gainNode);
 
             this._isSessionConnected = true;
             this.sessionToken = this.geminiClient.sessionToken;
+            this._toolCallCount = 0;
+
             statusEl.textContent = 'Live';
-            statusEl.style.color = '#81c784';
+            statusEl.classList.add('on');
+            this.querySelector('#live-dot').classList.add('on');
+            this.querySelector('#session-timer').classList.add('on');
 
-            // Start session timer
             this._sessionStartTime = Date.now();
-            const timerEl = this.querySelector('#session-timer');
-            if (timerEl) {
-                timerEl.classList.add('visible');
-                this._timerInterval = setInterval(() => {
-                    const elapsed = Math.floor((Date.now() - this._sessionStartTime) / 1000);
-                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-                    const secs = String(elapsed % 60).padStart(2, '0');
-                    timerEl.textContent = `${mins}:${secs}`;
-                }, 1000);
+            this._timerInterval = setInterval(() => {
+                const el = Math.floor((Date.now() - this._sessionStartTime) / 1000);
+                this.querySelector('#session-timer').textContent = `${String(Math.floor(el/60)).padStart(2,'0')}:${String(el%60).padStart(2,'0')}`;
+            }, 1000);
+
+            if (language !== 'English') {
+                const pill = this.querySelector('#lang-pill');
+                if (pill) { pill.style.display = ''; pill.textContent = language; }
             }
 
-            // Show language badge if non-English
-            const lang = this.getAttribute('language') || 'English';
-            if (lang !== 'English') {
-                const langPill = this.querySelector('#lang-pill');
-                if (langPill) { langPill.style.display = ''; langPill.textContent = lang; }
-            }
-
-            // Enable action chips
             this.querySelector('#screen-share-btn').disabled = false;
             this.querySelector('#screenshot-btn').disabled = false;
-
-            // Clear transcript
             this.querySelector('#transcript').clear();
+
+            this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> model=<span class="val">gemini-live-2.5-flash</span> voice=<span class="val">Kore</span>`);
 
         } catch (err) {
             console.error('Failed to start:', err);
             this.isSpeaking = false;
-
             const micBtn = this.querySelector('#mic-btn');
             micBtn.classList.remove('active');
             this._resetMicBtn(micBtn);
-
             statusEl.textContent = err.status === 429 ? 'Rate limited' : 'Failed';
-            statusEl.style.color = '#e57373';
+            statusEl.classList.remove('on');
         }
+    }
+
+    _flushTranscriptsToPanel() {
+        if (this._pendingUserTranscript.trim()) {
+            const text = this._pendingUserTranscript.trim();
+            this._addTranscriptEntry('user', text, this._elapsed());
+            this._addLogEntry('ws', `<span class="hl">INPUT_TRANSCRIPTION</span> <span class="val">${this._escapeForLog(text)}</span>`);
+            this._pendingUserTranscript = '';
+        }
+        if (this._pendingModelTranscript.trim()) {
+            const text = this._pendingModelTranscript.trim();
+            this._addTranscriptEntry('model', text, this._elapsed());
+            this._addLogEntry('ws', `<span class="hl">OUTPUT_TRANSCRIPTION</span> <span class="val">${this._escapeForLog(text)}</span>`);
+            this._pendingModelTranscript = '';
+        }
+    }
+
+    _escapeForLog(str) {
+        const d = document.createElement('div');
+        d.textContent = str.length > 100 ? str.slice(0, 100) + '...' : str;
+        return d.innerHTML;
     }
 
     handleResponse(response) {
         switch (response.type) {
             case MultimodalLiveResponseType.AUDIO:
-                if (this.audioPlayer) {
-                    this.audioPlayer.play(response.data);
-                }
-                // Show speaking indicator when audio is streaming
+                if (this.audioPlayer) this.audioPlayer.play(response.data);
                 this.querySelector('#transcript').showSpeaking();
                 break;
-
             case MultimodalLiveResponseType.INPUT_TRANSCRIPTION:
-                if (response.data && response.data.text) {
-                    this.querySelector('#transcript').addInputTranscript(
-                        response.data.text, response.data.finished
-                    );
+                if (response.data?.text) {
+                    this.querySelector('#transcript').addInputTranscript(response.data.text, response.data.finished);
+                    this._pendingUserTranscript += response.data.text;
                 }
                 break;
-
             case MultimodalLiveResponseType.OUTPUT_TRANSCRIPTION:
-                if (response.data && response.data.text) {
-                    this.querySelector('#transcript').addOutputTranscript(
-                        response.data.text, response.data.finished
-                    );
-                    // Detect T-code mentions and show command overlay
+                if (response.data?.text) {
+                    this.querySelector('#transcript').addOutputTranscript(response.data.text, response.data.finished);
                     this._detectTcodeCommand(response.data.text);
+                    this._pendingModelTranscript += response.data.text;
                 }
                 break;
-
             case MultimodalLiveResponseType.INTERRUPTED:
                 if (this.audioPlayer) this.audioPlayer.interrupt();
                 this.querySelector('#transcript').finalizeAll();
+                this._flushTranscriptsToPanel();
+                this._addLogEntry('event', '<span class="hl">INTERRUPTED</span> User cut off model response');
                 break;
-
             case MultimodalLiveResponseType.TURN_COMPLETE:
                 this.querySelector('#transcript').finalizeAll();
+                this._flushTranscriptsToPanel();
+                this._addLogEntry('debug', 'TURN_COMPLETE');
                 break;
-
             case MultimodalLiveResponseType.TOOL_CALL:
-                if (response.data && response.data.functionCalls) {
+                if (response.data?.functionCalls) {
                     for (const fc of response.data.functionCalls) {
                         this.geminiClient.callFunction(fc.name, fc.args);
                         this.geminiClient.sendToolResponse(fc.id, { result: 'success' });
+                        this._addLogEntry('tool', `<span class="hl">CLIENT_TOOL_CALL</span> <span class="key">${fc.name}</span>(${JSON.stringify(fc.args).slice(0, 80)})`);
                     }
                 }
                 break;
-
             case MultimodalLiveResponseType.SERVER_TOOL_CALL:
                 this.querySelector('#transcript').showThinking();
                 this.handleServerToolEvent(response.data);
+                {
+                    const meta = TOOL_META[response.data.name] || { label: response.data.name, color: '#888', icon: '' };
+                    this._addToolEntry(response.data.name, response.data.args, response.data.result, meta, this._elapsed());
+                    const argsSnippet = JSON.stringify(response.data.args || {}).slice(0, 80);
+                    this._addLogEntry('tool', `<span class="hl">SERVER_TOOL_CALL</span> <span class="key">${response.data.name}</span>(${argsSnippet})`);
+                }
                 break;
-
             case 'SESSION_STATE':
                 this.handleSessionState(response.data);
+                this._addLogEntry('info', `<span class="hl">SESSION_STATE</span> stage=<span class="val">${response.data?.stage || 'n/a'}</span> checkpoints=<span class="val">${response.data?.checkpoints?.length || 0}</span>`);
                 break;
-
             default:
-                console.log('Response:', response.type);
+                this._addLogEntry('debug', `<span class="hl">UNKNOWN</span> type=<span class="val">${response.type}</span>`);
         }
+    }
+
+    _elapsed() {
+        if (!this._sessionStartTime) return '';
+        const s = Math.floor((Date.now() - this._sessionStartTime) / 1000);
+        return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
     }
 
     handleSessionState(state) {
-        // Update diagnostic tracker
-        const tracker = this.querySelector('#diagnostic-tracker');
-        if (tracker && tracker.updateFromState) {
-            tracker.updateFromState(state);
+        if (state.tickets?.length > 0) {
+            const t = state.tickets[state.tickets.length - 1];
+            if (t.severity) this._updateSLA(t.severity.toUpperCase());
+        } else if (state.issues?.length > 0) {
+            const i = state.issues[state.issues.length - 1];
+            if (i.severity) this._updateSLA(i.severity.toUpperCase());
         }
-
-        // Update agent guidance — show panel on demand
-        const guidance = this.querySelector('#agent-guidance');
-        const guidanceSlot = this.querySelector('#guidance-slot');
-        if (guidance && state.agent_guidance && state.agent_guidance.length > 0 && guidance.setGuidance) {
-            guidance.setGuidance(state.agent_guidance);
-            if (guidanceSlot) guidanceSlot.classList.add('visible');
-        }
-
-        // Detect priority from tickets/issues and update SLA badge
-        if (state.tickets && state.tickets.length > 0) {
-            const ticket = state.tickets[state.tickets.length - 1];
-            if (ticket.severity) this._updateSLA(ticket.severity.toUpperCase());
-        } else if (state.issues && state.issues.length > 0) {
-            const issue = state.issues[state.issues.length - 1];
-            if (issue.severity) this._updateSLA(issue.severity.toUpperCase());
-        }
-
-        // Store session token for summary navigation
-        if (state.session_id && !this.sessionToken) {
-            this.sessionToken = state.session_id;
-        }
+        if (state.session_id && !this.sessionToken) this.sessionToken = state.session_id;
     }
 
     handleServerToolEvent(event) {
-        const name = event.name;
-        const args = event.args || {};
-        const result = event.result;
-
-        console.log(`Server tool event: ${name}`, args, result);
-
+        const { name, args = {}, result } = event;
         switch (name) {
             case 'create_issue': {
-                const issuePanel = this.querySelector('#issue-panel');
-                const issuesSlot = this.querySelector('#issues-slot');
-                if (issuePanel) {
-                    let issueData = result ? (typeof result === 'string' ? JSON.parse(result) : result) : args;
-                    if (issueData.issue) issueData = issueData.issue;
-                    if (!issueData.title && args.title) issueData = args;
-                    issuePanel.addIssue(issueData);
-                    // Show issues panel on demand
-                    if (issuesSlot) issuesSlot.classList.add('visible');
+                const panel = this.querySelector('#issue-panel');
+                const slot = this.querySelector('#issues-slot');
+                if (panel) {
+                    let d = result ? (typeof result === 'string' ? JSON.parse(result) : result) : args;
+                    if (d.issue) d = d.issue;
+                    if (!d.title && args.title) d = args;
+                    panel.addIssue(d);
+                    if (slot) slot.classList.add('visible');
                 }
                 break;
             }
             case 'create_itsm_ticket': {
-                const transcript = this.querySelector('#transcript');
-                if (transcript && result) {
-                    const ticketInfo = typeof result === 'string' ? JSON.parse(result) : result;
-                    if (ticketInfo.ticket_id) {
-                        transcript.addOutputTranscript(
-                            `[Ticket ${ticketInfo.ticket_id} created]`, true
-                        );
-                    }
+                if (result) {
+                    const info = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (info.ticket_id) this.querySelector('#transcript')?.addOutputTranscript(`[Ticket ${info.ticket_id} created]`, true);
                 }
                 break;
             }
             case 'research_sap_topic': {
-                const transcript = this.querySelector('#transcript');
-                if (transcript && result) {
-                    const searchResult = typeof result === 'string' ? JSON.parse(result) : result;
-                    if (searchResult.success && searchResult.source_count > 0) {
-                        transcript.addOutputTranscript(
-                            `[Researched: ${searchResult.source_count} web sources found]`, true
-                        );
-                    }
+                if (result) {
+                    const r = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (r.success && r.source_count > 0) this.querySelector('#transcript')?.addOutputTranscript(`[Researched: ${r.source_count} web sources]`, true);
                 }
                 break;
             }
-            case 'search_knowledge_base':
-            case 'lookup_sap_error':
-            case 'lookup_transaction_code':
-            case 'diagnose_sap_issue':
-                break;
-            default:
-                console.log('Unhandled server tool:', name);
         }
     }
 
     async toggleScreenShare() {
         const btn = this.querySelector('#screen-share-btn');
-        const screenSection = this.querySelector('#screen-section');
-        const previewBox = this.querySelector('#screen-preview-box');
+        const section = this.querySelector('#screen-section');
+        const box = this.querySelector('#screen-preview-box');
 
         if (this.isScreenSharing) {
-            if (this.screenCapture) {
-                this.screenCapture.stop();
-                this.screenCapture = null;
-            }
+            if (this.screenCapture) { this.screenCapture.stop(); this.screenCapture = null; }
             this.isScreenSharing = false;
-            previewBox.innerHTML = '';
-            screenSection.classList.remove('visible');
-            btn.textContent = 'Share Screen';
+            box.innerHTML = '';
+            section.classList.remove('visible');
             btn.classList.remove('active-share');
         } else {
             try {
                 this.screenCapture = new ScreenCapture(this.geminiClient);
                 this.screenCapture.onStop = () => {
                     this.isScreenSharing = false;
-                    previewBox.innerHTML = '';
-                    screenSection.classList.remove('visible');
-                    btn.textContent = 'Share Screen';
+                    box.innerHTML = '';
+                    section.classList.remove('visible');
                     btn.classList.remove('active-share');
                 };
-
-                const videoElement = await this.screenCapture.start({
-                    fps: 1, width: 1280, height: 720, quality: 0.7,
-                });
-
+                const vid = await this.screenCapture.start({ fps: 1, width: 1280, height: 720, quality: 0.7 });
                 this.isScreenSharing = true;
-                videoElement.style.width = '100%';
-                videoElement.style.height = '100%';
-                videoElement.style.objectFit = 'contain';
-                previewBox.appendChild(videoElement);
-                screenSection.classList.add('visible');
-
-                btn.textContent = 'Stop Sharing';
+                vid.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                box.appendChild(vid);
+                section.classList.add('visible');
                 btn.classList.add('active-share');
-            } catch (error) {
-                console.error('Screen share failed:', error);
-            }
+            } catch (e) { console.error('Screen share failed:', e); }
         }
     }
 
-    _sendImageToServer(base64Data) {
-        // Send image in the format the server expects: {"type": "image", "data": "<base64>"}
-        if (this.geminiClient && this.geminiClient.connected) {
-            this.geminiClient.sendMessage({ type: 'image', data: base64Data });
-        }
+    _sendImageToServer(b64) {
+        if (this.geminiClient?.connected) this.geminiClient.sendMessage({ type: 'image', data: b64 });
     }
 
     _showImagePreview(dataUrl) {
-        const previewBox = this.querySelector('#screen-preview-box');
-        const screenSection = this.querySelector('#screen-section');
-
+        const box = this.querySelector('#screen-preview-box');
+        const section = this.querySelector('#screen-section');
         const img = document.createElement('img');
         img.src = dataUrl;
-        img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
-
-        const existing = previewBox.querySelector('img, video');
+        img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+        const existing = box.querySelector('img, video');
         if (existing) existing.remove();
-        previewBox.appendChild(img);
-        screenSection.classList.add('visible');
+        box.appendChild(img);
+        section.classList.add('visible');
     }
 
-    handleScreenshotUpload(event) {
-        const file = event.target.files[0];
+    handleScreenshotUpload(e) {
+        const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64 = e.target.result.split(',')[1];
-            this._sendImageToServer(base64);
-            this._showImagePreview(e.target.result);
+        reader.onload = (ev) => {
+            this._sendImageToServer(ev.target.result.split(',')[1]);
+            this._showImagePreview(ev.target.result);
         };
         reader.readAsDataURL(file);
-        event.target.value = '';
+        e.target.value = '';
     }
 
     endSession() {
@@ -1008,149 +1168,71 @@ class ViewSession extends HTMLElement {
         this.isSpeaking = false;
 
         const micBtn = this.querySelector('#mic-btn');
-        if (micBtn) {
-            micBtn.classList.remove('active');
-            this._resetMicBtn(micBtn);
-        }
+        if (micBtn) { micBtn.classList.remove('active'); this._resetMicBtn(micBtn); }
 
         const statusEl = this.querySelector('#connection-status');
-        if (statusEl) statusEl.textContent = '';
+        if (statusEl) { statusEl.textContent = 'Ended'; statusEl.classList.remove('on'); }
+        this.querySelector('#live-dot')?.classList.remove('on');
 
-        // Stop session timer
-        if (this._timerInterval) {
-            clearInterval(this._timerInterval);
-            this._timerInterval = null;
-        }
+        if (this._timerInterval) { clearInterval(this._timerInterval); this._timerInterval = null; }
 
-        const userViz = this.querySelector('#user-viz');
-        const modelViz = this.querySelector('#model-viz');
-        if (userViz) userViz.disconnect();
-        if (modelViz) modelViz.disconnect();
+        this.querySelector('#user-viz')?.disconnect();
+        this.querySelector('#model-viz')?.disconnect();
+        this.querySelector('#screen-share-btn').disabled = true;
+        this.querySelector('#screenshot-btn').disabled = true;
+        this.querySelector('#transcript')?.finalizeAll();
 
-        // Disable action chips
-        const screenBtn = this.querySelector('#screen-share-btn');
-        const ssBtn = this.querySelector('#screenshot-btn');
-        if (screenBtn) screenBtn.disabled = true;
-        if (ssBtn) ssBtn.disabled = true;
-
-        // Finalize transcript
-        const transcript = this.querySelector('#transcript');
-        if (transcript) transcript.finalizeAll();
-
-        // Navigate to summary view
         if (this.sessionToken) {
             const token = this.sessionToken;
             setTimeout(() => {
-                this.dispatchEvent(new CustomEvent('navigate', {
-                    bubbles: true,
-                    detail: { view: 'summary', token }
-                }));
+                this.dispatchEvent(new CustomEvent('navigate', { bubbles: true, detail: { view: 'summary', token } }));
             }, 1500);
         }
     }
 
     _resetMicBtn(btn) {
-        btn.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-                <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            Start Session`;
+        btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
     }
 
     _detectTcodeCommand(text) {
-        // Match SAP T-code patterns: 2+ uppercase letters followed by digits (e.g. SU53, SM12, VA01, ME21N)
-        const tcodePattern = /\b([A-Z]{2,4}\d{1,3}[A-Z]?)\b/g;
-        const matches = text.match(tcodePattern);
-        if (!matches) return;
-
-        for (const tcode of matches) {
-            // Filter out common false positives
-            if (['THE', 'AND', 'FOR', 'NOT', 'YOU', 'ARE', 'HAS', 'WAS', 'MAX'].includes(tcode)) continue;
-            this._showCmdToast(tcode);
-            break; // Show one at a time
+        const m = text.match(/\b([A-Z]{2,4}\d{1,3}[A-Z]?)\b/g);
+        if (!m) return;
+        for (const t of m) {
+            if (['THE','AND','FOR','NOT','YOU','ARE','HAS','WAS','MAX'].includes(t)) continue;
+            this._showCmdToast(t);
+            break;
         }
     }
 
     _showCmdToast(tcode) {
-        // Remove existing toast
-        const existing = document.querySelector('.s-cmd-toast');
-        if (existing) existing.remove();
+        document.querySelector('.m-cmd-toast')?.remove();
         if (this._cmdToastTimeout) clearTimeout(this._cmdToastTimeout);
-
         const toast = document.createElement('div');
-        toast.className = 's-cmd-toast';
-        toast.innerHTML = `
-            <div>
-                <span class="cmd-label">Jessica says: Run</span>
-                <span class="cmd-code">${tcode}</span>
-            </div>
-            <button class="cmd-copy" onclick="navigator.clipboard.writeText('${tcode}');this.textContent='Copied!'">Copy</button>
-        `;
+        toast.className = 'm-cmd-toast';
+        toast.innerHTML = `<div><span class="cmd-label">Run</span> <span class="cmd-code">${tcode}</span></div><button class="cmd-copy" onclick="navigator.clipboard.writeText('${tcode}');this.textContent='Copied!'">Copy</button>`;
         document.body.appendChild(toast);
-
-        this._cmdToastTimeout = setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.3s';
-            setTimeout(() => toast.remove(), 300);
-        }, 6000);
+        this._cmdToastTimeout = setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, 6000);
     }
 
-    _updateSLA(priority) {
-        const badge = this.querySelector('#sla-badge');
-        if (!badge) return;
-
-        this._currentPriority = priority;
-        badge.className = 's-sla visible';
-
-        switch (priority) {
-            case 'P1':
-                badge.classList.add('p1');
-                badge.textContent = 'P1 · SLA 15min';
-                break;
-            case 'P2':
-                badge.classList.add('p2');
-                badge.textContent = 'P2 · SLA 1hr';
-                break;
-            case 'P3':
-                badge.classList.add('p3');
-                badge.textContent = 'P3 · SLA 4hr';
-                break;
-            default:
-                badge.classList.remove('visible');
-        }
+    _updateSLA(p) {
+        const b = this.querySelector('#sla-badge');
+        if (!b) return;
+        this._currentPriority = p;
+        b.className = 'm-sla visible';
+        if (p === 'P1') { b.classList.add('p1'); b.textContent = 'P1 \u00b7 15min SLA'; }
+        else if (p === 'P2') { b.classList.add('p2'); b.textContent = 'P2 \u00b7 1hr SLA'; }
+        else if (p === 'P3') { b.classList.add('p3'); b.textContent = 'P3 \u00b7 4hr SLA'; }
+        else b.classList.remove('visible');
     }
 
     cleanup() {
-        if (this._timerInterval) {
-            clearInterval(this._timerInterval);
-            this._timerInterval = null;
-        }
-        if (this._cmdToastTimeout) {
-            clearTimeout(this._cmdToastTimeout);
-            this._cmdToastTimeout = null;
-        }
-        const toast = document.querySelector('.s-cmd-toast');
-        if (toast) toast.remove();
-        if (this.audioStreamer) {
-            this.audioStreamer.stop();
-            this.audioStreamer = null;
-        }
-        if (this.audioPlayer) {
-            this.audioPlayer.destroy();
-            this.audioPlayer = null;
-        }
-        if (this.screenCapture) {
-            this.screenCapture.stop();
-            this.screenCapture = null;
-            this.isScreenSharing = false;
-        }
-        if (this.geminiClient) {
-            this.geminiClient.disconnect();
-            this.geminiClient = null;
-        }
+        if (this._timerInterval) { clearInterval(this._timerInterval); this._timerInterval = null; }
+        if (this._cmdToastTimeout) { clearTimeout(this._cmdToastTimeout); this._cmdToastTimeout = null; }
+        document.querySelector('.m-cmd-toast')?.remove();
+        if (this.audioStreamer) { this.audioStreamer.stop(); this.audioStreamer = null; }
+        if (this.audioPlayer) { this.audioPlayer.destroy(); this.audioPlayer = null; }
+        if (this.screenCapture) { this.screenCapture.stop(); this.screenCapture = null; this.isScreenSharing = false; }
+        if (this.geminiClient) { this.geminiClient.disconnect(); this.geminiClient = null; }
     }
 }
 
