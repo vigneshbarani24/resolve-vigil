@@ -157,13 +157,18 @@ class ViewSession extends HTMLElement {
         this._activeTab = 'activity';
         this._toolEntries = [];
         this._logEntries = [];
+        // Insights state
+        this._summaryPoints = [];
+        this._currentSentiment = 'neutral';
+        this._sentimentHistory = [];
+        this._detectedInfo = { user: null, module: null, tcode: null, error: null, issue: null };
     }
 
     connectedCallback() {
         this.innerHTML = `
             <style>
                 /* ═══════════════════════════════════════════════════
-                   GUARDIAN — Google Meet-Inspired Layout
+                   GUARDIAN — Split Layout
                    Center: Conversation  |  Bottom: Controls
                    Right panel: On-demand activity/logs
                    ═══════════════════════════════════════════════════ */
@@ -305,7 +310,7 @@ class ViewSession extends HTMLElement {
                     width: 100%; height: 100%; object-fit: contain;
                 }
 
-                /* ─── Bottom Controls (Google Meet style) ─── */
+                /* ─── Bottom Controls (Controls bar) ─── */
                 .m-controls {
                     display: flex;
                     align-items: center;
@@ -624,6 +629,176 @@ class ViewSession extends HTMLElement {
                 .m-panel-body::-webkit-scrollbar { width: 3px; }
                 .m-panel-body::-webkit-scrollbar-track { background: transparent; }
                 .m-panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+                /* ─── Sentiment Indicator (topbar) ─── */
+                .m-sentiment {
+                    font-size: 0.6rem; font-weight: 800;
+                    padding: 2px 10px; border-radius: 20px;
+                    display: none; letter-spacing: 0.06em;
+                    text-transform: uppercase;
+                    transition: all 0.3s;
+                }
+                .m-sentiment.visible { display: inline-flex; align-items: center; gap: 4px; }
+                .m-sentiment.calm { background: rgba(129,199,132,0.12); color: #81c784; border: 1px solid rgba(129,199,132,0.2); }
+                .m-sentiment.frustrated { background: rgba(229,115,115,0.12); color: #e57373; border: 1px solid rgba(229,115,115,0.2); }
+                .m-sentiment.confused { background: rgba(255,183,77,0.12); color: #ffb74d; border: 1px solid rgba(255,183,77,0.2); }
+                .m-sentiment.neutral { background: rgba(255,255,255,0.06); color: var(--color-text-sub); border: 1px solid rgba(255,255,255,0.08); }
+                .m-sentiment.urgent { background: rgba(186,104,200,0.12); color: #ba68c8; border: 1px solid rgba(186,104,200,0.2); }
+
+                /* ─── Insights Tab ─── */
+                .m-insight-section {
+                    margin-bottom: 16px;
+                }
+                .m-insight-label {
+                    font-size: 0.6rem; font-weight: 800;
+                    text-transform: uppercase; letter-spacing: 0.1em;
+                    color: var(--color-text-sub); opacity: 0.5;
+                    margin-bottom: 8px;
+                }
+                .m-summary-point {
+                    display: flex; align-items: flex-start; gap: 8px;
+                    padding: 8px 10px;
+                    border-radius: 8px;
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.04);
+                    margin-bottom: 6px;
+                    font-size: 0.75rem;
+                    line-height: 1.4;
+                    color: var(--color-text-main);
+                    animation: mSlideIn 0.3s ease;
+                }
+                .m-summary-icon {
+                    flex-shrink: 0; font-size: 0.85rem; margin-top: 1px;
+                }
+                .m-info-grid {
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+                }
+                .m-info-card {
+                    padding: 8px 10px;
+                    border-radius: 8px;
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.04);
+                }
+                .m-info-card-label {
+                    font-size: 0.55rem; font-weight: 800;
+                    text-transform: uppercase; letter-spacing: 0.08em;
+                    color: var(--color-text-sub); opacity: 0.5;
+                    margin-bottom: 2px;
+                }
+                .m-info-card-value {
+                    font-size: 0.8rem; font-weight: 700;
+                    color: var(--color-text-main);
+                }
+                .m-info-card-value.empty { opacity: 0.2; }
+                .m-sentiment-timeline {
+                    display: flex; gap: 3px; align-items: flex-end;
+                    height: 24px; padding: 4px 0;
+                }
+                .m-sentiment-bar {
+                    flex: 1; min-width: 3px; max-width: 8px;
+                    border-radius: 2px; transition: height 0.3s;
+                }
+                .m-sentiment-bar.calm { background: #81c784; }
+                .m-sentiment-bar.frustrated { background: #e57373; }
+                .m-sentiment-bar.confused { background: #ffb74d; }
+                .m-sentiment-bar.neutral { background: rgba(255,255,255,0.15); }
+                .m-sentiment-bar.urgent { background: #ba68c8; }
+
+                /* ─── CSAT Overlay ─── */
+                .m-csat-overlay {
+                    position: fixed; inset: 0; z-index: 200;
+                    background: rgba(0,0,0,0.7);
+                    backdrop-filter: blur(8px);
+                    display: flex; align-items: center; justify-content: center;
+                    animation: fadeIn 0.3s ease;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; } to { opacity: 1; }
+                }
+                .m-csat-card {
+                    background: var(--color-surface-solid, #161822);
+                    border: 1px solid rgba(128,128,128,0.15);
+                    border-radius: 20px;
+                    padding: 32px 40px;
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    animation: csatIn 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+                }
+                @keyframes csatIn {
+                    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                .m-csat-title {
+                    font-family: var(--font-heading);
+                    font-size: 1.2rem; font-weight: 700;
+                    margin-bottom: 4px; color: var(--color-text-main);
+                }
+                .m-csat-sub {
+                    font-size: 0.8rem; color: var(--color-text-sub);
+                    margin-bottom: 24px; opacity: 0.7;
+                }
+                .m-csat-stars {
+                    display: flex; justify-content: center; gap: 8px;
+                    margin-bottom: 20px;
+                }
+                .m-csat-star {
+                    width: 44px; height: 44px;
+                    border-radius: 50%;
+                    border: 2px solid rgba(128,128,128,0.25);
+                    background: transparent;
+                    cursor: pointer;
+                    font-size: 1.3rem;
+                    display: flex; align-items: center; justify-content: center;
+                    transition: all 0.2s;
+                    color: rgba(128,128,128,0.4);
+                }
+                .m-csat-star:hover, .m-csat-star.active {
+                    border-color: #f0ab00;
+                    background: rgba(240,171,0,0.12);
+                    color: #f0ab00;
+                    transform: scale(1.1);
+                }
+                .m-csat-label {
+                    font-size: 0.7rem; font-weight: 700;
+                    color: var(--color-text-sub); opacity: 0.5;
+                    margin-bottom: 16px; min-height: 18px;
+                }
+                .m-csat-comment {
+                    width: 100%;
+                    padding: 10px 14px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(128,128,128,0.2);
+                    background: rgba(128,128,128,0.05);
+                    color: var(--color-text-main);
+                    font-family: inherit;
+                    font-size: 0.82rem;
+                    resize: none;
+                    outline: none;
+                    margin-bottom: 16px;
+                    transition: border-color 0.2s;
+                }
+                .m-csat-comment:focus { border-color: var(--color-accent-primary); }
+                .m-csat-comment::placeholder { color: var(--color-text-sub); opacity: 0.3; }
+                .m-csat-submit {
+                    padding: 10px 32px;
+                    border-radius: 9999px;
+                    border: none;
+                    background: var(--color-accent-primary);
+                    color: #fff;
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-family: inherit;
+                }
+                .m-csat-submit:hover { transform: scale(1.03); filter: brightness(1.1); }
+                .m-csat-skip {
+                    background: none; border: none; color: var(--color-text-sub);
+                    font-size: 0.72rem; cursor: pointer; margin-top: 10px;
+                    opacity: 0.4; font-family: inherit;
+                }
+                .m-csat-skip:hover { opacity: 0.7; }
             </style>
 
             <div class="m-root">
@@ -642,6 +817,7 @@ class ViewSession extends HTMLElement {
                         <span class="m-status" id="connection-status">Offline</span>
                         <span class="m-timer" id="session-timer">00:00</span>
                         <span class="m-sla" id="sla-badge"></span>
+                        <span class="m-sentiment" id="sentiment-badge"></span>
                     </div>
 
                     <div class="m-topbar-right">
@@ -666,12 +842,32 @@ class ViewSession extends HTMLElement {
                         <div class="m-panel-inner">
                             <div class="m-panel-header">
                                 <button class="m-tab active" data-tab="activity">Activity</button>
+                                <button class="m-tab" data-tab="insights">Insights</button>
                                 <button class="m-tab" data-tab="transcript">Transcript</button>
                                 <button class="m-tab" data-tab="logs">Logs</button>
                             </div>
                             <div class="m-panel-body">
                                 <div class="m-panel-section active" id="tab-activity">
                                     <div class="m-empty" id="activity-empty">Agent activity will appear here</div>
+                                </div>
+                                <div class="m-panel-section" id="tab-insights">
+                                    <div class="m-insight-section">
+                                        <div class="m-insight-label">Detected Info</div>
+                                        <div class="m-info-grid" id="info-grid">
+                                            <div class="m-info-card"><div class="m-info-card-label">User</div><div class="m-info-card-value empty" id="info-user">—</div></div>
+                                            <div class="m-info-card"><div class="m-info-card-label">Module</div><div class="m-info-card-value empty" id="info-module">—</div></div>
+                                            <div class="m-info-card"><div class="m-info-card-label">T-Code</div><div class="m-info-card-value empty" id="info-tcode">—</div></div>
+                                            <div class="m-info-card"><div class="m-info-card-label">Error</div><div class="m-info-card-value empty" id="info-error">—</div></div>
+                                        </div>
+                                    </div>
+                                    <div class="m-insight-section">
+                                        <div class="m-insight-label">User Sentiment</div>
+                                        <div class="m-sentiment-timeline" id="sentiment-timeline"></div>
+                                    </div>
+                                    <div class="m-insight-section">
+                                        <div class="m-insight-label">Live Summary</div>
+                                        <div id="summary-feed"><div class="m-empty" id="summary-empty">Summary will build as conversation progresses</div></div>
+                                    </div>
                                 </div>
                                 <div class="m-panel-section" id="tab-transcript">
                                     <div class="m-empty" id="transcript-empty">Conversation transcript will appear here</div>
@@ -684,7 +880,7 @@ class ViewSession extends HTMLElement {
                     </div>
                 </div>
 
-                <!-- Bottom Controls (Google Meet style) -->
+                <!-- Bottom Controls (Controls bar) -->
                 <div class="m-controls">
                     <!-- Left group -->
                     <div style="display:flex;align-items:center;gap:8px;flex:1;">
@@ -738,6 +934,10 @@ class ViewSession extends HTMLElement {
                             <span class="m-tip">Activity</span>
                             <span class="m-badge" id="tool-badge">0</span>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        </button>
+                        <button class="m-ctrl-btn" id="toggle-insights-btn">
+                            <span class="m-tip">Insights</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                         </button>
                         <button class="m-ctrl-btn" id="toggle-transcript-btn">
                             <span class="m-tip">Transcript</span>
@@ -796,6 +996,7 @@ class ViewSession extends HTMLElement {
 
         // Panel toggle buttons
         this.querySelector('#toggle-activity-btn').addEventListener('click', () => this._togglePanel('activity'));
+        this.querySelector('#toggle-insights-btn').addEventListener('click', () => this._togglePanel('insights'));
         this.querySelector('#toggle-transcript-btn').addEventListener('click', () => this._togglePanel('transcript'));
         this.querySelector('#toggle-logs-btn').addEventListener('click', () => this._togglePanel('logs'));
 
@@ -884,6 +1085,16 @@ class ViewSession extends HTMLElement {
         `;
         container.appendChild(entry);
         container.scrollTop = container.scrollHeight;
+
+        // Add to live summary
+        const summaryIcons = {
+            search_knowledge_base: '🔍', lookup_sap_error: '⚠️', lookup_transaction_code: '📋',
+            diagnose_sap_issue: '🔬', create_issue: '📌', create_itsm_ticket: '🎫',
+            update_itsm_ticket: '✏️', research_sap_topic: '🌐'
+        };
+        const icon = summaryIcons[name] || '⚡';
+        const summaryText = resultStr ? `${meta.label}: ${resultStr}` : `${meta.label} executed`;
+        this._addSummaryPoint(icon, summaryText);
     }
 
     _addTranscriptEntry(role, text, time) {
@@ -914,6 +1125,174 @@ class ViewSession extends HTMLElement {
         entry.innerHTML = html;
         container.appendChild(entry);
         container.scrollTop = container.scrollHeight;
+    }
+
+    // ─── Sentiment Analysis ───
+    _analyzeSentiment(text) {
+        const lower = text.toLowerCase();
+        const frustrated = /\b(not working|broken|error|fail|wrong|can't|cannot|impossible|terrible|worst|angry|furious|ridiculous|unacceptable|useless|waste|stupid|hate|annoying|frustrated)\b/i;
+        const confused = /\b(don't understand|confused|what do you mean|not sure|i don't know|unclear|how do i|what is|help me|lost|stuck)\b/i;
+        const urgent = /\b(urgent|asap|emergency|critical|production down|showstopper|blocking|deadline|immediately|p1)\b/i;
+        const calm = /\b(thank|thanks|great|good|perfect|yes|okay|ok|sure|understood|got it|appreciate|helpful|works|working|resolved|fixed)\b/i;
+
+        if (frustrated.test(lower)) return 'frustrated';
+        if (urgent.test(lower)) return 'urgent';
+        if (confused.test(lower)) return 'confused';
+        if (calm.test(lower)) return 'calm';
+        return 'neutral';
+    }
+
+    _updateSentiment(userText) {
+        const sentiment = this._analyzeSentiment(userText);
+        this._currentSentiment = sentiment;
+        this._sentimentHistory.push(sentiment);
+
+        // Update badge
+        const badge = this.querySelector('#sentiment-badge');
+        if (badge) {
+            const labels = { calm: 'Calm', frustrated: 'Frustrated', confused: 'Confused', neutral: 'Neutral', urgent: 'Urgent' };
+            const icons = { calm: '😊', frustrated: '😤', confused: '🤔', neutral: '😐', urgent: '🚨' };
+            badge.className = `m-sentiment visible ${sentiment}`;
+            badge.textContent = `${icons[sentiment]} ${labels[sentiment]}`;
+        }
+
+        // Update timeline
+        const timeline = this.querySelector('#sentiment-timeline');
+        if (timeline) {
+            const bar = document.createElement('div');
+            const heights = { calm: '40%', neutral: '20%', confused: '60%', frustrated: '80%', urgent: '100%' };
+            bar.className = `m-sentiment-bar ${sentiment}`;
+            bar.style.height = heights[sentiment];
+            timeline.appendChild(bar);
+        }
+    }
+
+    // ─── Info Extraction ───
+    _extractInfo(text, role) {
+        if (role === 'user') {
+            // Detect user name (e.g., "I'm John", "My name is John", "This is John")
+            const nameMatch = text.match(/(?:i'm|i am|my name is|this is|name's)\s+([A-Z][a-z]+)/i);
+            if (nameMatch && !this._detectedInfo.user) {
+                this._detectedInfo.user = nameMatch[1];
+                this._updateInfoCard('info-user', nameMatch[1]);
+                this._addSummaryPoint('👤', `User identified: ${nameMatch[1]}`);
+            }
+        }
+
+        // T-codes
+        const tcodeMatch = text.match(/\b((?:VA|VL|VF|ME|MM|MB|FB|FK|FBL|XK|XD|MK|CO|KS|SE|SM|SU|SP|IW|QM|PP|PA|MIGO|MIRO)\d{1,3}[A-Z]?)\b/i);
+        if (tcodeMatch) {
+            const tcode = tcodeMatch[1].toUpperCase();
+            if (this._detectedInfo.tcode !== tcode) {
+                this._detectedInfo.tcode = tcode;
+                this._updateInfoCard('info-tcode', tcode);
+                this._addSummaryPoint('📋', `T-Code detected: ${tcode}`);
+            }
+        }
+
+        // Error codes
+        const errorMatch = text.match(/\b([A-Z]{1,3}\s?\d{3,5})\b/) || text.match(/error\s+(?:message\s+)?(?:number\s+)?["']?([A-Z0-9\s]{3,10})["']?/i);
+        if (errorMatch) {
+            const error = errorMatch[1].trim();
+            if (this._detectedInfo.error !== error && error.length > 2) {
+                this._detectedInfo.error = error;
+                this._updateInfoCard('info-error', error);
+                this._addSummaryPoint('⚠️', `Error code: ${error}`);
+            }
+        }
+
+        // SAP Modules
+        const moduleMatch = text.match(/\b(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|Basis|ABAP|FICO)\b/i);
+        if (moduleMatch) {
+            const mod = moduleMatch[1].toUpperCase();
+            if (this._detectedInfo.module !== mod) {
+                this._detectedInfo.module = mod;
+                this._updateInfoCard('info-module', mod);
+            }
+        }
+    }
+
+    _updateInfoCard(id, value) {
+        const el = this.querySelector(`#${id}`);
+        if (el) {
+            el.textContent = value;
+            el.classList.remove('empty');
+        }
+    }
+
+    _addSummaryPoint(icon, text) {
+        this._summaryPoints.push({ icon, text, time: this._elapsed() });
+        const feed = this.querySelector('#summary-feed');
+        if (!feed) return;
+        const empty = this.querySelector('#summary-empty');
+        if (empty) empty.remove();
+
+        const point = document.createElement('div');
+        point.className = 'm-summary-point';
+        point.innerHTML = `<span class="m-summary-icon">${icon}</span><span>${text}</span>`;
+        feed.appendChild(point);
+        feed.scrollTop = feed.scrollHeight;
+    }
+
+    // ─── CSAT ───
+    _showCSAT() {
+        const overlay = document.createElement('div');
+        overlay.className = 'm-csat-overlay';
+        overlay.innerHTML = `
+            <div class="m-csat-card">
+                <div class="m-csat-title">How was your experience?</div>
+                <div class="m-csat-sub">Rate your session with Jessica</div>
+                <div class="m-csat-stars">
+                    <button class="m-csat-star" data-val="1">★</button>
+                    <button class="m-csat-star" data-val="2">★</button>
+                    <button class="m-csat-star" data-val="3">★</button>
+                    <button class="m-csat-star" data-val="4">★</button>
+                    <button class="m-csat-star" data-val="5">★</button>
+                </div>
+                <div class="m-csat-label" id="csat-label"></div>
+                <textarea class="m-csat-comment" rows="2" placeholder="Any feedback? (optional)"></textarea>
+                <div>
+                    <button class="m-csat-submit" id="csat-submit">Submit</button>
+                </div>
+                <button class="m-csat-skip" id="csat-skip">Skip</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const labels = { 1: 'Very Dissatisfied', 2: 'Dissatisfied', 3: 'Neutral', 4: 'Satisfied', 5: 'Very Satisfied' };
+        let selected = 0;
+        const stars = overlay.querySelectorAll('.m-csat-star');
+        const label = overlay.querySelector('#csat-label');
+
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                selected = parseInt(star.dataset.val);
+                stars.forEach(s => s.classList.toggle('active', parseInt(s.dataset.val) <= selected));
+                label.textContent = labels[selected];
+            });
+        });
+
+        const navigate = () => {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+                overlay.remove();
+                if (this.sessionToken) {
+                    this.dispatchEvent(new CustomEvent('navigate', { bubbles: true, detail: { view: 'summary', token: this.sessionToken } }));
+                }
+            }, 300);
+        };
+
+        overlay.querySelector('#csat-submit').addEventListener('click', () => {
+            if (selected > 0) {
+                const comment = overlay.querySelector('.m-csat-comment').value;
+                console.log('CSAT:', { rating: selected, comment, sentiment: this._currentSentiment, sentimentHistory: this._sentimentHistory });
+                // TODO: POST to /api/session/:token/feedback
+            }
+            navigate();
+        });
+
+        overlay.querySelector('#csat-skip').addEventListener('click', navigate);
     }
 
     // ─── Session lifecycle ───
@@ -984,7 +1363,7 @@ class ViewSession extends HTMLElement {
             this.querySelector('#mute-btn').disabled = false;
             this.querySelector('#transcript').clear();
 
-            this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> model=<span class="val">gemini-live-2.5-flash</span> voice=<span class="val">Kore</span>`);
+            this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> engine=<span class="val">guardian-live</span>`);
 
         } catch (err) {
             console.error('Failed to start:', err);
@@ -1002,12 +1381,15 @@ class ViewSession extends HTMLElement {
             const text = this._pendingUserTranscript.trim();
             this._addTranscriptEntry('user', text, this._elapsed());
             this._addLogEntry('ws', `<span class="hl">INPUT_TRANSCRIPTION</span> <span class="val">${this._escapeForLog(text)}</span>`);
+            this._updateSentiment(text);
+            this._extractInfo(text, 'user');
             this._pendingUserTranscript = '';
         }
         if (this._pendingModelTranscript.trim()) {
             const text = this._pendingModelTranscript.trim();
             this._addTranscriptEntry('model', text, this._elapsed());
             this._addLogEntry('ws', `<span class="hl">OUTPUT_TRANSCRIPTION</span> <span class="val">${this._escapeForLog(text)}</span>`);
+            this._extractInfo(text, 'model');
             this._pendingModelTranscript = '';
         }
     }
@@ -1218,10 +1600,7 @@ class ViewSession extends HTMLElement {
         this.querySelector('#transcript')?.finalizeAll();
 
         if (this.sessionToken) {
-            const token = this.sessionToken;
-            setTimeout(() => {
-                this.dispatchEvent(new CustomEvent('navigate', { bubbles: true, detail: { view: 'summary', token } }));
-            }, 1500);
+            setTimeout(() => this._showCSAT(), 800);
         }
     }
 
