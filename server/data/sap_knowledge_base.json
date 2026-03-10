@@ -133,5 +133,185 @@
     "error_code": "F5091",
     "keywords": ["posting period", "OB52", "month end", "fiscal period", "close", "open period", "F5091"],
     "resolution": "1. Check current open periods in OB52 (or S_ALR_87003642 for display).\n2. Two period intervals:\n   a. Period 1: Normal postings (current month)\n   b. Period 2: Special postings (month-end adjustments by authorized users)\n3. To open a new period: OB52 > Change the 'From Period/Year' and 'To Period/Year' for the relevant account type.\n4. Account types: A=Assets, D=Customers, K=Vendors, M=Materials, S=GL Accounts, +=All\n5. IMPORTANT: Close the previous period AFTER all postings are confirmed complete.\n6. If user-specific: Check if they have authorization for the special period (auth object F_BKPF_BUP).\n7. For logistics: Also check MMPV (period for materials management) — MM periods are separate from FI periods."
+  },
+  {
+    "id": 16,
+    "title": "FI Document Posting Fails — Tax Code Not Valid",
+    "description": "When posting a financial document in FB01 or FB60, the system returns error FF805 'Tax code XX does not exist in procedure TAXXX' or FF713 'Tax code not permitted for account'. The tax code used is either not defined in the tax procedure assigned to the country, or the GL account's field status does not allow tax postings.",
+    "module": "FI",
+    "error_code": "FF805",
+    "keywords": ["tax code", "FB01", "FB60", "FF805", "FF713", "tax procedure", "FTXP", "posting", "tax"],
+    "resolution": "1. Verify the tax code exists: FTXP — enter the country key and check if the tax code is defined.\n2. Check the tax procedure assigned to the country in OBBG.\n3. If the tax code exists but is not allowed on the account:\n   a. Check GL account field status group in FS00 > Control tab.\n   b. Verify field status variant in OBC4 — the tax field must be 'optional' or 'required', not 'suppressed'.\n4. For vendor invoices in FB60: Ensure the tax code matches the invoice's tax jurisdiction.\n5. Check condition records for the tax code in FQ65 — percent rates must be maintained.\n6. If using tax jurisdiction codes (US): Verify the jurisdiction code is valid in OBCP.\n7. For inter-company postings, ensure tax codes are harmonized across company codes."
+  },
+  {
+    "id": 17,
+    "title": "FI Document Reversal Fails — Reversal Reason Required or Period Closed",
+    "description": "Attempting to reverse an FI document using FB08 or FBRA fails with error F5212 'Reversal not possible' or F5091 'Posting only possible in periods X'. The original document may already be cleared, the reversal period may be closed, or the document type does not allow reversal.",
+    "module": "FI",
+    "error_code": "F5212",
+    "keywords": ["reversal", "FB08", "FBRA", "F5212", "document reversal", "cleared", "FI posting", "reverse"],
+    "resolution": "1. Check the original document in FB03 — note the clearing document number if it is cleared.\n2. If the document is cleared: You must first reset the clearing using FBRA before reversing.\n   a. FBRA > Enter clearing document number > Execute.\n   b. Then reverse the original document in FB08.\n3. If reversal fails due to closed period:\n   a. Check OB52 — open the period for the reversal posting date.\n   b. Alternatively, use a reversal date in the current open period (reversal reason must allow different posting date).\n4. Verify reversal reasons are configured in OBR3 — a valid reason code is mandatory.\n5. For mass reversals: Use F.80 (Mass Reversal of Documents).\n6. If the document was posted via a clearing transaction (F-03, F-04, F-32): Reset clearing first in FBRA.\n7. Check if the document is part of a payment run (F110) — payment documents may need special handling."
+  },
+  {
+    "id": 18,
+    "title": "FI Clearing Error — Open Items Cannot Be Cleared",
+    "description": "Clearing open items in F-03 (GL clearing), F-32 (customer clearing), or F-44 (vendor clearing) fails with error F5171 'Amounts do not balance to zero' or F5343 'No open items found'. The selected items do not net to zero, or the selection criteria do not match any open items.",
+    "module": "FI",
+    "error_code": "F5171",
+    "keywords": ["clearing", "F-03", "F-32", "F-44", "open items", "F5171", "F5343", "balance", "customer clearing", "vendor clearing"],
+    "resolution": "1. If 'Amounts do not balance to zero':\n   a. Review the selected items — total debits must equal total credits.\n   b. Check for partial payments or residual items.\n   c. Use partial payment or residual item posting if amounts don't match exactly.\n   d. Check tolerance groups in OBA4 (GL), OBA3 (customer), OBA3 (vendor).\n2. If 'No open items found':\n   a. Verify the account number and company code.\n   b. Check if items are already cleared — run FBL1N/FBL5N with 'All Items' selection.\n   c. Confirm the posting date range includes the open items.\n   d. Check if special GL indicator applies (e.g., down payments).\n3. For automatic clearing: F.13 (Automatic Clearing) — verify clearing rules in OB74.\n4. For foreign currency items: Check exchange rate differences — may need manual adjustment.\n5. After clearing, verify in FBL1N/FBL5N that clearing document was generated."
+  },
+  {
+    "id": 19,
+    "title": "CO Internal Order Cannot Be Settled — Missing Settlement Rule",
+    "description": "Settlement of an internal order in KO88 fails with error KO150 'Settlement rule does not exist' or KO154 'Settlement rule is incomplete'. The internal order does not have a valid settlement rule, or the settlement receiver (cost center, GL account, or asset) is not correctly maintained.",
+    "module": "CO",
+    "error_code": "KO150",
+    "keywords": ["internal order", "settlement", "KO88", "KO150", "KO154", "settlement rule", "KO02", "controlling"],
+    "resolution": "1. Open the internal order in KO02 > Settlement Rule tab.\n2. If no settlement rule exists: Create one by specifying:\n   a. Settlement receiver type: CTR (cost center), FXA (fixed asset), ORD (order), or GLL (GL account).\n   b. Receiver number (e.g., cost center number or asset number).\n   c. Settlement percentage (must total 100%).\n   d. Valid from/to fiscal year.\n3. If settlement rule exists but is incomplete:\n   a. Check if the settlement percentage sums to 100%.\n   b. Verify the receiver is valid for the settlement period.\n   c. Ensure the settlement profile (in order type config OKO7) matches.\n4. For mass settlement: KO8G — batch settlement by order group or selection variant.\n5. Check that settlement cost element is defined in OKB9.\n6. If settling to an asset: Verify the asset master exists in AS03 and is not retired.\n7. After fixing, run KO88 again and check the settlement document in KOB1."
+  },
+  {
+    "id": 20,
+    "title": "CO Cost Center Posting Error — Cost Element Not Defined",
+    "description": "Posting to a cost center fails with error KI270 'Cost element XXXX does not exist in controlling area' or KI246 'Cost element category not valid'. The GL account used for posting does not have a corresponding primary cost element in Controlling, or the cost element category is wrong.",
+    "module": "CO",
+    "error_code": "KI270",
+    "keywords": ["cost element", "KA03", "KA01", "cost center", "KI270", "KI246", "controlling area", "primary cost element"],
+    "resolution": "1. Check if the cost element exists: KA03 — enter the GL account number as cost element.\n2. If cost element does not exist:\n   a. Create primary cost element using KA01 or automatic creation via OKB2.\n   b. Select the correct cost element category (1 = Primary costs, 11 = Revenue, 12 = Sales deduction).\n   c. Assign to the correct controlling area.\n3. If cost element exists but category is wrong:\n   a. Category 1 (primary cost/revenue) is needed for direct postings from FI.\n   b. Category 41/42 (overhead) is for assessment/distribution — cannot receive direct postings.\n   c. Check in KA02 if category can be changed (only possible if no postings exist).\n4. Verify the GL account is flagged as a cost element account in FS00 (check the 'Cost Element' checkbox).\n5. For automatic cost element creation on GL account creation: Configure OKB2.\n6. After creating the cost element, retry the FI posting — it should now flow to CO automatically."
+  },
+  {
+    "id": 21,
+    "title": "Production Order Confirmation Fails — Missing Goods Movements",
+    "description": "Confirming a production order in CO11N or CO15 fails with error CO083 'Missing parts exist for operation' or COZP 'Backflush of material failed'. The system cannot perform automatic goods issue (backflush) for components because stock is insufficient, components are missing from the BOM, or the storage location is not maintained.",
+    "module": "PP",
+    "error_code": "CO083",
+    "keywords": ["production order", "confirmation", "CO11N", "CO15", "CO083", "backflush", "components", "goods issue", "missing parts"],
+    "resolution": "1. Check the production order component list in CO03 > Components tab.\n2. Verify available stock for each component: MB52 or MMBE.\n3. If stock is insufficient:\n   a. Check if goods receipt is pending for components — check open POs in ME2M.\n   b. Post goods receipt for components in MIGO if material has arrived.\n   c. Alternatively, use movement type 561 (initial stock entry) for emergency stock posting.\n4. If storage location is missing on components:\n   a. Open order in CO02 > Components > maintain storage location.\n   b. Check MRP area assignment in material master MM02.\n5. If backflush fails:\n   a. Check backflush indicator on the material master (MRP 2 view).\n   b. Verify the production storage location in work center (CR02).\n   c. Check COGI (Post Goods Issues for Order) for stuck backflush entries.\n6. For partial confirmation: Reduce the yield quantity in CO11N to match available components.\n7. After resolving, re-run confirmation. Check order status in CO03 — should show CNF (confirmed)."
+  },
+  {
+    "id": 22,
+    "title": "MRP Run Results in Excessive Planned Orders — Planning Parameters Wrong",
+    "description": "MRP run (MD01/MD02) creates an excessive number of planned orders or incorrect quantities. Common causes include wrong lot sizing procedure, incorrect MRP type, missing planning calendar, or safety stock settings that inflate requirements.",
+    "module": "PP",
+    "error_code": "MD045",
+    "keywords": ["MRP", "MD01", "MD02", "MD04", "planned orders", "lot sizing", "safety stock", "planning", "requirements"],
+    "resolution": "1. Check the MRP results in MD04 (Stock/Requirements List) — review the planned order quantities and dates.\n2. Verify MRP parameters in material master (MM03 > MRP 1, MRP 2, MRP 3 views):\n   a. MRP Type: PD (MRP), VB (reorder point), ND (no planning) — ensure correct type is set.\n   b. Lot Size: EX (lot-for-lot), FX (fixed lot), TB (daily lot) — wrong lot size inflates orders.\n   c. Reorder Point and Safety Stock: Check if values are realistic.\n   d. Planned Delivery Time: Verify it matches actual lead times.\n3. Check the MRP run settings in MD01/MD02:\n   a. Processing Key: NETCH (net change), NEUPL (regenerative) — use appropriate scope.\n   b. Planning Mode: 1 (adapt planning data), 3 (delete and recreate) — mode 3 can cause duplicates if interrupted.\n4. Check planning calendar and scheduling: MD26 for display.\n5. Review BOM explosion: CS03 — ensure BOM is correct and valid for the date.\n6. If phantom assemblies are missing phantom indicator: CS02 > Special Procurement key.\n7. Rerun MRP with MD02 for the specific material after fixing parameters.\n8. Use MD07 (Planned Order Overview) to review and convert appropriate planned orders."
+  },
+  {
+    "id": 23,
+    "title": "Production Order — BOM Explosion Error During Creation",
+    "description": "Creating a production order in CO01 fails with error CK373 'BOM could not be exploded' or CK002 'No BOM found for material'. The system cannot find a valid Bill of Material for the production order material, plant, and date combination.",
+    "module": "PP",
+    "error_code": "CK373",
+    "keywords": ["production order", "CO01", "BOM", "CK373", "CK002", "bill of material", "explosion", "CS03", "components"],
+    "resolution": "1. Check if a BOM exists for the material: CS03 — enter material, plant, and BOM usage (1 = Production).\n2. If no BOM found:\n   a. Verify the correct plant is entered in CO01.\n   b. Check BOM usage — production orders require usage '1' (Production). Other usages (5=Costing) won't be selected.\n   c. Check valid-from date — BOM must be valid for the order start date.\n3. If BOM exists but explosion fails:\n   a. Check BOM status in CS03 > Header > Status — must be status 1 (Active).\n   b. Verify all component materials exist in the plant (MM03).\n   c. Check for recursive BOMs — a material referencing itself causes infinite loop.\n   d. Check alternative BOM selection: Priority and lot size range in CS03 header.\n4. For configurable materials: Check variant BOM and configuration profile in CU41.\n5. If BOM was recently changed: Verify it was saved and transport released.\n6. After fixing, retry CO01. Check component list in the order to verify correct explosion."
+  },
+  {
+    "id": 24,
+    "title": "Transport Import Fails with Return Code 8 or 12",
+    "description": "Importing a transport request via STMS fails with return code 8 (warning) or 12 (error). The transport log shows errors such as 'Object already exists in target', 'Table entry already exists', or 'ABAP syntax error in imported program'. This blocks delivery of changes from DEV to QA/PRD.",
+    "module": "BASIS",
+    "error_code": "STMS_RC12",
+    "keywords": ["transport", "STMS", "import", "return code", "RC8", "RC12", "SE09", "SE01", "transport log", "import error"],
+    "resolution": "1. Check the transport log in STMS > Import Overview > Select system > Logs:\n   a. RC 8: Usually warnings — objects imported but with issues. May be acceptable.\n   b. RC 12: Hard errors — objects NOT imported successfully.\n2. Common causes and fixes:\n   a. 'Table entry already exists': Data-only transport conflicts with existing entries. Delete conflicting entries in target or use 'Overwrite' flag (client-specific).\n   b. 'Syntax error in program': Dependent transport not imported first. Check import sequence — import prerequisite transports first.\n   c. 'Object locked by another transport': Release the blocking transport first, or unlock in SE01.\n   d. 'Dictionary activation failed': Import data dictionary changes first, then the code.\n3. Reimport the transport: STMS > Import Overview > Add to Queue > Import with options:\n   a. Overwrite Originals: Yes (if reimporting to fix conflicts)\n   b. Ignore Invalid Component Version: Yes (for cross-release)\n4. For stuck imports: SE01 > Display > Transport Logs for detailed ABAP error messages.\n5. If transport must be abandoned: Create a new transport with corrected objects in DEV and reimport.\n6. Check tp system log in OS level: /usr/sap/trans/log/ for low-level errors."
+  },
+  {
+    "id": 25,
+    "title": "RFC Connection Error — SM59 Destination Not Reachable",
+    "description": "RFC (Remote Function Call) connections fail with error COMMUNICATION_FAILURE or SYSTEM_FAILURE when calling a remote system via SM59. The RFC destination is not reachable due to network issues, wrong credentials, or target system is down.",
+    "module": "BASIS",
+    "error_code": "RFC_COMM_FAILURE",
+    "keywords": ["RFC", "SM59", "connection", "COMMUNICATION_FAILURE", "SYSTEM_FAILURE", "remote", "destination", "interface"],
+    "resolution": "1. Test the RFC connection: SM59 > Select destination > Connection Test (Ctrl+F2).\n2. If 'Connection refused' or 'Host not reachable':\n   a. Verify the target host/IP address and port in SM59.\n   b. Check network connectivity: ping the target host from OS level.\n   c. Verify the target SAP system/instance is running (check with target BASIS team).\n   d. Check firewall rules — SAP dispatcher port (32XX) and gateway port (33XX) must be open.\n3. If 'Logon failed':\n   a. Check the RFC user credentials in SM59 > Logon & Security tab.\n   b. Verify the RFC user is not locked in the target system (SU01).\n   c. Check if password has expired.\n   d. Ensure the RFC user has authorization object S_RFC in the target system.\n4. If 'System not available':\n   a. Check target system's message server port (36XX) for load-balanced connections.\n   b. Verify logon group in SMLG on the target system.\n5. For trusted RFC: Check trust relationship in SMT1/SMT2.\n6. Monitor RFC connections in SMGW (Gateway Monitor) for stuck connections.\n7. After fixing, retest in SM59 and check dependent interfaces/IDOCs."
+  },
+  {
+    "id": 26,
+    "title": "MIGO Goods Issue Fails — Insufficient Stock or Negative Stock Not Allowed",
+    "description": "Goods issue posting in MIGO fails with error M7036 'Stock is insufficient for the withdrawal' or M7032 'Negative stocks not allowed'. The material does not have enough unrestricted-use stock in the specified plant/storage location to fulfill the goods issue.",
+    "module": "MM",
+    "error_code": "M7036",
+    "keywords": ["MIGO", "goods issue", "M7036", "M7032", "insufficient stock", "negative stock", "stock", "withdrawal", "movement type"],
+    "resolution": "1. Check current stock in MB52 or MMBE for the material/plant/storage location.\n2. If stock is genuinely insufficient:\n   a. Check if stock exists in a different storage location — transfer using MIGO (movement type 311).\n   b. Check if goods receipt is pending — review open POs in ME2M or production orders in CO03.\n   c. Check if stock is in quality inspection or blocked status — may need to release in QA32.\n3. If stock shows available but posting still fails:\n   a. Check for reservations locking the stock: MB21/MB22 — reservations reduce available quantity.\n   b. Check if batch-managed: Specific batch may be empty even if overall stock exists.\n   c. Verify the correct movement type: 261 (production GI), 601 (delivery GI), 201 (cost center GI).\n4. If negative stock is needed temporarily:\n   a. Check OMJ1 — negative stock setting per plant/valuation area.\n   b. Enable in SPRO > MM > Inventory Management > Allow Negative Stocks (NOT recommended for production).\n5. For serial number managed materials: Check MIGO > Serial Numbers tab.\n6. After posting, verify stock updates in MB51 (material document list)."
+  },
+  {
+    "id": 27,
+    "title": "Billing Document Creation Fails — Incompletion Log Errors",
+    "description": "Creating a billing document in VF01 fails with error VF045 'Billing document could not be created' or incompletion log errors. The delivery or sales order is missing required data for billing — such as payment terms, incoterms, tax classification, or pricing conditions.",
+    "module": "SD",
+    "error_code": "VF045",
+    "keywords": ["billing", "VF01", "VF045", "invoice", "incompletion", "delivery", "billing block", "payment terms"],
+    "resolution": "1. Check the billing due list in VF04 — look for the delivery/order and check the error column.\n2. Run incompletion log: VF01 > Enter delivery number > Check log (or V.00 for incompletion analysis).\n3. Common missing data:\n   a. Payment terms: Maintain in customer master (XD02 or VD02) or sales order (VA02).\n   b. Tax classification: Check customer tax indicator in XD02 > Billing tab.\n   c. Pricing: Re-run pricing in the sales order (VA02 > Item > Conditions > Update).\n   d. Account assignment: Check revenue account determination in VKOA.\n4. If billing block exists:\n   a. Check the delivery in VL03N > Header > Billing tab — remove billing block if authorized.\n   b. Check the sales order in VA03 — billing block may be at order or item level.\n5. If 'No billing document type found':\n   a. Check copy control in VTFL (delivery to billing) or VTFA (order to billing).\n   b. Verify billing document type is assigned to the delivery type/order type combination.\n6. After fixing data, rerun VF01 or use VF04 for collective billing.\n7. Verify the billing document posts correctly to FI: Check accounting document in VF03 > Accounting tab."
+  },
+  {
+    "id": 28,
+    "title": "SD Delivery Creation Fails — Shipping Point Not Determined",
+    "description": "Creating an outbound delivery from a sales order in VL01N fails with error VL461 'Shipping point could not be determined' or VL248 'No delivery could be generated'. The system cannot determine the shipping point based on the combination of shipping condition, loading group, and plant.",
+    "module": "SD",
+    "error_code": "VL461",
+    "keywords": ["delivery", "VL01N", "VL461", "VL248", "shipping point", "determination", "loading group", "shipping condition"],
+    "resolution": "1. Check the sales order in VA03 — go to item level > Shipping tab. Note the:\n   a. Shipping Condition (from customer master)\n   b. Loading Group (from material master)\n   c. Plant (from sales order item)\n2. Check shipping point determination in SPRO:\n   SPRO > Logistics Execution > Shipping > Basic Shipping Functions > Shipping Point Determination > Assign Shipping Points.\n   a. The combination of Shipping Condition + Loading Group + Plant must map to a Shipping Point.\n3. If the combination is not maintained:\n   a. Add the entry in SPRO customizing (requires transport).\n   b. Or correct the source data: Update customer shipping condition (XD02), material loading group (MM02 > Sales/Plant view), or plant in the order.\n4. Verify the shipping point is active: SPRO > Define Shipping Points — check factory calendar and address.\n5. For split deliveries: Check if delivery splitting rules are preventing creation (SPRO > Shipping > Deliveries > Define Delivery Splitting).\n6. After fixing, go back to VL01N and retry. Or use VL10A/VL10B for collective delivery creation.\n7. Check route determination as well — missing route can also block delivery (VA03 > Shipping tab > Route)."
+  },
+  {
+    "id": 29,
+    "title": "MM Purchase Order Account Assignment Error — Invalid GL Account or Cost Object",
+    "description": "Creating or saving a purchase order in ME21N fails with error ME062 'Account assignment mandatory but not complete' or F5003 when the GL account does not exist. Account assignment category requires a valid cost object (cost center, internal order, WBS element, or asset) but the data is missing or invalid.",
+    "module": "MM",
+    "error_code": "ME062",
+    "keywords": ["purchase order", "ME21N", "account assignment", "ME062", "cost center", "GL account", "WBS", "asset", "K category"],
+    "resolution": "1. Check the PO item account assignment category in ME21N:\n   a. K = Cost Center, F = Production Order, P = Project (WBS), A = Asset, blank = Stock.\n   b. For non-stock items (services, consumables), account assignment is mandatory.\n2. If account assignment is missing:\n   a. Enter cost center (account assignment K) or appropriate cost object.\n   b. Verify the GL account — must be a P&L expense account for consumable purchases.\n   c. Check automatic account determination in OBYC (transaction key GBB/BSX) for stock items.\n3. If GL account error:\n   a. Check FS00 — account must exist in the company code's chart of accounts.\n   b. Verify the account allows manual posting (field status group).\n   c. For stock materials: Account assignment is automatic via valuation class (OBYC).\n4. If cost center is invalid:\n   a. Check KS03 — verify cost center exists and is valid for the posting period.\n   b. Check controlling area assignment — must match the company code.\n5. For WBS elements: Verify the project is active in CJ03 and the WBS element is not closed.\n6. For asset purchases: Verify asset master in AS03 and capitalization date.\n7. Check account assignment defaults in ME21N > Item > Account Assignment tab > Default values."
+  },
+  {
+    "id": 30,
+    "title": "Automatic Payment Run F110 — Vendor Not Selected for Payment",
+    "description": "Running the automatic payment program F110 does not select certain vendor invoices for payment. Vendors are skipped with reasons like 'Payment block set', 'Payment method not valid', or 'Not yet due for payment'. The proposal log shows excluded items.",
+    "module": "FI",
+    "error_code": "F110_SKIP",
+    "keywords": ["F110", "payment run", "automatic payment", "vendor", "payment block", "payment method", "due date", "proposal"],
+    "resolution": "1. Check the F110 proposal log: F110 > Enter run date/identification > Proposal tab > Display Log.\n2. Common reasons vendors are skipped:\n   a. 'Payment block set': Check vendor open items in FBL1N — payment block field may be set on individual line items or vendor master (XK03 > Payment Transactions).\n   b. 'Payment method not valid': Vendor master must have a valid payment method (XK02 > Payment Transactions tab). Must match the payment methods defined in F110 run parameters.\n   c. 'Not yet due': Check baseline date and payment terms on the invoice. Net due date must fall within the 'Next payment date' in F110 parameters.\n   d. 'No bank details': Maintain vendor bank details in XK02 > Bank Details tab.\n3. If items should be included:\n   a. Remove payment block on line items: FB02 > Change document > clear payment block field.\n   b. Update vendor master payment method: XK02.\n   c. Extend the 'Next payment date' in F110 to include older due items.\n4. Check paying company code configuration: FBZP — payment methods, bank determination, house bank.\n5. After fixing, delete the proposal and re-run the proposal step.\n6. Review the payment proposal carefully before executing the payment run.\n7. After execution, check payment documents in FBL1N and bank clearing in FF67."
+  },
+  {
+    "id": 31,
+    "title": "Production Order Status Error — Cannot Release or Complete",
+    "description": "A production order in CO02 cannot be released (status CRTD stuck) or cannot be technically completed. Error CO502 'Status does not allow this function' appears. The order may have missing components, missing routing, or is blocked by a preceding status.",
+    "module": "PP",
+    "error_code": "CO502",
+    "keywords": ["production order", "CO02", "status", "release", "CO502", "CRTD", "TECO", "order status", "routing"],
+    "resolution": "1. Check the current order status in CO03 > Header > Status tab. Common statuses:\n   a. CRTD (Created) — needs to be released before production.\n   b. REL (Released) — ready for production.\n   c. TECO (Technically Complete) — finished, allows cost settlement.\n   d. DLV (Delivered) — order is marked as delivered.\n2. If order cannot be released:\n   a. Check for missing routing: CO03 > Operations tab — if empty, assign routing in CO02.\n   b. Check for missing BOM/components: CO03 > Components tab.\n   c. Verify availability check results: CO02 > Check Availability button.\n   d. Check if scheduling failed: CO02 > Schedule button.\n3. If order cannot be technically completed (TECO):\n   a. Check if confirmations are pending: CO03 > Confirmations tab.\n   b. Verify all goods movements are posted: COGI for stuck goods movements.\n   c. Check if there are pending quality inspection lots: QA32.\n4. To force status change: CO02 > Edit > Status > Set Status (use with caution).\n5. For mass status changes: COHV (Mass Processing for Production Orders).\n6. After status change, check order costing: CK11N/CK40N for standard cost estimate."
+  },
+  {
+    "id": 32,
+    "title": "Basis — System Performance Degradation and Long-Running Processes",
+    "description": "SAP system is experiencing slow performance. Users report long wait times for transactions. SM50 shows multiple dialog work processes in 'Running' state with high runtime. Common causes include expensive SQL queries, lock contention, or insufficient system resources.",
+    "module": "BASIS",
+    "error_code": "PERF_DEGRADE",
+    "keywords": ["performance", "slow", "SM50", "SM66", "ST02", "ST03", "work process", "runtime", "tuning", "memory"],
+    "resolution": "1. Check work process overview: SM50 (local) or SM66 (all instances).\n   a. Look for processes with high runtime (>300 seconds).\n   b. Note the report/program name and user.\n   c. Check 'Reason' column: PRIV mode indicates memory issues.\n2. Check system-wide performance: ST03 > Select time period > Expert Mode.\n   a. Review average response times by transaction.\n   b. Check database request times — high DB time indicates SQL issues.\n3. Check memory: ST02 — look for swaps in buffer areas. Red entries indicate overflows.\n4. Check database: ST04 (DB Performance Monitor).\n   a. Look for expensive SQL statements.\n   b. Check for missing indexes.\n5. For specific long-running process:\n   a. SM50 > Select process > Process > Cancel with Core (emergency only).\n   b. Or wait for completion and analyze in ST12 (trace) or SE30 (runtime analysis).\n6. Check table buffering: ST10 — poorly buffered tables cause excessive DB calls.\n7. Short-term fix: Increase work processes in RZ04 or restart application server.\n8. Long-term: Analyze with SAP EarlyWatch or GoingLive Check."
+  },
+  {
+    "id": 33,
+    "title": "User Master Record — Mass Role Assignment Issues",
+    "description": "After a role change or organizational restructuring, users are missing transactions or getting authorization errors across the board. Roles need to be regenerated and reassigned. PFCG role modifications are not reflected for users.",
+    "module": "BASIS",
+    "error_code": "AUTH_MISMATCH",
+    "keywords": ["PFCG", "role", "SU01", "SU10", "authorization", "profile", "user comparison", "mass assignment"],
+    "resolution": "1. After modifying a role in PFCG:\n   a. Go to PFCG > Role > Authorizations tab > Generate (Ctrl+Shift+F5).\n   b. If generation fails, check for invalid authorization objects.\n   c. User comparison: PFCG > Role > User tab > User Comparison button — this pushes role changes to assigned users.\n2. If changes are not reflected for users:\n   a. Run user master comparison: PFUD (Profile Generator User Master Comparison).\n   b. Select 'Full comparison' and execute for all affected roles.\n   c. Check SU01 > Roles tab — verify the role appears with correct validity dates.\n3. For mass role assignment:\n   a. SU10 > Select users > Mass Change > Assign Roles.\n   b. Or use transaction SU01 with user group selection.\n   c. For automated assignment: Use SU25 for upgrade, SU24 for authorization defaults.\n4. Check composite roles: If a single role was changed inside a composite role, regenerate the composite role too.\n5. Verify with SU53 after changes — have the affected user retry the transaction.\n6. For emergency: Assign SAP_ALL temporarily (with formal approval and time limit) while fixing proper role."
+  },
+  {
+    "id": 34,
+    "title": "Goods Receipt Reversal in MIGO Fails — Material Document Already Reversed",
+    "description": "Attempting to reverse a goods receipt in MIGO (movement type 102 for reversal of 101) fails with error M7115 'Material document already reversed' or M7562 'Reversal not possible, subsequent document exists'. The original material document was already reversed or has dependent follow-on documents like invoice verification or quality inspection.",
+    "module": "MM",
+    "error_code": "M7115",
+    "keywords": ["MIGO", "reversal", "M7115", "M7562", "goods receipt", "material document", "102", "subsequent document"],
+    "resolution": "1. Check the original material document in MB03:\n   a. Go to Header > Doc. Info tab — check if a reversal document already exists.\n   b. Check the follow-on documents: Environment > Material Document > Follow-on Documents.\n2. If 'Already reversed': The GR was already cancelled. Verify in MB51 — look for movement type 102 referencing the original document.\n3. If 'Subsequent document exists':\n   a. Invoice already posted in MIRO against this GR — must reverse the invoice first (MR8M).\n   b. Quality inspection lot created — release or cancel the inspection lot in QA02.\n   c. Transfer posting was made from the GR stock — reverse the transfer first.\n4. Sequence for full reversal:\n   a. Reverse invoice in MR8M (if MIRO was posted).\n   b. Reverse any transfer postings (MIGO, movement type reversal).\n   c. Then reverse the GR in MIGO (movement type 102).\n5. Check PO history in ME23N > Purchase Order History tab — shows all linked documents.\n6. If urgent and reversal is blocked: Consider posting a goods issue (201) to remove the stock, then adjust accounting manually."
+  },
+  {
+    "id": 35,
+    "title": "CO Assessment/Distribution Cycle Errors — Sender/Receiver Mismatch",
+    "description": "Running an assessment or distribution cycle in KSU5/KSV5 fails with error KM731 'No sender values found' or KM701 'Cycle does not balance'. The cycle configuration has mismatched senders and receivers, or the sender cost centers have no actual costs to distribute in the period.",
+    "module": "CO",
+    "error_code": "KM731",
+    "keywords": ["assessment", "distribution", "KSU5", "KSV5", "KM731", "KM701", "cycle", "sender", "receiver", "allocation"],
+    "resolution": "1. Check the cycle definition: KSU2 (assessment) or KSV2 (distribution).\n2. If 'No sender values found':\n   a. Verify sender cost centers have actual postings in the period: KSB1 (Cost Center Actual Line Items).\n   b. Check the cost element group used in the segment — it must include cost elements with postings.\n   c. Confirm the correct fiscal year/period is selected when running the cycle.\n3. If 'Cycle does not balance':\n   a. Check receiver tracing factors — percentages must total correctly per segment.\n   b. Verify receiver cost centers are valid for the period (KS03).\n   c. Check for circular references — sender and receiver overlap.\n4. Cycle configuration checklist:\n   a. Header: Correct controlling area, fiscal year, period range.\n   b. Segments: Sender cost centers/groups, receiver cost centers/groups, allocation base (percentage, statistical key figures, etc.).\n   c. Cost elements: Assessment cycle needs assessment cost element (category 42); distribution uses original cost elements.\n5. Test the cycle first: KSU5/KSV5 with 'Test Run' checkbox checked.\n6. After fixing, run the actual cycle and verify in KSB1 for the receiver cost centers.\n7. For period-end close: Ensure assessment/distribution runs BEFORE settlement (KO88) in the closing schedule."
   }
 ]
