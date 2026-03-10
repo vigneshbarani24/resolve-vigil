@@ -151,13 +151,13 @@ export class GeminiLiveAPI {
     this.previousImage = null;
     this.totalBytesSent = 0;
 
-    // Automatic activity detection settings with defaults
+    // Automatic activity detection settings — tuned to prevent multi-response
     this.automaticActivityDetection = {
       disabled: false,
-      silence_duration_ms: 2000,
+      silence_duration_ms: 3000,
       prefix_padding_ms: 500,
-      end_of_speech_sensitivity: "END_SENSITIVITY_UNSPECIFIED",
-      start_of_speech_sensitivity: "START_SENSITIVITY_UNSPECIFIED",
+      end_of_speech_sensitivity: "END_SENSITIVITY_LOW",
+      start_of_speech_sensitivity: "START_SENSITIVITY_LOW",
     };
 
     this.connected = false;

@@ -76,6 +76,7 @@ TOOLS — WHEN TO USE EACH:
 - create_issue: Log a problem AFTER you have confirmed it (not on first mention — verify first).
 - create_itsm_ticket: Create ONLY after you have tried to resolve the issue and either fixed it or determined it needs escalation. Include the full AMS Diagnostic Report with all collected data.
 - update_itsm_ticket: Update with resolution notes or escalation details.
+- research_sap_topic: Google Search grounding for latest OSS notes, patches, and solutions. Use when internal KB has no answer.
 
 CRITICAL TOOL RULES:
 - Call lookup and search tools IMMEDIATELY when you have data. Do not announce — just call.
@@ -118,7 +119,10 @@ CRITICAL SPEECH RULES:
 GREETING:
 When the session begins, introduce yourself with this exact greeting:
 "Hey, I'm Jessica, your S-A-P Guardian at KaarTech. I'm here to walk through your technical queries with you or prepare a detailed diagnostic for our senior team if the situation requires further investigation. Who am I speaking with, and what part of S-A-P are we looking into today?"
-After the greeting, proceed to triage. Immediately ask for their name, the error message, and the T-code.`;
+After the greeting, proceed to triage. Immediately ask for their name, the error message, and the T-code.
+
+ABSOLUTE RULE — TURN DISCIPLINE:
+After you finish speaking, you MUST yield the floor. Do NOT generate another response until the user speaks next. One turn = one response = then silence. If you have already spoken in this turn, STOP IMMEDIATELY. Do not add anything else. Do not elaborate. Do not rephrase. Do not ask a follow-up question in the same turn. WAIT for the user.`;
 
 class ViewSession extends HTMLElement {
     constructor() {
@@ -131,6 +135,10 @@ class ViewSession extends HTMLElement {
         this.isScreenSharing = false;
         this.isSpeaking = false;
         this.sessionToken = null;
+        this._timerInterval = null;
+        this._sessionStartTime = null;
+        this._cmdToastTimeout = null;
+        this._currentPriority = null;
     }
 
     connectedCallback() {
@@ -200,6 +208,91 @@ class ViewSession extends HTMLElement {
                     display: none;
                     text-transform: uppercase;
                     letter-spacing: 0.06em;
+                }
+
+                /* ─── Session Timer + SLA ─── */
+                .s-timer-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                .s-timer {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    font-variant-numeric: tabular-nums;
+                    color: var(--color-text-main, #eaddcf);
+                    opacity: 0.6;
+                    letter-spacing: 0.04em;
+                    display: none;
+                }
+                .s-timer.visible { display: inline; }
+
+                .s-sla {
+                    font-size: 0.6rem;
+                    font-weight: 800;
+                    padding: 2px 8px;
+                    border-radius: var(--radius-full);
+                    display: none;
+                    letter-spacing: 0.06em;
+                    text-transform: uppercase;
+                }
+                .s-sla.visible { display: inline; }
+                .s-sla.p1 { background: rgba(229,115,115,0.15); color: #e57373; border: 1px solid rgba(229,115,115,0.3); }
+                .s-sla.p2 { background: rgba(255,183,77,0.15); color: #ffb74d; border: 1px solid rgba(255,183,77,0.3); }
+                .s-sla.p3 { background: rgba(129,199,132,0.15); color: #81c784; border: 1px solid rgba(129,199,132,0.3); }
+
+                /* ─── T-code Command Overlay ─── */
+                .s-cmd-toast {
+                    position: fixed;
+                    top: 80px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 50;
+                    background: rgba(77,159,247,0.12);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(77,159,247,0.25);
+                    border-radius: 12px;
+                    padding: 10px 20px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    animation: cmdSlideIn 0.3s ease;
+                    max-width: 400px;
+                    pointer-events: auto;
+                }
+                .s-cmd-toast .cmd-label {
+                    font-size: 0.65rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: var(--color-accent-primary, #4d9ff7);
+                    opacity: 0.7;
+                }
+                .s-cmd-toast .cmd-code {
+                    font-size: 1.1rem;
+                    font-weight: 800;
+                    color: var(--color-text-main, #eaddcf);
+                    letter-spacing: 0.06em;
+                }
+                .s-cmd-toast .cmd-copy {
+                    background: rgba(255,255,255,0.08);
+                    border: 1px solid rgba(255,255,255,0.12);
+                    border-radius: 6px;
+                    color: var(--color-text-main, #eaddcf);
+                    cursor: pointer;
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    padding: 4px 10px;
+                    transition: all 0.2s;
+                }
+                .s-cmd-toast .cmd-copy:hover {
+                    background: rgba(77,159,247,0.15);
+                    border-color: rgba(77,159,247,0.3);
+                }
+                @keyframes cmdSlideIn {
+                    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
                 }
 
                 /* ─── Diagnostic tracker ─── */
@@ -420,7 +513,11 @@ class ViewSession extends HTMLElement {
                             <span class="s-subtitle">Jessica</span>
                         </div>
                     </div>
-                    <span class="s-lang" id="lang-pill"></span>
+                    <div class="s-timer-group">
+                        <span class="s-timer" id="session-timer">00:00</span>
+                        <span class="s-sla" id="sla-badge"></span>
+                        <span class="s-lang" id="lang-pill"></span>
+                    </div>
                 </div>
 
                 <!-- Diagnostic tracker -->
@@ -640,6 +737,19 @@ class ViewSession extends HTMLElement {
             statusEl.textContent = 'Live';
             statusEl.style.color = '#81c784';
 
+            // Start session timer
+            this._sessionStartTime = Date.now();
+            const timerEl = this.querySelector('#session-timer');
+            if (timerEl) {
+                timerEl.classList.add('visible');
+                this._timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - this._sessionStartTime) / 1000);
+                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const secs = String(elapsed % 60).padStart(2, '0');
+                    timerEl.textContent = `${mins}:${secs}`;
+                }, 1000);
+            }
+
             // Show language badge if non-English
             const lang = this.getAttribute('language') || 'English';
             if (lang !== 'English') {
@@ -673,6 +783,8 @@ class ViewSession extends HTMLElement {
                 if (this.audioPlayer) {
                     this.audioPlayer.play(response.data);
                 }
+                // Show speaking indicator when audio is streaming
+                this.querySelector('#transcript').showSpeaking();
                 break;
 
             case MultimodalLiveResponseType.INPUT_TRANSCRIPTION:
@@ -688,6 +800,8 @@ class ViewSession extends HTMLElement {
                     this.querySelector('#transcript').addOutputTranscript(
                         response.data.text, response.data.finished
                     );
+                    // Detect T-code mentions and show command overlay
+                    this._detectTcodeCommand(response.data.text);
                 }
                 break;
 
@@ -710,6 +824,7 @@ class ViewSession extends HTMLElement {
                 break;
 
             case MultimodalLiveResponseType.SERVER_TOOL_CALL:
+                this.querySelector('#transcript').showThinking();
                 this.handleServerToolEvent(response.data);
                 break;
 
@@ -735,6 +850,15 @@ class ViewSession extends HTMLElement {
         if (guidance && state.agent_guidance && state.agent_guidance.length > 0 && guidance.setGuidance) {
             guidance.setGuidance(state.agent_guidance);
             if (guidanceSlot) guidanceSlot.classList.add('visible');
+        }
+
+        // Detect priority from tickets/issues and update SLA badge
+        if (state.tickets && state.tickets.length > 0) {
+            const ticket = state.tickets[state.tickets.length - 1];
+            if (ticket.severity) this._updateSLA(ticket.severity.toUpperCase());
+        } else if (state.issues && state.issues.length > 0) {
+            const issue = state.issues[state.issues.length - 1];
+            if (issue.severity) this._updateSLA(issue.severity.toUpperCase());
         }
 
         // Store session token for summary navigation
@@ -771,6 +895,18 @@ class ViewSession extends HTMLElement {
                     if (ticketInfo.ticket_id) {
                         transcript.addOutputTranscript(
                             `[Ticket ${ticketInfo.ticket_id} created]`, true
+                        );
+                    }
+                }
+                break;
+            }
+            case 'research_sap_topic': {
+                const transcript = this.querySelector('#transcript');
+                if (transcript && result) {
+                    const searchResult = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (searchResult.success && searchResult.source_count > 0) {
+                        transcript.addOutputTranscript(
+                            `[Researched: ${searchResult.source_count} web sources found]`, true
                         );
                     }
                 }
@@ -880,6 +1016,12 @@ class ViewSession extends HTMLElement {
         const statusEl = this.querySelector('#connection-status');
         if (statusEl) statusEl.textContent = '';
 
+        // Stop session timer
+        if (this._timerInterval) {
+            clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+
         const userViz = this.querySelector('#user-viz');
         const modelViz = this.querySelector('#model-viz');
         if (userViz) userViz.disconnect();
@@ -918,7 +1060,80 @@ class ViewSession extends HTMLElement {
             Start Session`;
     }
 
+    _detectTcodeCommand(text) {
+        // Match SAP T-code patterns: 2+ uppercase letters followed by digits (e.g. SU53, SM12, VA01, ME21N)
+        const tcodePattern = /\b([A-Z]{2,4}\d{1,3}[A-Z]?)\b/g;
+        const matches = text.match(tcodePattern);
+        if (!matches) return;
+
+        for (const tcode of matches) {
+            // Filter out common false positives
+            if (['THE', 'AND', 'FOR', 'NOT', 'YOU', 'ARE', 'HAS', 'WAS', 'MAX'].includes(tcode)) continue;
+            this._showCmdToast(tcode);
+            break; // Show one at a time
+        }
+    }
+
+    _showCmdToast(tcode) {
+        // Remove existing toast
+        const existing = document.querySelector('.s-cmd-toast');
+        if (existing) existing.remove();
+        if (this._cmdToastTimeout) clearTimeout(this._cmdToastTimeout);
+
+        const toast = document.createElement('div');
+        toast.className = 's-cmd-toast';
+        toast.innerHTML = `
+            <div>
+                <span class="cmd-label">Jessica says: Run</span>
+                <span class="cmd-code">${tcode}</span>
+            </div>
+            <button class="cmd-copy" onclick="navigator.clipboard.writeText('${tcode}');this.textContent='Copied!'">Copy</button>
+        `;
+        document.body.appendChild(toast);
+
+        this._cmdToastTimeout = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 6000);
+    }
+
+    _updateSLA(priority) {
+        const badge = this.querySelector('#sla-badge');
+        if (!badge) return;
+
+        this._currentPriority = priority;
+        badge.className = 's-sla visible';
+
+        switch (priority) {
+            case 'P1':
+                badge.classList.add('p1');
+                badge.textContent = 'P1 · SLA 15min';
+                break;
+            case 'P2':
+                badge.classList.add('p2');
+                badge.textContent = 'P2 · SLA 1hr';
+                break;
+            case 'P3':
+                badge.classList.add('p3');
+                badge.textContent = 'P3 · SLA 4hr';
+                break;
+            default:
+                badge.classList.remove('visible');
+        }
+    }
+
     cleanup() {
+        if (this._timerInterval) {
+            clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+        if (this._cmdToastTimeout) {
+            clearTimeout(this._cmdToastTimeout);
+            this._cmdToastTimeout = null;
+        }
+        const toast = document.querySelector('.s-cmd-toast');
+        if (toast) toast.remove();
         if (this.audioStreamer) {
             this.audioStreamer.stop();
             this.audioStreamer = null;

@@ -17,6 +17,7 @@ from server.tools.itsm import create_itsm_ticket, update_itsm_ticket, ITSM_DECLA
 from server.tools.sap_lookup import lookup_sap_error, lookup_transaction_code, SAP_DECLARATIONS
 from server.tools.issue_tracker import create_issue, ISSUE_DECLARATIONS
 from server.agents.sap_expert import diagnose_sap_issue, DIAGNOSIS_DECLARATIONS
+from server.tools.search_grounding import research_sap_topic, SEARCH_GROUNDING_DECLARATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ TOOL_DECLARATIONS: List[Dict] = [
     *SAP_DECLARATIONS,
     *ISSUE_DECLARATIONS,
     *DIAGNOSIS_DECLARATIONS,
+    *SEARCH_GROUNDING_DECLARATIONS,
 ]
 
 # Map of function_name -> callable
@@ -38,6 +40,7 @@ _TOOL_HANDLERS = {
     "lookup_transaction_code": lookup_transaction_code,
     "create_issue": create_issue,
     "diagnose_sap_issue": diagnose_sap_issue,
+    "research_sap_topic": research_sap_topic,
 }
 
 

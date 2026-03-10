@@ -110,9 +110,11 @@ class GeminiLive:
 
         async with self.client.aio.live.connect(model=self.model, config=config) as session:
             async def send_audio():
+                nonlocal _awaiting_user_input
                 try:
                     while True:
                         chunk = await audio_input_queue.get()
+                        _awaiting_user_input = False  # User is speaking — allow model response
                         await session.send_realtime_input(
                             audio=types.Blob(data=chunk, mime_type=f"audio/pcm;rate={self.input_sample_rate}")
                         )
@@ -138,8 +140,11 @@ class GeminiLive:
                     pass
 
             event_queue = asyncio.Queue()
+            # Turn gating: suppress model output after turn_complete until user speaks
+            _awaiting_user_input = False
 
             async def receive_loop():
+                nonlocal _awaiting_user_input
                 try:
                     while True:
                         async for response in session.receive():
@@ -148,6 +153,10 @@ class GeminiLive:
 
                             if server_content:
                                 if server_content.model_turn:
+                                    if _awaiting_user_input:
+                                        # Suppress stray model output after turn_complete
+                                        logger.debug("Suppressed model output (awaiting user input)")
+                                        continue
                                     for part in server_content.model_turn.parts:
                                         if part.inline_data:
                                             if inspect.iscoroutinefunction(audio_output_callback):
@@ -156,6 +165,8 @@ class GeminiLive:
                                                 audio_output_callback(part.inline_data.data)
 
                                 if server_content.input_transcription:
+                                    # User is speaking — reset turn gate
+                                    _awaiting_user_input = False
                                     await event_queue.put({
                                         "serverContent": {
                                             "inputTranscription": {
@@ -176,6 +187,7 @@ class GeminiLive:
                                     })
 
                                 if server_content.turn_complete:
+                                    _awaiting_user_input = True
                                     await event_queue.put({"serverContent": {"turnComplete": True}})
 
                                 if server_content.interrupted:
@@ -188,6 +200,8 @@ class GeminiLive:
                                     await event_queue.put({"type": "interrupted"})
 
                             if tool_call:
+                                # Tool calls are allowed even during turn gate
+                                _awaiting_user_input = False
                                 function_responses = []
                                 client_tool_calls = []
                                 for fc in tool_call.function_calls:

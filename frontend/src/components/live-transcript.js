@@ -23,7 +23,40 @@ class LiveTranscript extends HTMLElement {
         this.updateTranscript('model', text, isFinal);
     }
 
+    /** Show "Jessica is thinking..." indicator */
+    showThinking() {
+        this._removeIndicator();
+        const container = this.shadowRoot.querySelector('.transcript-container');
+        if (!container) return;
+        const indicator = document.createElement('div');
+        indicator.className = 'status-indicator thinking';
+        indicator.id = 'status-indicator';
+        indicator.innerHTML = '<span class="dot-pulse"></span> Jessica is thinking...';
+        container.appendChild(indicator);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    /** Show "Jessica is speaking..." indicator */
+    showSpeaking() {
+        this._removeIndicator();
+        const container = this.shadowRoot.querySelector('.transcript-container');
+        if (!container) return;
+        const indicator = document.createElement('div');
+        indicator.className = 'status-indicator speaking';
+        indicator.id = 'status-indicator';
+        indicator.innerHTML = '<span class="dot-pulse"></span> Jessica is speaking...';
+        container.appendChild(indicator);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    /** Remove the status indicator */
+    _removeIndicator() {
+        const existing = this.shadowRoot.querySelector('#status-indicator');
+        if (existing) existing.remove();
+    }
+
     finalizeAll() {
+        this._removeIndicator();
         const container = this.shadowRoot.querySelector('.transcript-container');
         if (!container) return;
         const activeBubbles = container.querySelectorAll('.bubble.temp');
@@ -183,6 +216,40 @@ class LiveTranscript extends HTMLElement {
                 .transcript-container::-webkit-scrollbar {
                     width: 0px;
                     background: transparent;
+                }
+
+                /* Status indicators */
+                .status-indicator {
+                    align-self: flex-start;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    padding: 6px 14px;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    animation: fadeIn 0.5s ease forwards;
+                    opacity: 0;
+                }
+                .status-indicator.thinking {
+                    color: var(--color-accent-primary, #4d9ff7);
+                    background: rgba(77, 159, 247, 0.06);
+                }
+                .status-indicator.speaking {
+                    color: var(--color-accent-primary, #4d9ff7);
+                    background: rgba(77, 159, 247, 0.06);
+                }
+                .dot-pulse {
+                    display: inline-block;
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    background: currentColor;
+                    animation: dotPulse 1.2s ease-in-out infinite;
+                }
+                @keyframes dotPulse {
+                    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+                    50% { opacity: 1; transform: scale(1.2); }
                 }
             </style>
             <div class="transcript-container"></div>
