@@ -344,6 +344,12 @@ class ViewSession extends HTMLElement {
                     background: rgba(229,115,115,0.15);
                     color: #e57373;
                 }
+                .m-ctrl-btn.muted {
+                    background: rgba(234,67,53,0.15);
+                    color: #ea4335;
+                }
+                .m-ctrl-btn.muted svg line.slash { display: block; }
+                .m-ctrl-btn:not(.muted) svg line.slash { display: none; }
                 .m-ctrl-btn svg { flex-shrink: 0; }
 
                 /* Tooltip */
@@ -420,8 +426,8 @@ class ViewSession extends HTMLElement {
 
                 /* Right controls group (panel toggles) */
                 .m-right-controls {
-                    position: absolute; right: 24px;
                     display: flex; align-items: center; gap: 8px;
+                    flex: 1; justify-content: flex-end;
                 }
 
                 /* ═══ Side Panel (slides in like GMeet) ═══ */
@@ -680,14 +686,27 @@ class ViewSession extends HTMLElement {
 
                 <!-- Bottom Controls (Google Meet style) -->
                 <div class="m-controls">
-                    <!-- Left group: Media controls -->
-                    <button class="m-ctrl-btn" id="screen-share-btn" disabled>
-                        <span class="m-tip">Share Screen</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    </button>
-                    <button class="m-ctrl-btn" id="screenshot-btn" disabled>
-                        <span class="m-tip">Paste Image</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <!-- Left group -->
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                        <button class="m-ctrl-btn" id="screen-share-btn" disabled>
+                            <span class="m-tip">Share Screen</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </button>
+                        <button class="m-ctrl-btn" id="screenshot-btn" disabled>
+                            <span class="m-tip">Paste Image</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Center group -->
+                    <button class="m-ctrl-btn" id="mute-btn" disabled>
+                        <span class="m-tip">Mute</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                            <line class="slash" x1="1" y1="1" x2="23" y2="23" stroke="#ea4335" stroke-width="2.5"/>
+                        </svg>
                     </button>
 
                     <div class="m-ctrl-divider"></div>
@@ -713,9 +732,7 @@ class ViewSession extends HTMLElement {
                         </div>
                     </div>
 
-                    <div class="m-ctrl-divider"></div>
-
-                    <!-- Right group: Panel toggles -->
+                    <!-- Right group -->
                     <div class="m-right-controls">
                         <button class="m-ctrl-btn" id="toggle-activity-btn">
                             <span class="m-tip">Activity</span>
@@ -773,6 +790,9 @@ class ViewSession extends HTMLElement {
         screenShareBtn.addEventListener('click', () => this.toggleScreenShare());
         screenshotBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => this.handleScreenshotUpload(e));
+
+        // Mute toggle
+        this.querySelector('#mute-btn').addEventListener('click', () => this.toggleMute());
 
         // Panel toggle buttons
         this.querySelector('#toggle-activity-btn').addEventListener('click', () => this._togglePanel('activity'));
@@ -961,6 +981,7 @@ class ViewSession extends HTMLElement {
 
             this.querySelector('#screen-share-btn').disabled = false;
             this.querySelector('#screenshot-btn').disabled = false;
+            this.querySelector('#mute-btn').disabled = false;
             this.querySelector('#transcript').clear();
 
             this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> model=<span class="val">gemini-live-2.5-flash</span> voice=<span class="val">Kore</span>`);
@@ -1134,6 +1155,18 @@ class ViewSession extends HTMLElement {
         }
     }
 
+    toggleMute() {
+        const btn = this.querySelector('#mute-btn');
+        if (!this.audioStreamer) return;
+        const muted = btn.classList.toggle('muted');
+        this.audioStreamer.muted = muted;
+        if (this.audioStreamer.stream) {
+            this.audioStreamer.stream.getAudioTracks().forEach(t => { t.enabled = !muted; });
+        }
+        const tip = btn.querySelector('.m-tip');
+        if (tip) tip.textContent = muted ? 'Unmute' : 'Mute';
+    }
+
     _sendImageToServer(b64) {
         if (this.geminiClient?.connected) this.geminiClient.sendMessage({ type: 'image', data: b64 });
     }
@@ -1180,6 +1213,8 @@ class ViewSession extends HTMLElement {
         this.querySelector('#model-viz')?.disconnect();
         this.querySelector('#screen-share-btn').disabled = true;
         this.querySelector('#screenshot-btn').disabled = true;
+        this.querySelector('#mute-btn').disabled = true;
+        this.querySelector('#mute-btn').classList.remove('muted');
         this.querySelector('#transcript')?.finalizeAll();
 
         if (this.sessionToken) {

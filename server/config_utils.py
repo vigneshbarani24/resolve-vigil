@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def get_project_id():
     env_project_id = os.getenv("PROJECT_ID")
-    if env_project_id and env_project_id != "your-project-id":
+    if env_project_id and env_project_id not in ("your-project-id", "your-gcp-project-id"):
         return env_project_id
     try:
         _, auth_project_id = google.auth.default()
