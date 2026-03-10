@@ -66,7 +66,7 @@ class ViewSummary extends HTMLElement {
             <div class="summary-container">
                 <div class="summary-header">
                     <h1>Session Summary</h1>
-                    <p class="subtitle">Guardian — AMS Control Tower Report</p>
+                    <p class="subtitle">Resolve — AMS Control Tower Report</p>
                 </div>
 
                 <!-- Metadata -->

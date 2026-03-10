@@ -89,7 +89,7 @@ class ViewHome extends HTMLElement {
                 <div id="particles-host" style="position: absolute; inset: 0; pointer-events: none;"></div>
 
                 <div class="content-wrapper">
-                    <h1 class="mystic-title">Guardian</h1>
+                    <h1 class="mystic-title">Resolve</h1>
 
                     <p style="
                         font-family: var(--font-heading);
@@ -177,7 +177,7 @@ class ViewHome extends HTMLElement {
                             </select>
                         </div>
                         <button id="start-btn" class="mystic-btn">
-                            Connect to Guardian
+                            Connect to Resolve
                         </button>
                     </div>
 
