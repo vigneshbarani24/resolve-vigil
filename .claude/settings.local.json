@@ -52,7 +52,8 @@
       "Bash(cd \"/c/KaarTech UK/Hackathons/Gemini AI Agents/frontend\" && npx vite build --outDir \"../dist\" --emptyOutDir 2>&1)",
       "Bash(gh auth:*)",
       "Bash(where gh:*)",
-      "Bash(gcloud builds:*)"
+      "Bash(gcloud builds:*)",
+      "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Gemini AI Agents\\\\frontend\" && npx vite build --outDir \"../dist\" --emptyOutDir 2>&1 | tail -5)"
     ]
   }
 }

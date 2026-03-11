@@ -613,12 +613,53 @@ class ViewSession extends HTMLElement {
                 .m-cmd-toast .cmd-copy:hover { background: rgba(77,159,247,0.12); }
                 @keyframes cmdIn { from { opacity:0; transform: translateX(-50%) translateY(-8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
+                /* ─── Chat input bar ─── */
+                .m-chat-bar {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 24px;
+                    border-top: 1px solid rgba(255,255,255,0.04);
+                    flex-shrink: 0;
+                }
+                .m-chat-input {
+                    flex: 1;
+                    background: rgba(255,255,255,0.06);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 24px;
+                    padding: 10px 18px;
+                    color: var(--color-text-main);
+                    font-size: 0.85rem;
+                    font-family: inherit;
+                    outline: none;
+                    transition: border-color 0.2s, background 0.2s;
+                }
+                .m-chat-input::placeholder { color: rgba(128,128,128,0.5); }
+                .m-chat-input:focus {
+                    border-color: var(--color-accent-primary);
+                    background: rgba(255,255,255,0.08);
+                }
+                .m-chat-send {
+                    width: 40px; height: 40px;
+                    border-radius: 50%;
+                    border: none;
+                    background: var(--color-accent-primary);
+                    color: #fff;
+                    display: flex; align-items: center; justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+                .m-chat-send:hover { opacity: 0.85; transform: scale(1.05); }
+                .m-chat-send:disabled { opacity: 0.3; cursor: default; transform: none; }
+
                 /* ─── Mobile ─── */
                 @media (max-width: 768px) {
                     .m-topbar-center { display: none; }
                     .m-panel.open { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; background: var(--color-bg); }
                     .m-panel-inner { width: 100%; }
                     .m-controls { padding: 12px 16px; gap: 8px; }
+                    .m-chat-bar { padding: 8px 16px; }
                     .m-mic-btn { width: 48px; height: 48px; }
                     .m-ctrl-btn { width: 40px; height: 40px; }
                     .m-right-controls { position: static; }
@@ -880,6 +921,14 @@ class ViewSession extends HTMLElement {
                     </div>
                 </div>
 
+                <!-- Chat input bar -->
+                <div class="m-chat-bar">
+                    <input type="text" class="m-chat-input" id="chat-input" placeholder="Type a message to Jessica..." disabled autocomplete="off" />
+                    <button class="m-chat-send" id="chat-send-btn" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+
                 <!-- Bottom Controls (Controls bar) -->
                 <div class="m-controls">
                     <!-- Left group -->
@@ -993,6 +1042,26 @@ class ViewSession extends HTMLElement {
 
         // Mute toggle
         this.querySelector('#mute-btn').addEventListener('click', () => this.toggleMute());
+
+        // Chat input
+        const chatInput = this.querySelector('#chat-input');
+        const chatSendBtn = this.querySelector('#chat-send-btn');
+        const sendChat = () => {
+            const text = chatInput.value.trim();
+            if (!text || !this.geminiClient?.connected) return;
+            this.geminiClient.sendTextMessage(text);
+            // Show in transcript
+            this.querySelector('#transcript').addInputTranscript(text, true);
+            this._addTranscriptEntry('user', text, this._elapsed());
+            this._extractInfo(text, 'user');
+            this._analyzeSentiment(text);
+            this._addLogEntry('ws', `<span class="hl">CHAT_SENT</span> <span class="val">${this._escapeForLog(text)}</span>`);
+            chatInput.value = '';
+        };
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+        });
+        chatSendBtn.addEventListener('click', sendChat);
 
         // Panel toggle buttons
         this.querySelector('#toggle-activity-btn').addEventListener('click', () => this._togglePanel('activity'));
@@ -1190,19 +1259,19 @@ class ViewSession extends HTMLElement {
             }
         }
 
-        // Error codes
-        const errorMatch = text.match(/\b([A-Z]{1,3}\s?\d{3,5})\b/) || text.match(/error\s+(?:message\s+)?(?:number\s+)?["']?([A-Z0-9\s]{3,10})["']?/i);
+        // Error codes — SAP-style only (e.g., VG001, M7021, F5003, MIGO_ERROR_001)
+        const errorMatch = text.match(/\b([A-Z]{2}\d{3,5})\b/) || text.match(/\b(MESSAGE_[A-Z0-9_]{3,20})\b/i) || text.match(/(?:error|message)\s+(?:code|number|no\.?)\s*[:=]?\s*["']?([A-Z]{2}\d{3,5})["']?/i);
         if (errorMatch) {
-            const error = errorMatch[1].trim();
-            if (this._detectedInfo.error !== error && error.length > 2) {
+            const error = (errorMatch[1] || errorMatch[0]).trim().toUpperCase();
+            if (this._detectedInfo.error !== error && error.length >= 5) {
                 this._detectedInfo.error = error;
                 this._updateInfoCard('info-error', error);
                 this._addSummaryPoint('⚠️', `Error code: ${error}`);
             }
         }
 
-        // SAP Modules
-        const moduleMatch = text.match(/\b(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|Basis|ABAP|FICO)\b/i);
+        // SAP Modules — require SAP context or exact uppercase match
+        const moduleMatch = text.match(/(?:SAP|module|sap)\s+(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|Basis|ABAP|FICO)\b/i) || text.match(/\b(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|FICO|ABAP|Basis)[\s-](?:module|system|config)/i) || text.match(/\b(FICO|ABAP|Basis)\b/);
         if (moduleMatch) {
             const mod = moduleMatch[1].toUpperCase();
             if (this._detectedInfo.module !== mod) {
@@ -1361,6 +1430,8 @@ class ViewSession extends HTMLElement {
             this.querySelector('#screen-share-btn').disabled = false;
             this.querySelector('#screenshot-btn').disabled = false;
             this.querySelector('#mute-btn').disabled = false;
+            this.querySelector('#chat-input').disabled = false;
+            this.querySelector('#chat-send-btn').disabled = false;
             this.querySelector('#transcript').clear();
 
             this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> engine=<span class="val">guardian-live</span>`);
@@ -1597,6 +1668,8 @@ class ViewSession extends HTMLElement {
         this.querySelector('#screenshot-btn').disabled = true;
         this.querySelector('#mute-btn').disabled = true;
         this.querySelector('#mute-btn').classList.remove('muted');
+        this.querySelector('#chat-input').disabled = true;
+        this.querySelector('#chat-send-btn').disabled = true;
         this.querySelector('#transcript')?.finalizeAll();
 
         if (this.sessionToken) {
