@@ -219,6 +219,15 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         ):
             if event:
                 await websocket.send_json(event)
+                # Save transcriptions to session state for download
+                sc = event.get("serverContent") if isinstance(event, dict) else None
+                if sc and session:
+                    inp = sc.get("inputTranscription")
+                    if inp and inp.get("text"):
+                        session.add_transcript("user", inp["text"])
+                    out = sc.get("outputTranscription")
+                    if out and out.get("text"):
+                        session.add_transcript("model", out["text"])
                 # Emit session state after tool events
                 if isinstance(event, dict) and event.get("type") in ("tool_call", "tool_result", "server_tool_call"):
                     await emit_session_state()

@@ -301,8 +301,8 @@ class ViewSession extends HTMLElement {
                 }
                 .m-screen-bar.visible { display: block; }
                 .m-screen-box {
-                    max-width: 420px; aspect-ratio: 16/9;
-                    border-radius: 12px; overflow: hidden;
+                    max-width: 240px; aspect-ratio: 16/9;
+                    border-radius: 10px; overflow: hidden;
                     background: rgba(0,0,0,0.3);
                     border: 1px solid rgba(255,255,255,0.06);
                 }

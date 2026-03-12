@@ -57,9 +57,11 @@ export class AudioStreamer {
         "audio-capture-processor"
       );
 
+      this.muted = false;
+
       // Set up message handling from the worklet
       this.audioWorklet.port.onmessage = (event) => {
-        if (!this.isStreaming) return;
+        if (!this.isStreaming || this.muted) return;
 
         if (event.data.type === "audio") {
           const inputData = event.data.data;
