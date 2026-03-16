@@ -13,10 +13,10 @@
     <!-- Header -->
     <header class="popup-header">
       <div class="logo-row">
-        <div class="logo-icon" id="logo-icon">R</div>
+        <div class="logo-icon" id="logo-icon">V</div>
         <div>
-          <h1>Resolve</h1>
-          <p class="tagline" id="tagline">AI Visual Guidance</p>
+          <h1>Vigil</h1>
+          <p class="tagline" id="tagline">Scam, Spam & AI Content Shield</p>
         </div>
       </div>
       <div class="status-row">
@@ -24,18 +24,6 @@
         <span class="status-text" id="status-text">Disconnected</span>
       </div>
     </header>
-
-    <!-- Mode Toggle -->
-    <div class="mode-toggle" id="mode-toggle">
-      <button class="mode-btn active" id="mode-shield" data-mode="shield">
-        <span class="mode-icon">&#x1F6E1;</span>
-        <span>Vigil</span>
-      </button>
-      <button class="mode-btn" id="mode-assist" data-mode="assist">
-        <span class="mode-icon">&#x1F9ED;</span>
-        <span>Assist</span>
-      </button>
-    </div>
 
     <!-- Settings Section -->
     <section class="section" id="settings-section">
@@ -85,36 +73,30 @@
     </section>
 
     <!-- ═══ ASSIST MODE ═══ -->
-    <section class="section hidden" id="analyze-section">
-      <div class="input-group">
-        <label for="query-input">What do you need help with?</label>
-        <textarea id="query-input" rows="2" placeholder="e.g., Where do I upload my documents?"></textarea>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="analyze-btn">
-          <span class="btn-icon">&#x1F50D;</span> Analyze Page
-        </button>
-        <button class="btn btn-secondary" id="clear-btn">Clear</button>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-accent" id="screenshare-btn">
-          <span class="btn-icon">&#x1F4F9;</span> Share Screen
-        </button>
-      </div>
-
-      <!-- Results -->
-      <div class="results hidden" id="results">
-        <div class="results-header">
-          <span>Guidance</span>
-          <button class="btn-link" id="execute-btn">Execute All</button>
+    <section class="section hidden" id="assist-section">
+      <div class="assist-header">
+        <span class="assist-icon">&#x1F9ED;</span>
+        <div class="assist-info">
+          <span class="assist-title">Page Assist</span>
+          <span class="assist-subtitle">Ask where to find anything on this page</span>
         </div>
-        <div id="results-body"></div>
       </div>
 
-      <!-- Explanation -->
-      <div class="explanation hidden" id="explanation"></div>
+      <div class="input-group">
+        <label for="assist-input">What do you need help with?</label>
+        <div class="assist-input-row">
+          <input type="text" id="assist-input" placeholder="e.g. Find the submit button" />
+          <button class="btn btn-primary btn-guide" id="guide-btn">Guide Me</button>
+        </div>
+      </div>
+
+      <div class="assist-result hidden" id="assist-result">
+        <div class="explanation" id="assist-explanation"></div>
+        <div class="assist-actions-row">
+          <span class="assist-action-count" id="assist-action-count"></span>
+          <button class="btn btn-secondary btn-execute" id="execute-all-btn">Execute All</button>
+        </div>
+      </div>
     </section>
 
     <!-- Live Status Bar -->
@@ -150,7 +132,7 @@
     <!-- Loading -->
     <div class="loading hidden" id="loading">
       <div class="spinner"></div>
-      <span id="loading-text">Analyzing page...</span>
+      <span id="loading-text">Scanning...</span>
     </div>
 
     <!-- Error -->

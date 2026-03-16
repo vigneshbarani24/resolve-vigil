@@ -1,18 +1,18 @@
 /**
- * Resolve AI Navigator — Configuration
+ * Vigil Shield — Configuration
  *
  * Swap this file to rebrand the extension for other products.
  * All branding, endpoints, and language defaults live here.
  */
 export const CONFIG = {
   // Branding
-  name: 'Resolve AI Navigator',
+  name: 'Vigil Shield',
   agentName: 'Theepa',
   tagline: 'AI IT Helpdesk — Visual Navigator',
   shieldName: 'Vigil',
   shieldTagline: 'Scam, Spam & AI Content Shield',
 
-  // Colors (matches Resolve theme)
+  // Colors (Vigil theme)
   colors: {
     primary: '#4d9ff7',
     primaryGlow: 'rgba(77, 159, 247, 0.25)',
@@ -30,7 +30,7 @@ export const CONFIG = {
   navigateEndpoint: '/api/navigate',
   screenshareWsEndpoint: '/ws/extension',
 
-  // Languages (matching Resolve's 20 languages)
+  // Languages (20 supported)
   languages: [
     { code: 'en', label: 'English', native: 'English' },
     { code: 'de', label: 'German', native: 'Deutsch' },

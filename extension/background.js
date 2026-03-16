@@ -1,7 +1,7 @@
 /**
- * Resolve AI Navigator — Background Service Worker
+ * Vigil Shield — Background Service Worker
  *
- * Manages communication between popup, content script, and the Resolve backend.
+ * Manages communication between popup, content script, and the Vigil backend.
  * Handles both Shield Mode (scam/phishing detection) and Assist Mode (UI guidance).
  */
 
@@ -169,24 +169,26 @@ async function shieldScan(tabId, language) {
     threats: result.threats || [],
   });
 
-  // 4. Update extension badge
-  updateBadge(result.threat_level);
+  // 4. Update extension badge (per-tab)
+  updateBadge(result.threat_level, tabId);
 
   return result;
 }
 
-function updateBadge(threatLevel) {
+function updateBadge(threatLevel, tabId) {
   const badges = {
-    safe: { text: '', color: '#81c784' },
-    low: { text: '', color: '#81c784' },
+    safe: { text: '\u2713', color: '#81c784' },
+    low: { text: '\u2713', color: '#81c784' },
     medium: { text: '!', color: '#f0ab00' },
     high: { text: '!!', color: '#e57373' },
     critical: { text: 'X', color: '#f44336' },
   };
   const b = badges[threatLevel] || badges.safe;
+  const opts = tabId ? { text: b.text, tabId } : { text: b.text };
+  const colorOpts = tabId ? { color: b.color, tabId } : { color: b.color };
 
-  chrome.action.setBadgeText({ text: b.text });
-  chrome.action.setBadgeBackgroundColor({ color: b.color });
+  chrome.action.setBadgeText(opts);
+  chrome.action.setBadgeBackgroundColor(colorOpts);
 }
 
 /* ──────────────── Analyze Page Flow (Assist) ──────────────── */
@@ -277,10 +279,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Small delay to let page render
     setTimeout(async () => {
       try {
+        // Show scanning indicator
+        chrome.action.setBadgeText({ text: '...', tabId });
+        chrome.action.setBadgeBackgroundColor({ color: '#4d9ff7', tabId });
         const result = await shieldScan(tabId, settings.language);
         // Badge already updated in shieldScan()
       } catch {
-        // Silently fail on auto-scan (page might not have content script yet)
+        // Silently fail on auto-scan
+        chrome.action.setBadgeText({ text: '', tabId });
       }
     }, 1500);
   } catch {}

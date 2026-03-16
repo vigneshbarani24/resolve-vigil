@@ -1,6 +1,7 @@
 import './view-home.js';
 import './view-session.js';
 import './view-summary.js';
+import './dev-panel.js';
 
 class AppRoot extends HTMLElement {
     constructor() {
@@ -78,6 +79,10 @@ class AppRoot extends HTMLElement {
         this.viewContainer.style.height = '100%';
         this.viewContainer.style.width = '100%';
         this.appendChild(this.viewContainer);
+
+        // Dev Panel (floating, always visible)
+        const devPanel = document.createElement('dev-panel');
+        this.appendChild(devPanel);
 
         this.render();
 

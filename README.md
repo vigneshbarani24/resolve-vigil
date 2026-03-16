@@ -1,8 +1,8 @@
-# Resolve + Vigil
+# Vigil
 
-### AI IT Helpdesk & Real-Time Scam Protection Platform
+### AI-Powered IT Helpdesk, Scam Shield & Smart Browser Assistant
 
-> Two AI agents. One platform. **Theepa** talks you through IT issues by voice. **Vigil** shields you from scams in real time.
+> One platform. **Theepa** talks you through IT issues by voice. **Vigil Shield** protects you from scams in real time. **Assist mode** guides you through any page — just type what you need.
 
 ---
 
@@ -19,12 +19,13 @@
 
 ## High-Level System Overview
 
-Resolve + Vigil is a **dual-agent AI platform** built on Google Cloud:
+Vigil is a **unified AI platform** built on Google Cloud:
 
 - **Theepa** (Virtual Internal Assistant) — A voice-first IT support agent that conducts structured diagnostic interviews, runs 9 backend tools in parallel, sees the user's screen, and speaks 20 languages via **Gemini Live API**
-- **Vigil** (Scam Shield) — A Chrome extension that auto-scans every page for phishing, scams, and fraud using a **4-layer detection pipeline**: OSINT Domain Analysis, Google Web Risk API, Gemini Vision, and Google Search Grounding
+- **Vigil Shield** (Scam Protection) — A Chrome extension that auto-scans every page for phishing, scams, and fraud using a **4-layer detection pipeline**: OSINT Domain Analysis, Google Web Risk API, Gemini Vision, and Google Search Grounding
+- **Assist Mode** (Text-Based Browser Guidance) — Users type what they need help with, and Gemini Vision analyzes the page to highlight elements, annotate steps, and auto-execute actions
 
-Both agents run on a single **FastAPI backend** deployed to **Google Cloud Run**, with optional **Google ADK** multi-agent orchestration.
+All three modes run on a single **FastAPI backend** deployed to **Google Cloud Run**, with optional **Google ADK** multi-agent orchestration.
 
 <!-- Architecture diagram -->
 ![Architecture](Resolve-Architecture.png)
@@ -50,7 +51,7 @@ Both agents run on a single **FastAPI backend** deployed to **Google Cloud Run**
 
 ### Google ADK Integration
 
-Resolve uses the **Google Agent Development Kit (ADK)** for multi-agent orchestration:
+Vigil uses the **Google Agent Development Kit (ADK)** for multi-agent orchestration:
 
 1. **Agent Definitions**: `LlmAgent` with `FunctionTool` wrappers — type hints + docstrings auto-generate tool declarations
 2. **Sub-Agent Pattern**: `google_search` is isolated in a dedicated Researcher sub-agent (ADK constraint: cannot mix with other tools)
@@ -106,17 +107,27 @@ The **Researcher sub-agent** (isolated `google_search`) handles real-time web re
 
 ---
 
-### Stage 3: UI Navigator (Chrome Extension — Assist Mode)
+### Stage 3: UI Navigator (Chrome Extension)
 
 **Model**: `gemini-2.5-flash` (vision analysis)
 
-When Theepa says "click the Submit button," the Chrome extension:
+The Chrome extension operates in two modes:
 
+#### Voice Mode (via Theepa)
+When Theepa says "click the Submit button," the extension:
 1. **Captures** all interactive DOM elements with bounding rectangles
 2. **Screenshots** the visible tab via `chrome.tabs.captureVisibleTab`
 3. **Sends** screenshot + DOM to Gemini Vision for analysis
 4. **Renders** visual annotations: pulsing highlight boxes, step badges, directional labels
 5. **Executes** actions on behalf of the user: click, fill form fields, scroll to element
+
+#### Assist Mode (text-based)
+Users type what they need help with directly in the extension — no voice required:
+- "Where is the submit button?"
+- "Help me fill this form"
+- "How do I change my password on this page?"
+
+Gemini Vision analyzes the page screenshot + DOM and returns annotated actions. The extension highlights target elements with pulsing overlays, step numbers, and labels. Users can review each step individually or hit **auto-execute** to run all actions with one click.
 
 This is real UI navigation — not just screenshot analysis, but actual interaction with the page.
 
@@ -204,7 +215,7 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
 
 1. Open `chrome://extensions/` → Enable **Developer mode**
 2. Click **Load unpacked** → select the `extension/` folder
-3. Click the Resolve icon → enter server URL (`http://localhost:8080`) → **Connect**
+3. Click the Vigil icon → enter server URL (`http://localhost:8080`) → **Connect**
 4. Shield mode is ON by default — Vigil auto-scans every page
 
 ### 3. Deploy to Cloud Run
@@ -263,7 +274,7 @@ resolve-submission/
 │   ├── manifest.json
 │   ├── background.js                # Service worker: auto-scan, REST, per-tab cache
 │   ├── content.js                   # DOM capture, annotations, actions, shield banner
-│   ├── popup.html/js/css            # Dual-mode UI (Vigil + Assist) + Live Status
+│   ├── popup.html/js/css            # Dual-mode UI (Shield + Assist) + Live Status
 │   └── overlay.css                  # Page annotation styles
 ├── frontend/                        # Vite + Web Components SPA
 │   ├── src/components/              # 8 Web Components
@@ -298,10 +309,10 @@ resolve-submission/
 
 | Criteria | How We Deliver |
 |----------|---------------|
-| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, screen share) + Text (chat, extension) |
+| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, screen share) + Text (chat, extension assist mode) |
 | **Agentic** | 9 tools in parallel, 4-stage diagnostic protocol, autonomous escalation, ADK multi-agent |
 | **Grounding** | Google Search in Theepa (support research) AND Vigil (domain verification) |
-| **UI Navigator** | Chrome extension: DOM capture → Gemini Vision → highlight/click/fill on actual pages |
+| **UI Navigator** | Chrome extension: DOM capture → Gemini Vision → highlight/click/fill on actual pages, plus text-based assist mode |
 | **Cloud Native** | Vertex AI + Cloud Run + Terraform IaC + Docker |
 | **Innovation** | 4-layer real-time scam detection with OSINT scoring — no other submission has this |
 | **Multilingual** | 20 languages — voice + UI guidance + threat alerts |
@@ -311,23 +322,34 @@ resolve-submission/
 
 ## What Makes This Different
 
-| Other Submissions | Resolve + Vigil |
-|-------------------|-----------------|
+| Other Submissions | Vigil |
+|-------------------|-------|
 | Voice agent that answers questions | Voice agent with **4-stage diagnostic protocol** that creates tickets and escalates |
 | Text-based tool calling | **9 tools firing in parallel** — KB + error lookup + web search simultaneously |
 | English-only | **20 languages** — speak Tamil, get tickets in English |
 | Screenshot analysis only | Chrome extension that **highlights, clicks, and fills forms** on the actual page |
-| Single-purpose agent | **Dual-mode platform**: Shield (scam detection) + Assist (IT navigation) |
+| Single-purpose agent | **Tri-mode platform**: Shield (scam detection) + Assist (text-based guidance) + Voice (IT helpdesk) |
 | No proactive protection | **Vigil auto-scans every page** — 4-layer pipeline alerts before you get phished |
 | Manual deployment | **Terraform IaC + Cloud Run** — one command production deployment |
 | No observability | **Live activity feed** with timestamped tool calls, scans, and sessions |
 
 ---
 
+## What's Next
+
+- **Safe shopping mode** — Vigil's 4-layer shield naturally extends to e-commerce protection: detecting fake storefronts, flagging too-good-to-be-true deals, verifying seller legitimacy via Search grounding, and spotting AI-generated fake product reviews. The UI Navigator can guide users through complex checkout flows, highlight hidden fees, and annotate confusing return policies. No new tools needed — just expanded prompts on the same architecture
+- **Real WHOIS integration** for domain age checking (currently heuristic-only)
+- **Persistent ITSM backend** (currently in-memory)
+- **Multi-tab Shield dashboard** showing scan history across all tabs
+- **Enterprise SSO** integration for real IT helpdesk deployment
+- **Mobile companion app** with voice support
+
+---
+
 ## Categories
 
 - **Live Agents** — Theepa: voice-first IT support with Gemini Live API
-- **UI Navigator** — Chrome Extension: DOM capture → Gemini Vision → page actions
+- **UI Navigator** — Chrome Extension: DOM capture → Gemini Vision → page actions + text-based assist mode
 
 ---
 

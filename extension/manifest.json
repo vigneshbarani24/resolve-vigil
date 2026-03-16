@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Resolve AI Navigator",
+  "name": "Vigil Shield",
   "version": "1.0.0",
-  "description": "Vigil Shield (scam/phishing/AI content detection) + AI visual navigation assistant — powered by Gemini",
+  "description": "Real-time scam, phishing & AI content detection — powered by Gemini Vision + Google Web Risk API + OSINT",
   "permissions": [
     "activeTab",
     "scripting",

@@ -1,9 +1,8 @@
 /**
- * Resolve AI Navigator — Popup Logic
+ * Vigil — Chrome Extension Popup Logic
  *
- * Two modes:
- *   1. SHIELD (primary) — scam/phishing/fake site detection, auto-scans pages
- *   2. ASSIST — visual UI guidance for IT helpdesk support
+ * Shield-only: scam/phishing/fake site detection with auto-scan.
+ * Voice + UI navigation flows through the Vigil web app.
  */
 
 /* ──────────────────── Languages ──────────────────── */
@@ -36,20 +35,14 @@ const LANGUAGES = [
 const $ = (s) => document.querySelector(s);
 
 // Header
-const $logoIcon = $('#logo-icon');
 const $tagline = $('#tagline');
 const $statusDot = $('#status-dot');
 const $statusText = $('#status-text');
-
-// Mode toggle
-const $modeShield = $('#mode-shield');
-const $modeAssist = $('#mode-assist');
 
 // Settings
 const $serverUrl = $('#server-url');
 const $languageSelect = $('#language-select');
 const $connectBtn = $('#connect-btn');
-const $settingsSection = $('#settings-section');
 
 // Shield
 const $shieldSection = $('#shield-section');
@@ -65,15 +58,13 @@ const $threatDetails = $('#threat-details');
 const $scanNowBtn = $('#scan-now-btn');
 
 // Assist
-const $analyzeSection = $('#analyze-section');
-const $queryInput = $('#query-input');
-const $analyzeBtn = $('#analyze-btn');
-const $clearBtn = $('#clear-btn');
-const $screenshareBtn = $('#screenshare-btn');
-const $results = $('#results');
-const $resultsBody = $('#results-body');
-const $executeBtn = $('#execute-btn');
-const $explanation = $('#explanation');
+const $assistSection = $('#assist-section');
+const $assistInput = $('#assist-input');
+const $guideBtn = $('#guide-btn');
+const $assistResult = $('#assist-result');
+const $assistExplanation = $('#assist-explanation');
+const $assistActionCount = $('#assist-action-count');
+const $executeAllBtn = $('#execute-all-btn');
 
 // Shared
 const $loading = $('#loading');
@@ -89,11 +80,9 @@ const $statusServerVal = $('#status-server-val');
 
 /* ──────────────────── State ──────────────────── */
 
-let currentMode = 'shield'; // 'shield' | 'assist'
 let isConnected = false;
 let isAnalyzing = false;
-let isScreensharing = false;
-let lastActions = [];
+let lastAssistActions = [];
 
 /* ──────────────────── Init ──────────────────── */
 
@@ -108,10 +97,13 @@ async function init() {
   const settings = await sendMessage({ type: 'get_settings' });
   if (settings.serverUrl) $serverUrl.value = settings.serverUrl;
   if (settings.language) $languageSelect.value = settings.language;
-  if (settings.mode) currentMode = settings.mode;
   if (settings.connected) setConnected(true);
 
-  updateModeUI();
+  if (isConnected) {
+    $shieldSection.classList.remove('hidden');
+    $assistSection.classList.remove('hidden');
+  }
+
   checkConnection();
 
   // Load cached scan for current tab
@@ -119,36 +111,6 @@ async function init() {
   if (cached && cached.threat_level) {
     updateLiveStatusScan('done', cached.threat_level);
   }
-}
-
-/* ──────────────────── Mode Switching ──────────────────── */
-
-function updateModeUI() {
-  $modeShield.classList.toggle('active', currentMode === 'shield');
-  $modeAssist.classList.toggle('active', currentMode === 'assist');
-
-  if (isConnected) {
-    $shieldSection.classList.toggle('hidden', currentMode !== 'shield');
-    $analyzeSection.classList.toggle('hidden', currentMode !== 'assist');
-  }
-
-  if (currentMode === 'shield') {
-    $tagline.textContent = 'Vigil — Scam, Spam & AI Content Shield';
-  } else {
-    $tagline.textContent = 'AI Visual Guidance';
-  }
-}
-
-function switchMode(mode) {
-  currentMode = mode;
-  updateModeUI();
-  sendMessage({ type: 'save_settings', mode });
-
-  // Clear results when switching
-  $shieldResult.classList.add('hidden');
-  $results.classList.add('hidden');
-  $explanation.classList.add('hidden');
-  $error.classList.add('hidden');
 }
 
 /* ──────────────────── UI Helpers ──────────────────── */
@@ -160,18 +122,18 @@ function setConnected(connected) {
   $connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
 
   if (connected) {
-    updateModeUI();
+    $shieldSection.classList.remove('hidden');
+    $assistSection.classList.remove('hidden');
   } else {
     $shieldSection.classList.add('hidden');
-    $analyzeSection.classList.add('hidden');
+    $assistSection.classList.add('hidden');
   }
 }
 
 function showLoading(show, text) {
   isAnalyzing = show;
   $loading.classList.toggle('hidden', !show);
-  $loadingText.textContent = text || 'Analyzing...';
-  $analyzeBtn.disabled = show;
+  $loadingText.textContent = text || 'Scanning...';
   $scanNowBtn.disabled = show;
 }
 
@@ -181,7 +143,7 @@ function showError(msg) {
   setTimeout(() => $error.classList.add('hidden'), 5000);
 }
 
-/* ──────────────────── Shield Mode ──────────────────── */
+/* ──────────────────── Shield ──────────────────── */
 
 function showShieldResult(result) {
   const level = result.threat_level || 'safe';
@@ -200,7 +162,7 @@ function showShieldResult(result) {
   $verdictLevel.textContent = v.label;
   $verdictText.textContent = result.summary || 'No threats detected.';
 
-  // Render detailed findings with evidence and sources
+  // Render detailed findings
   $threatDetails.innerHTML = '';
 
   const findings = result.findings || [];
@@ -220,7 +182,6 @@ function showShieldResult(result) {
       $threatDetails.appendChild(item);
     });
   } else if (result.threats && result.threats.length > 0) {
-    // Fallback to old-style threat strings
     result.threats.forEach(threat => {
       const item = document.createElement('div');
       item.className = 'threat-item';
@@ -244,7 +205,7 @@ function showShieldResult(result) {
         <span style="color:${scoreColor};font-weight:700;font-size:14px">${score}/100</span>
         <span style="margin-left:6px">${result.osint.domain} (.${result.osint.tld})</span>
       </div>
-      ${result.osint.flags.length ? `<div class="finding-evidence">${result.osint.flags.join(' · ')}</div>` : ''}
+      ${result.osint.flags.length ? `<div class="finding-evidence">${result.osint.flags.join(' \u00B7 ')}</div>` : ''}
     `;
     $threatDetails.insertBefore(osintDiv, $threatDetails.firstChild);
   }
@@ -256,7 +217,7 @@ function showShieldResult(result) {
     layerDiv.style.marginTop = '6px';
     layerDiv.style.paddingTop = '6px';
     layerDiv.style.borderTop = '1px solid var(--color-border)';
-    layerDiv.textContent = `Layers: ${result.layers_used.map(l => l.replace(/_/g, ' ')).join(' → ')}`;
+    layerDiv.textContent = `Layers: ${result.layers_used.map(l => l.replace(/_/g, ' ')).join(' \u2192 ')}`;
     $threatDetails.appendChild(layerDiv);
   }
 
@@ -286,14 +247,13 @@ function clearShieldResult() {
   $shieldTitle.textContent = 'Shield Active';
   $shieldSubtitle.textContent = 'Auto-scanning pages for threats';
   $('#clear-shield-btn').classList.add('hidden');
-  // Clear badge
   sendMessage({ type: 'shield_auto_scan', enabled: $shieldToggle.checked });
 }
 
 function formatCategory(cat) {
   const names = {
     web_risk: 'Web Risk API',
-    domain: 'Domain Check',
+    domain: 'Domain OSINT',
     phishing: 'Phishing',
     scam: 'Scam Indicators',
     transaction: 'Transaction Risk',
@@ -303,7 +263,6 @@ function formatCategory(cat) {
     ssl: 'SSL/Security',
     spam: 'Spam',
     search_grounding: 'Search Verification',
-    domain: 'Domain OSINT',
   };
   return names[cat] || (cat || '').replace(/_/g, ' ');
 }
@@ -343,107 +302,69 @@ async function handleShieldScan() {
   }
 }
 
-/* ──────────────────── Assist Mode ──────────────────── */
+/* ──────────────────── Assist ──────────────────── */
 
-function showResults(result) {
-  lastActions = result.actions || [];
-
-  if (lastActions.length === 0) {
-    $results.classList.add('hidden');
-    $explanation.textContent = result.explanation || 'No actions identified.';
-    $explanation.classList.remove('hidden');
-    return;
-  }
-
-  $resultsBody.innerHTML = '';
-  lastActions.forEach((action, idx) => {
-    const item = document.createElement('div');
-    item.className = 'result-item';
-    const icon = {
-      click: '\u{1F446}', fill: '\u{270F}\u{FE0F}',
-      scroll: '\u{2B07}\u{FE0F}', highlight: '\u{1F4A1}',
-    }[action.type] || '\u{2728}';
-
-    item.innerHTML = `
-      <span class="result-step">${idx + 1}</span>
-      <span class="result-icon">${icon}</span>
-      <span class="result-label">${action.label || action.type}</span>
-    `;
-    $resultsBody.appendChild(item);
-  });
-
-  $results.classList.remove('hidden');
-
-  if (result.explanation) {
-    $explanation.textContent = result.explanation;
-    $explanation.classList.remove('hidden');
-  } else {
-    $explanation.classList.add('hidden');
-  }
-}
-
-async function handleAnalyze() {
-  if (isAnalyzing) return;
-  const query = $queryInput.value.trim();
-  if (!query) {
-    showError('Please describe what you need help with');
-    return;
-  }
+async function handleAssist() {
+  const query = $assistInput.value.trim();
+  if (!query || isAnalyzing) return;
 
   showLoading(true, 'Analyzing page...');
+  $assistResult.classList.add('hidden');
   $error.classList.add('hidden');
-  $results.classList.add('hidden');
-  $explanation.classList.add('hidden');
+  lastAssistActions = [];
 
   try {
     const result = await sendMessage({
       type: 'analyze_page',
-      query,
+      instruction: query,
       language: $languageSelect.value,
     });
+
     if (result.error) {
       showError(result.error);
-    } else {
-      showResults(result);
+      return;
     }
+
+    const explanation = result.explanation || 'No guidance available.';
+    const actions = result.actions || [];
+    lastAssistActions = actions;
+
+    $assistExplanation.textContent = explanation;
+    $assistActionCount.textContent = actions.length > 0
+      ? `${actions.length} action${actions.length > 1 ? 's' : ''} found`
+      : 'No actions needed';
+    $executeAllBtn.classList.toggle('hidden', actions.length === 0);
+    $assistResult.classList.remove('hidden');
   } catch (err) {
-    showError(err.message || 'Analysis failed');
+    showError(err.message || 'Assist failed');
   } finally {
     showLoading(false);
   }
 }
 
 async function handleExecuteAll() {
-  if (lastActions.length === 0) return;
-  const result = await sendMessage({
-    type: 'execute_actions',
-    actions: lastActions.filter(a => a.type !== 'highlight'),
-  });
-  if (result.error) showError(result.error);
-}
+  if (!lastAssistActions.length || isAnalyzing) return;
 
-async function handleClear() {
-  await sendMessage({ type: 'clear_annotations' });
-  $results.classList.add('hidden');
-  $explanation.classList.add('hidden');
-  lastActions = [];
-}
+  showLoading(true, 'Executing actions...');
+  $error.classList.add('hidden');
 
-async function handleScreenshare() {
-  if (isScreensharing) {
-    await sendMessage({ type: 'stop_screenshare' });
-    isScreensharing = false;
-    $screenshareBtn.innerHTML = '<span class="btn-icon">&#x1F4F9;</span> Share Screen';
-    $screenshareBtn.classList.remove('active');
-    return;
-  }
-  const result = await sendMessage({ type: 'start_screenshare', intervalMs: 2000 });
-  if (result.success) {
-    isScreensharing = true;
-    $screenshareBtn.innerHTML = '<span class="btn-icon">&#x1F6D1;</span> Stop Sharing';
-    $screenshareBtn.classList.add('active');
-  } else {
-    showError(result.error || 'Screen sharing failed');
+  try {
+    const result = await sendMessage({
+      type: 'execute_actions',
+      actions: lastAssistActions,
+    });
+
+    if (result.error) {
+      showError(result.error);
+    } else {
+      $assistExplanation.textContent = 'Actions executed successfully.';
+      $executeAllBtn.classList.add('hidden');
+      $assistActionCount.textContent = 'Done';
+    }
+  } catch (err) {
+    showError(err.message || 'Execution failed');
+  } finally {
+    showLoading(false);
   }
 }
 
@@ -481,20 +402,16 @@ async function handleConnect() {
 
 /* ──────────────────── Event Listeners ──────────────────── */
 
-$modeShield.addEventListener('click', () => switchMode('shield'));
-$modeAssist.addEventListener('click', () => switchMode('assist'));
 $connectBtn.addEventListener('click', handleConnect);
 $scanNowBtn.addEventListener('click', handleShieldScan);
+$guideBtn.addEventListener('click', handleAssist);
+$executeAllBtn.addEventListener('click', handleExecuteAll);
+$assistInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleAssist();
+});
 $('#clear-shield-btn').addEventListener('click', clearShieldResult);
-$analyzeBtn.addEventListener('click', handleAnalyze);
-$clearBtn.addEventListener('click', handleClear);
-$executeBtn.addEventListener('click', handleExecuteAll);
-$screenshareBtn.addEventListener('click', handleScreenshare);
 $languageSelect.addEventListener('change', () => {
   sendMessage({ type: 'save_settings', language: $languageSelect.value });
-});
-$queryInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAnalyze(); }
 });
 $shieldToggle.addEventListener('change', () => {
   const enabled = $shieldToggle.checked;
@@ -506,22 +423,19 @@ $shieldToggle.addEventListener('change', () => {
 /* ──────────────────── Live Status ──────────────────── */
 
 async function updateLiveStatus() {
-  // Current tab info
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
       $statusTabVal.textContent = (tab.title || 'Unknown').slice(0, 35);
-      const url = tab.url || '';
       try {
-        const parsed = new URL(url);
+        const parsed = new URL(tab.url || '');
         $statusUrlVal.textContent = parsed.hostname;
       } catch {
-        $statusUrlVal.textContent = url.slice(0, 30);
+        $statusUrlVal.textContent = (tab.url || '').slice(0, 30);
       }
     }
   } catch {}
 
-  // Server status
   if (isConnected) {
     $statusServerVal.textContent = 'Connected';
     $statusServerVal.className = 'status-val safe';
@@ -538,8 +452,7 @@ function updateLiveStatusScan(phase, verdict) {
     $statusVerdictVal.textContent = '...';
     $statusVerdictVal.className = 'status-val';
   } else if (phase === 'done') {
-    const now = new Date();
-    $statusLastScanVal.textContent = now.toLocaleTimeString();
+    $statusLastScanVal.textContent = new Date().toLocaleTimeString();
     $statusLastScanVal.className = 'status-val';
 
     const level = verdict || 'safe';
@@ -554,7 +467,6 @@ function updateLiveStatusScan(phase, verdict) {
   }
 }
 
-// Refresh live status every 2s (tab changes etc.)
 setInterval(updateLiveStatus, 2000);
 
 /* ──────────────────── Boot ──────────────────── */

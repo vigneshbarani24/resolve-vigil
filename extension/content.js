@@ -1,5 +1,5 @@
 /**
- * Resolve AI Navigator — Content Script
+ * Vigil Shield — Content Script
  *
  * Injected into every page. Responsibilities:
  * 1. Capture interactive DOM elements with bounding rects

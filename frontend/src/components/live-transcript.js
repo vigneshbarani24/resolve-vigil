@@ -95,7 +95,7 @@ class LiveTranscript extends HTMLElement {
 
             const label = document.createElement('span');
             label.className = 'bubble-label';
-            label.textContent = role === 'user' ? 'You' : 'Resolve Agent';
+            label.textContent = role === 'user' ? 'You' : 'Vigil Agent';
             bubble.appendChild(label);
 
             container.appendChild(bubble);
@@ -103,7 +103,7 @@ class LiveTranscript extends HTMLElement {
         }
 
         const currentText = bubble.textContent;
-        const labelText = role === 'user' ? 'You' : 'Resolve Agent';
+        const labelText = role === 'user' ? 'You' : 'Vigil Agent';
         const contentText = currentText.replace(labelText, '').trim();
         if (contentText.length > 0 && !contentText.endsWith(' ') && !text.startsWith(' ')) {
             if (/^[a-zA-Z0-9\u00C0-\u024F]/.test(text)) {

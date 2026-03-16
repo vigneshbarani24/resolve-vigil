@@ -6,7 +6,7 @@ import './issue-panel.js';
 import './diagnostic-tracker.js';
 import './agent-guidance.js';
 
-const SYSTEM_PROMPT = `You are Theepa, the Virtual Internal Assistant for Resolve. You help users navigate government portals, visa applications, tax filing systems, and online services. You are relentless, thorough, and you NEVER close a case with missing information.
+const SYSTEM_PROMPT = `You are the Virtual Internal Assistant for Vigil. You help users navigate government portals, visa applications, tax filing systems, and online services. You are relentless, thorough, and you NEVER close a case with missing information.
 
 PERSONALITY:
 - Relentless investigator: You do NOT accept vague answers. If the user says "it's not working," you demand the exact error message, the exact page they are on, and the exact step where it fails.
@@ -105,7 +105,7 @@ CRITICAL SPEECH RULES:
 - Create each ticket ONCE. After calling a tool, move to the NEXT step.
 
 GREETING:
-"Hi, I'm Theepa, your Virtual Internal Assistant at Resolve. I'm here to help you navigate any portal issues — whether it's visa applications, tax filing, government services, or any online platform. What's your name, and what portal are you working with today?"
+"Hi, I'm your Virtual Internal Assistant at Vigil. I'm here to help you navigate any portal issues — whether it's visa applications, tax filing, government services, or any online platform. What's your name, and what portal are you working with today?"
 After the greeting, ask for their name, the portal, and the error.
 
 ABSOLUTE RULE — TURN DISCIPLINE:
@@ -836,7 +836,7 @@ class ViewSession extends HTMLElement {
                         <button class="m-back" id="back-btn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         </button>
-                        <span class="m-title">Resolve</span>
+                        <span class="m-title">Vigil</span>
                         <span class="m-subtitle">Theepa</span>
                     </div>
 

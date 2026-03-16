@@ -1,10 +1,10 @@
-# Devpost Submission — Resolve + Vigil
+# Devpost Submission — Vigil
 
 ## Title
-Resolve + Vigil — AI IT Helpdesk & Real-Time Scam Protection with Voice, Vision & Chrome Extension
+Vigil — AI-Powered IT Helpdesk, Scam Shield & Smart Browser Assistant
 
 ## Tagline
-Two AI agents, one platform. Theepa resolves IT issues by voice. Vigil shields you from scams in real time.
+One platform. Voice-first IT support, real-time scam protection, and smart browser guidance — all powered by Gemini.
 
 ## Try It Live
 https://resolve-743776360861.us-central1.run.app
@@ -17,13 +17,13 @@ IT support wastes billions every year. The average ticket takes hours — most o
 
 But there's a second problem nobody's solving: **scams**. Users navigate phishing pages that impersonate legitimate portals, enter credentials on fake login forms, and fall for AI-generated fraud. Traditional security catches known threats — but the sophisticated ones slip through.
 
-We built Resolve + Vigil to solve both problems with two AI agents on a single platform.
+We built Vigil to solve both problems — and more — on a single AI platform.
 
 ---
 
 ## What It Does
 
-**Resolve + Vigil** is a voice-first AI platform with a Chrome extension that tackles IT support and scam protection simultaneously.
+**Vigil** is a voice-first AI platform with a Chrome extension that tackles IT support, scam protection, and smart browser assistance simultaneously.
 
 ### Theepa — Virtual Internal Assistant (Live Agent)
 
@@ -36,7 +36,7 @@ Theepa conducts structured diagnostic interviews over voice, following the proto
 
 She speaks 20 languages, uses 9 backend tools, and the conversation flows like a real phone call — interruptible, natural, contextual.
 
-### Vigil — Scam & Phishing Shield
+### Vigil Shield — Scam & Phishing Protection
 
 Vigil runs silently in the Chrome extension with a 4-layer detection pipeline:
 
@@ -47,9 +47,13 @@ Vigil runs silently in the Chrome extension with a 4-layer detection pipeline:
 
 No user action needed — Vigil auto-scans every page navigation and alerts you before you get phished.
 
-### UI Navigator — Chrome Extension
+### UI Navigator — Chrome Extension (Voice + Assist Mode)
 
-The extension doesn't just analyze pages — it **acts**. When Theepa says "click Submit," the extension captures DOM elements, sends them to Gemini Vision, highlights the target with pulsing annotations, and optionally clicks/fills/scrolls on behalf of the user.
+The extension doesn't just analyze pages — it **acts**.
+
+**Voice mode**: When Theepa says "click Submit," the extension captures DOM elements, sends them to Gemini Vision, highlights the target with pulsing annotations, and optionally clicks/fills/scrolls on behalf of the user.
+
+**Assist mode (text-based)**: Users type what they need help with — "Where is the submit button?", "Help me fill this form", "How do I change my password on this page?" Gemini Vision analyzes the page screenshot + DOM and returns annotated actions. The extension highlights target elements with pulsing overlays, step numbers, and directional labels. Users can review each step or auto-execute all actions with one click. No voice needed — just type and go.
 
 ---
 
@@ -62,8 +66,9 @@ The extension doesn't just analyze pages — it **acts**. When Theepa says "clic
 - **Voice Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI — real-time speech-to-speech with tool calling
 - **Vision Model**: `gemini-2.5-flash` via Vertex AI — screenshot analysis, search grounding, shield detection
 - **ADK Multi-Agent**: Google ADK with Theepa agent (9 FunctionTools) + Researcher sub-agent (isolated `google_search` — required by ADK architecture)
-- **Chrome Extension**: Manifest V3 with service worker (auto-scan, REST API), content script (DOM capture, annotations, actions), dual-mode popup (Vigil + Assist)
+- **Chrome Extension**: Manifest V3 with service worker (auto-scan, REST API), content script (DOM capture, annotations, actions), dual-mode popup (Shield + Assist)
 - **Deployment**: Google Cloud Run + Terraform IaC
+- **Extensible by design**: The same Gemini Vision + Search Grounding pipeline powers IT support, scam detection, and browser assistance. Adding new use cases (like safe shopping — see What's Next) requires only expanded prompts, not new tools
 
 ### 9 Backend Tools
 
@@ -100,10 +105,11 @@ The extension doesn't just analyze pages — it **acts**. When Theepa says "clic
 
 ## Accomplishments We're Proud Of
 
-- **Dual-agent platform** that solves two real problems (IT support + scam detection) in one product
+- **Unified AI platform** that solves real problems (IT support + scam detection + browser assistance) in one product
 - **4-layer scam detection** with OSINT domain scoring, Google Web Risk API, Gemini Vision, and Google Search grounding — with smart escalation AND de-escalation
 - **20-language voice support** with Gemini Live API — the agent speaks naturally in Tamil, Hindi, German, Japanese, etc.
 - **Chrome extension that acts** — not just analysis but real click/fill/scroll on the user's page
+- **Text-based assist mode** — users type questions and get annotated visual guidance without speaking a word
 - **Live activity feed** (`/api/activity`) showing real-time backend operations for transparency
 - **One-command deployment** to Cloud Run with Terraform IaC
 - **Solo build** — entire platform built by one developer
@@ -121,6 +127,7 @@ The extension doesn't just analyze pages — it **acts**. When Theepa says "clic
 
 ## What's Next
 
+- **Safe shopping mode** — Vigil's 4-layer shield naturally extends to e-commerce protection: detecting fake storefronts, flagging too-good-to-be-true deals, verifying seller legitimacy via Search grounding, and identifying AI-generated fake product reviews. The UI Navigator can guide users through complex checkout flows, highlight hidden fees, and annotate confusing return policies. No new tools needed — just expanded prompts on the same architecture
 - **Real WHOIS integration** for domain age checking (currently heuristic-only)
 - **Persistent ITSM backend** (currently in-memory)
 - **Multi-tab Shield dashboard** showing scan history across all tabs
