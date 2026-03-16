@@ -88,8 +88,18 @@ async def get_status():
     return {
         "mode": "adk" if is_adk_enabled() else "live",
         "model": MODEL,
-        "tools": 9,
-        "features": ["voice", "vision", "screen_share", "vigil_shield", "ui_navigator", "multilingual"],
+        "tools": 16,
+        "agents": {
+            "theepa": {"tools": 8, "role": "IT Helpdesk Voice Agent"},
+            "vigil": {"tools": 7, "role": "Scam Shield Sub-Agent"},
+            "researcher": {"tools": 1, "role": "IT Research (google_search)"},
+            "threat_intel": {"tools": 1, "role": "Threat Intel (google_search)"},
+        },
+        "features": [
+            "voice", "vision", "screen_share", "vigil_shield",
+            "ui_navigator", "multilingual", "fake_content_detection",
+            "multi_agent_orchestration", "danger_zone_annotations",
+        ],
         "languages": 20,
         "adk_enabled": is_adk_enabled(),
         "project_id": PROJECT_ID,
@@ -474,6 +484,17 @@ async def navigate_page(request: Request):
             content={"error": str(e), "actions": [], "explanation": "Server error"},
         )
 
+@app.get("/api/threats")
+async def get_threats():
+    """Return the Vigil threat log — all confirmed threats from this session."""
+    from server.tools.vigil_tools import get_threat_log
+    threats = get_threat_log()
+    return JSONResponse(content={
+        "threats": threats,
+        "count": len(threats),
+    })
+
+
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
     file_path = f"dist/{full_path}"
@@ -483,7 +504,10 @@ async def serve_spa(full_path: str):
 
 @app.on_event("startup")
 async def on_startup():
-    log_activity("system", "Server started", f"Model: {MODEL} | ADK: {is_adk_enabled()} | Project: {PROJECT_ID}")
+    log_activity("system", "Server started",
+                 f"Model: {MODEL} | ADK: {is_adk_enabled()} | "
+                 f"Agents: theepa+vigil+researcher+threat_intel | "
+                 f"Tools: 16 (8 IT + 7 Shield + 1 Search) | Project: {PROJECT_ID}")
 
 if __name__ == "__main__":
     import uvicorn

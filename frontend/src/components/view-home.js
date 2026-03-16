@@ -667,14 +667,14 @@ class ViewHome extends HTMLElement {
                         <div class="agent-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                         </div>
-                        <div class="agent-name">Virtual Assistant</div>
-                        <div class="agent-role">Virtual Internal Assistant</div>
-                        <p class="agent-desc">Voice-first IT support. Sees your screen, speaks 20 languages, runs 9 tools in parallel to resolve issues live.</p>
+                        <div class="agent-name">Theepa</div>
+                        <div class="agent-role">Voice IT Support — Root Agent</div>
+                        <p class="agent-desc">Voice-first IT support with 4-agent orchestration. Sees your screen, speaks 20 languages, delegates to Vigil for security and Researcher for web intel. 16 tools across 4 agents.</p>
                         <div class="agent-tags">
                             <span class="agent-tag">Voice</span>
                             <span class="agent-tag">Vision</span>
-                            <span class="agent-tag">9 Tools</span>
-                            <span class="agent-tag">ITSM</span>
+                            <span class="agent-tag">16 Tools</span>
+                            <span class="agent-tag">4 Agents</span>
                         </div>
                     </div>
 
@@ -683,13 +683,13 @@ class ViewHome extends HTMLElement {
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         </div>
                         <div class="agent-name">Vigil</div>
-                        <div class="agent-role">Shield Mode</div>
-                        <p class="agent-desc">Auto-scans every page you visit. 3-layer detection: Web Risk API, Gemini Vision, and Search grounding.</p>
+                        <div class="agent-role">Security Sub-Agent — 7 Shield Tools</div>
+                        <p class="agent-desc">Voice-activated security sub-agent with 7 tools. 4-layer detection, fake content fact-checking with citations, and danger zone annotations on deceptive UI elements.</p>
                         <div class="agent-tags">
-                            <span class="agent-tag">Auto-Scan</span>
-                            <span class="agent-tag">Phishing</span>
-                            <span class="agent-tag">3-Layer</span>
-                            <span class="agent-tag">Extension</span>
+                            <span class="agent-tag">4-Layer</span>
+                            <span class="agent-tag">Fact-Check</span>
+                            <span class="agent-tag">7 Tools</span>
+                            <span class="agent-tag">Danger Zones</span>
                         </div>
                     </div>
                 </div>
@@ -733,7 +733,12 @@ class ViewHome extends HTMLElement {
                 <div class="tab-content" id="content-overview">
                     <div class="stats">
                         <div class="stat">
-                            <div class="stat-value">9</div>
+                            <div class="stat-value">4</div>
+                            <div class="stat-label">Agents</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat">
+                            <div class="stat-value">16</div>
                             <div class="stat-label">Tools</div>
                         </div>
                         <div class="stat-divider"></div>
@@ -745,11 +750,6 @@ class ViewHome extends HTMLElement {
                         <div class="stat">
                             <div class="stat-value">4</div>
                             <div class="stat-label">Shield Layers</div>
-                        </div>
-                        <div class="stat-divider"></div>
-                        <div class="stat">
-                            <div class="stat-value">4</div>
-                            <div class="stat-label">Diagnostic Stages</div>
                         </div>
                     </div>
                 </div>

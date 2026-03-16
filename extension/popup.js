@@ -320,6 +320,28 @@ async function handleConnect() {
   if (!isConnected) showError('Cannot connect to server. Is it running?');
 }
 
+/* ──────────────────── Tab Switching ──────────────────── */
+
+function initTabs() {
+  const tabs = document.querySelectorAll('.popup-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Deactivate all
+      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      // Activate clicked
+      tab.classList.add('active');
+      const panel = $(`#panel-${tab.dataset.tab}`);
+      if (panel) panel.classList.add('active');
+      // Clear activity badge when viewing activity tab
+      if (tab.dataset.tab === 'activity') {
+        const badge = $('#activity-badge');
+        if (badge) { badge.classList.add('hidden'); badge.textContent = '0'; }
+      }
+    });
+  });
+}
+
 /* ──────────────────── Event Listeners ──────────────────── */
 
 $connectBtn.addEventListener('click', handleConnect);
@@ -384,7 +406,145 @@ function updateLiveStatusScan(phase, verdict) {
 
 setInterval(updateLiveStatus, 2000);
 
+/* ──────────────────── Orchestration Log ──────────────────── */
+
+const $orchLog = $('#orch-log');
+const $threatSection = $('#threat-section');
+const $threatLog = $('#threat-log');
+const $threatCount = $('#threat-count');
+
+let lastActivityIndex = 0;
+let orchPollInterval = null;
+
+async function pollActivity() {
+  if (!isConnected) return;
+
+  try {
+    const settings = await sendMessage({ type: 'get_settings' });
+    const serverUrl = settings.serverUrl || 'http://localhost:8080';
+
+    // Poll activity feed
+    const resp = await fetch(`${serverUrl}/api/activity`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const events = data.activities || data.events || [];
+
+    if (events.length > lastActivityIndex) {
+      const newEvents = events.slice(lastActivityIndex);
+      lastActivityIndex = events.length;
+
+      // Clear "waiting" placeholder on first event
+      if (newEvents.length > 0 && $orchLog.querySelector('.orch-empty')) {
+        $orchLog.innerHTML = '';
+      }
+
+      newEvents.forEach(ev => {
+        const entry = createOrchEntry(ev);
+        $orchLog.appendChild(entry);
+      });
+
+      // Auto-scroll to bottom
+      $orchLog.scrollTop = $orchLog.scrollHeight;
+
+      // Update activity badge if not on activity tab
+      const activeTab = document.querySelector('.popup-tab.active');
+      if (!activeTab || activeTab.dataset.tab !== 'activity') {
+        const badge = $('#activity-badge');
+        if (badge) {
+          const count = parseInt(badge.textContent || '0') + newEvents.length;
+          badge.textContent = count;
+          badge.classList.remove('hidden');
+        }
+      }
+    }
+
+    // Poll threat log
+    const threatResp = await fetch(`${serverUrl}/api/threats`);
+    if (threatResp.ok) {
+      const threatData = await threatResp.json();
+      const threats = Array.isArray(threatData) ? threatData : (threatData.threats || []);
+      if (threats.length > 0) {
+        $threatSection.classList.remove('hidden');
+        $threatCount.textContent = threats.length;
+        $threatLog.innerHTML = '';
+        threats.forEach(t => {
+          const el = document.createElement('div');
+          el.className = 'threat-entry';
+          el.innerHTML = `
+            <span class="orch-type threat">THREAT</span>
+            <div>
+              <div class="threat-url">${escapeHtml(t.url || '')}</div>
+              <div class="threat-type">${escapeHtml(t.threat_type || '')} · ${escapeHtml(t.severity || '')}</div>
+            </div>
+          `;
+          $threatLog.appendChild(el);
+        });
+      }
+    }
+  } catch {
+    // silently ignore poll errors
+  }
+}
+
+function createOrchEntry(ev) {
+  const entry = document.createElement('div');
+  entry.className = 'orch-entry';
+
+  // Determine type — server fields: category, action, detail, ts, severity
+  let type = 'tool';
+  let typeLabel = 'TOOL';
+  const evType = (ev.category || ev.type || ev.event || '').toLowerCase();
+  const evAction = ev.action || '';
+  const evMsg = ev.action ? `${ev.action}${ev.detail ? ': ' + ev.detail : ''}` : (ev.message || ev.detail || ev.event || '');
+
+  if (evType.includes('transfer') || evAction.includes('transfer') || evAction.includes('delegat')) {
+    type = 'transfer';
+    typeLabel = 'XFER';
+  } else if (evType.includes('agent') || evAction.includes('agent')) {
+    type = 'agent';
+    typeLabel = 'AGENT';
+  } else if (evType.includes('result') || evType.includes('response') || evType.includes('complete')) {
+    type = 'result';
+    typeLabel = 'DONE';
+  } else if (evType.includes('threat') || evType.includes('shield') || evType.includes('security')) {
+    type = 'threat';
+    typeLabel = 'SHIELD';
+  } else if (evType.includes('tool')) {
+    type = 'tool';
+    typeLabel = 'TOOL';
+  }
+
+  const time = ev.ts || (ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
+
+  // Format message — bold tool/agent names
+  let msg = escapeHtml(evMsg);
+  msg = msg.replace(/\b(search_knowledge_base|lookup_error_code|lookup_portal_page|diagnose_issue|create_issue|create_itsm_ticket|update_itsm_ticket|navigate_user_browser|research_support_topic|scan_url_safety|check_domain_reputation|analyze_page_for_threats|verify_domain_legitimacy|detect_fake_content|report_threat|highlight_danger_zones|google_search)\b/g, '<strong>$1</strong>');
+  msg = msg.replace(/\b(theepa|vigil|researcher|threat_intel)\b/gi, '<strong>$1</strong>');
+
+  entry.innerHTML = `
+    <span class="orch-type ${type}">${typeLabel}</span>
+    <span class="orch-msg">${msg}</span>
+    <span class="orch-time">${time}</span>
+  `;
+  return entry;
+}
+
+function startOrchPolling() {
+  if (orchPollInterval) return;
+  orchPollInterval = setInterval(pollActivity, 2000);
+  pollActivity(); // immediate first poll
+}
+
+function stopOrchPolling() {
+  if (orchPollInterval) {
+    clearInterval(orchPollInterval);
+    orchPollInterval = null;
+  }
+}
+
 /* ──────────────────── Boot ──────────────────── */
 
+initTabs();
 init();
 updateLiveStatus();
+startOrchPolling();

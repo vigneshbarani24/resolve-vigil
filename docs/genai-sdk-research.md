@@ -1,8 +1,12 @@
-# Google GenAI SDK + ADK — Reference for TubeForge
+# Vigil — Google GenAI SDK + ADK Reference
 
-> Compiled from research | Updated: 2026-02-27 | Primary: ADK (wraps GenAI SDK internally)
+> Voice-First IT Support + Real-Time Scam Shield
+> Updated: 2026-03-16
+> Primary Framework: Google ADK (wraps google-genai internally)
 
-## SDK: `google-genai` (new unified SDK)
+---
+
+## 1. SDK: `google-genai`
 
 ```bash
 pip install google-genai
@@ -13,24 +17,25 @@ pip install google-genai
 ```python
 from google import genai
 
-# Vertex AI (production — use this for hackathon)
-client = genai.Client(vertexai=True, project="tubeforge-hackathon", location="us-central1")
+# Vertex AI (production — used by Vigil)
+client = genai.Client(vertexai=True, project="resolve-vigil", location="us-central1")
 
-# Or API Key (development only)
-client = genai.Client(api_key="YOUR_API_KEY")
+# Or via environment variables (preferred for Cloud Run):
+# GOOGLE_GENAI_USE_VERTEXAI=TRUE
+# GOOGLE_CLOUD_PROJECT=resolve-vigil
+# GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
-### Key Models
+### Model IDs
 
 | Model ID | Use Case |
 |----------|----------|
-| `gemini-2.0-flash` | Standard generation, interleaved output |
-| `gemini-2.0-flash-live-001` | Live API bidi streaming (voice + vision). Use env var `DEMO_AGENT_MODEL` to override. |
-| `gemini-2.0-flash-preview-image-generation` | Native text + image generation |
-| `imagen-3.0-generate-002` | High-quality image generation |
-| `veo-3.1-generate-001` | Video generation (4-8 sec clips) |
+| `gemini-live-2.5-flash-native-audio` | **Voice streaming** — Theepa voice sessions via Gemini Live API |
+| `gemini-2.5-flash` | **ADK agents / Vision** — Vigil shield analysis, researcher, threat_intel |
 
-### Live API (Bidi Streaming)
+**WARNING**: Do NOT use `gemini-2.0-flash-live` or `gemini-2.0-flash-live-001`. The correct voice model is `gemini-live-2.5-flash-native-audio`. Using the wrong model ID will cause connection failures.
+
+### Live API (Bidirectional Voice Streaming)
 
 ```python
 from google.genai import types
@@ -39,312 +44,282 @@ config = types.LiveConnectConfig(
     response_modalities=["AUDIO"],
     speech_config=types.SpeechConfig(
         voice_config=types.VoiceConfig(
-            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Puck")
+            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
         )
     ),
-    system_instruction=types.Content(parts=[types.Part(text="You are Forge...")]),
-    tools=[...],  # Function declarations
+    system_instruction=types.Content(parts=[types.Part(text="You are Theepa...")]),
+    tools=[...],  # Function declarations for IT tools
     input_audio_transcription=types.AudioTranscriptionConfig(),
     output_audio_transcription=types.AudioTranscriptionConfig(),
 )
 
-async with client.aio.live.connect(model="gemini-2.0-flash", config=config) as session:
-    # Send audio
+async with client.aio.live.connect(
+    model="gemini-live-2.5-flash-native-audio",
+    config=config
+) as session:
+    # Send microphone audio
     await session.send_realtime_input(
         audio=types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
     )
-    # Send image
+    # Send screen capture for vision
     await session.send_realtime_input(
         video=types.Blob(data=jpeg_bytes, mime_type="image/jpeg")
     )
-    # Receive
+    # Receive responses
     async for msg in session.receive():
         if msg.server_content and msg.server_content.model_turn:
             for part in msg.server_content.model_turn.parts:
-                if part.text: print(part.text)
-                if part.inline_data: pass  # audio bytes
+                if part.text: print(part.text)       # Transcript
+                if part.inline_data: pass             # Audio bytes
 ```
 
 **Available voices**: Puck, Charon, Kore, Fenrir, Aoede
-
-### Interleaved Output (Text + Images)
-
-```python
-response = client.models.generate_content(
-    model="gemini-2.0-flash",
-    contents="Create a documentary script about the Colosseum with illustrations.",
-    config=types.GenerateContentConfig(
-        response_modalities=["TEXT", "IMAGE"],
-    )
-)
-
-from PIL import Image
-import io
-
-for part in response.candidates[0].content.parts:
-    if part.text:
-        print(part.text)
-    elif part.inline_data:
-        image = Image.open(io.BytesIO(part.inline_data.data))
-        image.save("scene.png")
-```
-
-### Function Calling
-
-```python
-tools = [
-    types.Tool(function_declarations=[
-        types.FunctionDeclaration(
-            name="research_topic",
-            description="Research a topic using Google Search",
-            parameters=types.Schema(
-                type="OBJECT",
-                properties={
-                    "topic": types.Schema(type="STRING"),
-                    "aspects": types.Schema(type="ARRAY", items=types.Schema(type="STRING")),
-                },
-                required=["topic"],
-            ),
-        )
-    ])
-]
-```
 
 ### Key Types
 
 | Type | Purpose |
 |------|---------|
-| `types.LiveConnectConfig` | Live API session config |
+| `types.LiveConnectConfig` | Live API session configuration |
 | `types.Blob(data, mime_type)` | Binary data (audio/image) |
 | `types.Content(role, parts)` | Conversation message |
 | `types.Part` | Text, image, or audio part |
-| `types.GenerateContentConfig` | Generation config |
-| `types.SessionResumptionConfig` | Resume interrupted sessions |
-| `types.AudioTranscriptionConfig` | Enable audio transcription |
-
-## genmedia-live Patterns to Port
-
-### Image Generation (Imagen 3)
-Port the `handle_image_generation` pattern from genmedia-live into ADK FunctionTool functions.
-Use `genai.Client` inside tool functions to call Imagen/Veo directly.
-
-### Video Generation (Veo 2)
-Port the video generation + FFmpeg assembly patterns as FunctionTool functions.
-
-### FFmpeg Pipeline
-Port frame extraction, video combining, Ken Burns effect patterns into `video_assembler.py`.
+| `types.GenerateContentConfig` | Non-streaming generation config |
+| `types.AudioTranscriptionConfig` | Enable input/output audio transcription |
 
 ---
 
-## Google ADK (Agent Development Kit) — Primary Framework
+## 2. Google ADK (Agent Development Kit)
 
 ```bash
-pip install google-adk  # v1.25.0+, requires Python 3.10+
+pip install google-adk  # Requires Python 3.10+
 ```
 
 ### What ADK Provides
-- Full agent framework built ON TOP of `google-genai` SDK
-- `Agent` class with declarative tool registration
+
+- `Agent` class with declarative tool registration and sub-agent delegation
 - `FunctionTool` — auto-wraps Python functions from type hints + docstrings
-- `run_live()` — async generator for bidi streaming with Gemini Live API
-- `LiveRequestQueue` — thread-safe async FIFO buffer
+- `run_live()` — async generator for bidirectional streaming with Gemini Live API
+- `LiveRequestQueue` — thread-safe async FIFO for audio/content input
 - `SessionService` — session state management
-- `ToolContext` — injected into tool functions for state access
-- `adk web` — built-in dev UI for testing
+- `ToolContext` — injected into tool functions for scoped state access
+- `adk web` — built-in dev UI for testing agents
 - `adk deploy cloud_run` — one-command Cloud Run deployment
-- `adk eval` — agent evaluation framework
 
-### ADK Agent Definition (Multi-Agent Pattern)
+### ADK Agent Definition (Vigil Multi-Agent)
 
-**CRITICAL**: ADK's `google_search` built-in tool **cannot coexist** with other tools in a single agent. Use a multi-agent architecture:
+**CRITICAL**: ADK's `google_search` built-in tool cannot coexist with other tools in a single agent. This is why Vigil uses 4 agents.
 
 ```python
 import os
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 
-# Sub-agent: google_search ONLY (ADK limitation)
+# Sub-agent 1: Vigil Shield (scam detection)
+vigil = Agent(
+    name="vigil",
+    model="gemini-2.5-flash",
+    description="Scam and phishing detection agent",
+    instruction="Analyze URLs, pages, and content for threats...",
+    tools=[
+        scan_url_safety,
+        check_domain_reputation,
+        analyze_page_for_threats,
+        verify_domain_legitimacy,
+        detect_fake_content,
+        report_threat,
+        highlight_danger_zones,
+    ],
+)
+
+# Sub-agent 2: Researcher (google_search for IT topics)
 researcher = Agent(
     name="researcher",
-    model="gemini-2.0-flash",
-    description="Research assistant for gathering facts",
-    instruction="Research topics thoroughly. Return key facts, dates, figures.",
+    model="gemini-2.5-flash",
+    description="IT topic research with web search grounding",
+    instruction="Research IT topics thoroughly. Return key facts and solutions.",
     tools=[google_search],  # ONLY tool — cannot mix with others
 )
 
-# Main agent: media tools + sub_agents for research
-AGENT_MODEL = os.environ.get("DEMO_AGENT_MODEL", "gemini-2.0-flash-live-001")
+# Sub-agent 3: Threat Intel (google_search for scam verification)
+threat_intel = Agent(
+    name="threat_intel",
+    model="gemini-2.5-flash",
+    description="Threat intelligence via web search verification",
+    instruction="Verify scam reports, check domain legitimacy against web sources.",
+    tools=[google_search],  # ONLY tool — separate from researcher
+)
 
+# Root agent: Theepa (IT helpdesk + orchestrator)
 root_agent = Agent(
-    name="forge",
-    model=AGENT_MODEL,    # Live API model (use -001 suffix)
-    description="AI Creative Director for YouTube videos",
-    instruction="You are Forge...",
-    tools=[my_tool_function],     # Media tools only
-    sub_agents=[researcher],      # Transfer to researcher for google_search
+    name="theepa",
+    model="gemini-live-2.5-flash-native-audio",
+    description="Voice-first IT helpdesk agent",
+    instruction="You are Theepa, an IT helpdesk specialist...",
+    tools=[
+        search_knowledge_base,
+        lookup_error_code,
+        lookup_portal_page,
+        diagnose_issue,
+        create_issue,
+        create_itsm_ticket,
+        update_itsm_ticket,
+        navigate_user_browser,
+    ],
+    sub_agents=[vigil, researcher, threat_intel],
 )
 ```
 
-**Agent transfer flow**: User → Forge → (transfer to Researcher for facts) → back to Forge → media tools
+**Agent transfer flow**: User speaks to Theepa. Theepa delegates to `vigil` for shield scans, `researcher` for IT knowledge grounding, or `threat_intel` for scam fact-checking. Control returns to Theepa after each sub-agent completes.
 
 ### ADK FunctionTool Pattern
 
 ADK auto-wraps Python functions into tools. Requirements:
 - Type hints on all parameters
-- Docstring with description
+- Docstring with description (becomes tool description for the model)
 - Optional `tool_context: ToolContext` parameter for state access
 
 ```python
 from google.adk.tools import ToolContext
 
-def generate_thumbnail(
-    subject: str,
-    title_text: str,
-    style: str,
-    tool_context: ToolContext
+def search_knowledge_base(
+    query: str,
+    category: str,
+    tool_context: ToolContext,
 ) -> dict:
-    """Generate a YouTube thumbnail using Imagen 3.
+    """Search the IT helpdesk knowledge base for articles matching a query.
 
     Args:
-        subject: Main subject of the thumbnail
-        title_text: Bold text overlay
-        style: Visual style — dramatic, colorful, mysterious, clean
-        tool_context: ADK context for state management
+        query: Search terms describing the user's issue.
+        category: Issue category — one of: network, email, software, hardware,
+                  security, account, vpn, printing, general.
+        tool_context: ADK context for session state access.
 
     Returns:
-        dict with thumbnail_id and thumbnail_url
+        dict with matching articles, each containing title, content, and relevance score.
     """
-    from google import genai
-    client = genai.Client(vertexai=True)
-    response = client.models.generate_images(
-        model="imagen-3.0-generate-002",
-        prompt=f"{style} YouTube thumbnail: {subject}. {title_text}",
-        config={"number_of_images": 1, "aspect_ratio": "16:9"},
-    )
-    path = save_image(response.generated_images[0])
-    tool_context.state["thumbnail_id"] = path
-    return {"thumbnail_id": path}
+    # Implementation searches helpdesk_knowledge_base.json
+    results = perform_search(query, category)
+    tool_context.state["last_kb_search"] = query
+    tool_context.state["kb_results"] = results
+    return {"articles": results, "count": len(results)}
 ```
 
-### ADK ToolContext State
+### ADK ToolContext State Scopes
 
 ```python
-# State scopes:
-tool_context.state["key"]         # Session-specific (default)
-tool_context.state["app:key"]     # Shared across all users
-tool_context.state["user:key"]    # Per-user across sessions
-tool_context.state["temp:key"]    # Not persisted
+tool_context.state["key"]          # Session-specific (default)
+tool_context.state["app:key"]      # Shared across all users
+tool_context.state["user:key"]     # Per-user across sessions
+tool_context.state["temp:key"]     # Not persisted
 
-# TubeForge state keys:
-tool_context.state["script_segments"]   # Generated script
-tool_context.state["voiceover_id"]      # Audio file path
-tool_context.state["thumbnail_id"]      # Thumbnail path
-tool_context.state["broll_ids"]         # B-roll clip paths
-tool_context.state["video_url"]         # Final video path
-tool_context.state["niche"]             # Selected preset
-tool_context.state["research_context"]  # Search results
+# Vigil state keys:
+tool_context.state["diagnostic_stage"]    # GREETING | GATHERING | DIAGNOSING | RESOLUTION
+tool_context.state["detected_errors"]     # List of error codes found
+tool_context.state["kb_results"]          # Last KB search results
+tool_context.state["active_tickets"]      # ITSM tickets in session
+tool_context.state["shield_alerts"]       # Vigil threat detections
+tool_context.state["scan_history"]        # URLs scanned this session
 ```
 
-### ADK Bidi Streaming (run_live)
+### ADK Bidi Streaming (LiveRequestQueue)
+
+This is how the FastAPI WebSocket handler bridges browser audio to ADK's `run_live()`:
 
 ```python
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.agents.live_request_queue import LiveRequestQueue  # CORRECT import path
-from google.adk.agents.run_config import RunConfig, StreamingMode  # Optional: run config
+from google.adk.agents.live_request_queue import LiveRequestQueue
 from google.genai import types
 
 session_service = InMemorySessionService()
 runner = Runner(agent=root_agent, session_service=session_service)
 
 # Per WebSocket connection:
-session = session_service.create_session(user_id="u1", session_id="s1")
+session = session_service.create_session(user_id="user1", session_id="session1")
 live_queue = LiveRequestQueue()
 
-# Upstream: client → queue
+# Upstream: browser audio → LiveRequestQueue
 async def upstream(websocket, queue):
     async for msg in websocket.iter_bytes():
-        # Audio: send as realtime blob
         await queue.send_realtime(
             types.Blob(data=msg, mime_type="audio/pcm;rate=16000")
         )
-        # Text: send as content
-        # await queue.send_content(types.Content(parts=[types.Part(text="...")]))
-    await queue.close()  # CRITICAL: graceful shutdown
+    await queue.close()  # CRITICAL: signals end of input
 
-# Downstream: run_live → client
+# Downstream: run_live → browser
 async def downstream(websocket, runner, queue, session):
     async for event in runner.run_live(session=session, live_request_queue=queue):
         if event.text:
-            await websocket.send_text(event.text)
+            await websocket.send_text(json.dumps({"type": "transcript", "text": event.text}))
         if event.audio:
             await websocket.send_bytes(event.audio)
 
-# Run concurrently
-await asyncio.gather(upstream(...), downstream(...))
+# Run both directions concurrently
+await asyncio.gather(upstream(ws, live_queue), downstream(ws, runner, live_queue, session))
 ```
 
-**Correct LiveRequestQueue methods** (verified):
+**LiveRequestQueue methods** (verified):
+
 | Method | Use For |
 |--------|---------|
 | `queue.send_content(types.Content(...))` | Text and structured content |
 | `queue.send_realtime(types.Blob(...))` | Audio/video binary data |
 | `queue.close()` | Graceful shutdown |
-| ~~`queue.send(msg)`~~ | **WRONG** — does not exist |
 
 **Correct import paths** (verified):
-| Our old spec | Correct |
-|---|---|
-| `from google.adk.streaming import LiveRequestQueue` | `from google.adk.agents.live_request_queue import LiveRequestQueue` |
-| `from google.adk.agents.run_config import RunConfig` | `from google.adk.agents.run_config import RunConfig, StreamingMode` |
 
-### ADK Built-in Tools
+| Import | Path |
+|--------|------|
+| LiveRequestQueue | `from google.adk.agents.live_request_queue import LiveRequestQueue` |
+| RunConfig | `from google.adk.agents.run_config import RunConfig, StreamingMode` |
 
+### google_search Constraint
+
+The `google_search` built-in tool from `google.adk.tools` has a hard limitation: it cannot be combined with any other tools in one agent's tool list. This is an ADK framework constraint, not a Gemini model limitation.
+
+**Wrong** (will fail):
 ```python
-from google.adk.tools import google_search  # Google Search grounding
-# IMPORTANT: google_search CANNOT coexist with other tools in one agent.
-# Must be isolated in a dedicated sub-agent:
-researcher = Agent(name="researcher", tools=[google_search])
-root_agent = Agent(name="forge", tools=[...media_tools...], sub_agents=[researcher])
+agent = Agent(tools=[google_search, search_knowledge_base])  # ERROR
 ```
 
-### ADK Deployment
+**Correct** (sub-agent isolation):
+```python
+researcher = Agent(name="researcher", tools=[google_search])
+theepa = Agent(name="theepa", tools=[...it_tools...], sub_agents=[researcher])
+```
+
+Vigil uses two separate google_search sub-agents (`researcher` and `threat_intel`) to keep IT research and threat verification contextually separated with different instructions.
+
+---
+
+## 3. ADK Deployment
 
 ```bash
-# Development (free dev UI)
-adk web tubeforge/
+# Development (built-in dev UI)
+adk web resolve/
 
 # Cloud Run deployment
 adk deploy cloud_run \
-  --project=tubeforge-hackathon \
+  --project=resolve-vigil \
   --region=us-central1 \
   --with_ui \
-  tubeforge/
+  resolve/
 
-# What it does:
-# 1. Auto-generates Dockerfile
-# 2. Pushes to Artifact Registry
-# 3. Deploys to Cloud Run with HTTPS
+# Custom deployment (Vigil uses this for FastAPI + WebSocket)
+python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
 ```
-
-### ADK Evaluation (Bonus)
-
-```bash
-adk eval golden_dataset.json
-```
-
-Evaluates agent trajectory (tool call order) and response quality.
 
 ### ADK vs Raw GenAI SDK
 
 | Aspect | google-genai SDK | Google ADK |
 |--------|-----------------|------------|
 | Scope | Low-level API wrapper | Full agent framework |
-| Tools | Manual FunctionDeclaration | Auto-wrapped FunctionTool |
-| State | None | ToolContext with scoped state |
+| Tools | Manual FunctionDeclaration JSON | Auto-wrapped from Python functions |
+| State | None built-in | ToolContext with scoped state |
 | Streaming | Manual session loop | `run_live()` + `LiveRequestQueue` |
+| Multi-agent | DIY orchestration | `sub_agents` with automatic transfer |
 | Deploy | DIY Dockerfile | `adk deploy cloud_run` |
 | Dev UI | None | `adk web` |
 | Testing | None | `adk eval` |
 
-**TubeForge uses ADK** as the primary framework. GenAI SDK is used INSIDE tool functions for Imagen/Veo calls (since ADK wraps genai internally anyway).
+**Vigil uses ADK** as the primary framework. The `google-genai` SDK is used inside tool functions (e.g., `analyze_page_for_threats` calls Gemini Vision directly) since ADK wraps genai internally.

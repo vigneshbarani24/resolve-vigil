@@ -23,7 +23,7 @@
 |-------------------|---------------|
 | GenAI SDK or ADK usage | ADK multi-agent (FunctionTool, sub-agents) + google-genai SDK |
 | Google Cloud backend | Cloud Run + Vertex AI + Web Risk API |
-| Sound agent logic | 9-tool pipeline with parallel execution + 3-layer shield |
+| Sound agent logic | 16-tool pipeline across 4 agents with parallel execution + 4-layer shield |
 | Error handling | Fallbacks, reconnection, turn gating |
 | Anti-hallucination | Google Search grounding in both Theepa and Vigil |
 | IaC deployment | Terraform + `deploy.sh` + Docker (bonus points) |
@@ -32,7 +32,7 @@
 
 | Requirement | Plan |
 |-------------|------|
-| Clear problem/solution | "IT support is broken + users get scammed" → "Two AI agents solve both" |
+| Clear problem/solution | "IT support is broken + users get scammed" → "4 AI agents solve both" |
 | Architecture diagram | ASCII in README + visual in demo video |
 | Cloud deployment proof | Cloud Run service + Terraform code |
 | Working software demo | Live: voice interaction + Chrome extension + Vigil scan |
@@ -43,24 +43,30 @@
 
 ### Live Agents ($10K)
 - Voice-first with Gemini Live API
-- 9 tools firing in parallel
+- **4 ADK agents** with hierarchical delegation (most submissions: 1 agent)
+- **16 tools** firing in parallel (most submissions: 2-3 tools)
 - 4-stage diagnostic pipeline
 - 20 languages
 - SLA tracking + ITSM tickets
-- Google Search grounding (anti-hallucination)
+- Fake content detection with citations
+- Google Search grounding in 2 sub-agents (anti-hallucination)
+- **Transparent orchestration** — live logs show every agent transfer and tool call
 
 ### UI Navigator ($10K)
 - Chrome extension captures DOM with bounding rects
 - Gemini Vision analyzes page structure
 - Extension executes actions: highlight, click, fill, scroll
+- **Danger zone annotations** — red overlays on deceptive UI elements
 - Works on ANY webpage (not just a custom app)
 - Vigil Shield auto-scans pages (bonus for this category)
 
 ### Grand Prize ($25K)
-- Uses MORE Google tech than typical entries (ADK + Gemini Live + Gemini Flash + Web Risk + Search Grounding + Vertex AI + Cloud Run)
+- Uses MORE Google tech than any entry (ADK + Gemini Live + Gemini Flash + Web Risk + Search Grounding + Vertex AI + Cloud Run)
 - TWO categories covered (Live Agents + UI Navigator)
-- Most TANGIBLE output (tickets, diagnostic reports, scam alerts)
+- **4 agents, 16 tools** — the most sophisticated agent architecture in the competition
+- Most TANGIBLE output (tickets, diagnostic reports, scam alerts, fact-check citations, threat logs)
 - REAL commercial value (IT helpdesk + cybersecurity)
+- **Mobile-native vision** — roadmap to OS-level integration
 
 ---
 
@@ -68,19 +74,25 @@
 
 ### What most competitors will build:
 - Text-based chatbot with 1-2 tool calls
+- Single agent, no sub-agents or delegation
 - Screenshot analysis without action execution
 - Single-purpose agent (help OR protect, not both)
 - English-only demo
 - Local-only deployment
+- No transparency into AI reasoning
 
-### What Resolve + Vigil does that others won't:
-1. **DUAL-MODE** — Two agents (helpdesk + scam shield) in one platform
-2. **CHROME EXTENSION** — Real DOM interaction, not just screenshot analysis
-3. **AUTO-SCAN** — Vigil scans every page without user action
-4. **3-LAYER DETECTION** — Web Risk + Vision + Search (novel architecture)
-5. **20 LANGUAGES** — Speak Tamil, get English tickets
-6. **9 TOOLS IN PARALLEL** — Most use 1-2 tools sequentially
-7. **PRODUCTION-READY** — Docker + Terraform + Cloud Run
+### What Vigil does that others won't:
+1. **4 AGENTS** — Multi-agent orchestration with Theepa + Vigil + Researcher + Threat Intel
+2. **16 TOOLS** — Most use 1-2 tools sequentially. We fire 16 in parallel.
+3. **FAKE CONTENT DETECTION** — Fact-checks news/social media with citations from Reuters, BBC, AP
+4. **DANGER ZONE ANNOTATIONS** — Red overlays on deceptive UI elements on the actual page
+5. **TRANSPARENT AI** — Live orchestration logs show every agent transfer, tool call, and reasoning
+6. **CHROME EXTENSION** — Real DOM interaction, not just screenshot analysis
+7. **AUTO-SCAN** — Vigil scans every page without user action
+8. **4-LAYER DETECTION** — OSINT + Web Risk + Vision + Search with de-escalation
+9. **20 LANGUAGES** — Speak Tamil, get English tickets + fact-checks
+10. **MOBILE VISION** — Roadmap: every phone ships with this. OS-level protection.
+11. **PRODUCTION-READY** — Docker + Terraform + Cloud Run
 
 ---
 

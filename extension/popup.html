@@ -38,66 +38,102 @@
       <button class="btn btn-primary" id="connect-btn">Connect</button>
     </section>
 
-    <!-- ═══ SHIELD MODE ═══ -->
-    <section class="section hidden" id="shield-section">
-      <div class="shield-status" id="shield-status">
-        <div class="shield-icon" id="shield-icon">&#x1F6E1;</div>
-        <div class="shield-info">
-          <span class="shield-title" id="shield-title">Shield Active</span>
-          <span class="shield-subtitle" id="shield-subtitle">Auto-scanning pages for threats</span>
-        </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="shield-toggle" checked />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
+    <!-- ═══ TAB BAR ═══ -->
+    <div class="popup-tabs" id="popup-tabs">
+      <button class="popup-tab active" data-tab="shield">Shield</button>
+      <button class="popup-tab" data-tab="activity">Activity <span class="tab-badge hidden" id="activity-badge">0</span></button>
+      <button class="popup-tab" data-tab="status">Status</button>
+    </div>
 
-      <!-- Shield scan result -->
-      <div class="shield-result hidden" id="shield-result">
-        <div class="shield-verdict" id="shield-verdict">
-          <span class="verdict-icon" id="verdict-icon"></span>
-          <div class="verdict-info">
-            <span class="verdict-level" id="verdict-level"></span>
-            <span class="verdict-text" id="verdict-text"></span>
+    <!-- ═══ TAB: SHIELD ═══ -->
+    <div class="tab-panel active" id="panel-shield">
+      <section class="section hidden" id="shield-section">
+        <div class="shield-status" id="shield-status">
+          <div class="shield-icon" id="shield-icon">&#x1F6E1;</div>
+          <div class="shield-info">
+            <span class="shield-title" id="shield-title">Shield Active</span>
+            <span class="shield-subtitle" id="shield-subtitle">Auto-scanning pages for threats</span>
           </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="shield-toggle" checked />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
-        <div class="threat-details" id="threat-details"></div>
+
+        <!-- Shield scan result -->
+        <div class="shield-result hidden" id="shield-result">
+          <div class="shield-verdict" id="shield-verdict">
+            <span class="verdict-icon" id="verdict-icon"></span>
+            <div class="verdict-info">
+              <span class="verdict-level" id="verdict-level"></span>
+              <span class="verdict-text" id="verdict-text"></span>
+            </div>
+          </div>
+          <div class="threat-details" id="threat-details"></div>
+        </div>
+
+        <div class="shield-actions">
+          <button class="btn btn-shield" id="scan-now-btn">
+            <span class="btn-icon">&#x1F50D;</span> Scan This Page
+          </button>
+          <button class="btn btn-clear hidden" id="clear-shield-btn">Clear</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══ TAB: ACTIVITY (Orchestration + Threats) ═══ -->
+    <div class="tab-panel" id="panel-activity">
+      <div class="orch-header">
+        <div class="orch-title-row">
+          <span class="live-dot"></span>
+          <span class="orch-title">Agent Orchestration</span>
+        </div>
+        <span class="orch-badge" id="orch-agent-count">4 Agents · 16 Tools</span>
+      </div>
+      <div class="orch-log" id="orch-log">
+        <div class="orch-empty">Waiting for activity...</div>
       </div>
 
-      <div class="shield-actions">
-        <button class="btn btn-shield" id="scan-now-btn">
-          <span class="btn-icon">&#x1F50D;</span> Scan This Page
-        </button>
-        <button class="btn btn-clear hidden" id="clear-shield-btn">Clear</button>
+      <!-- Threat sub-section -->
+      <div class="threat-sub hidden" id="threat-section">
+        <div class="orch-header" style="margin-top:10px">
+          <span class="orch-title">Threat Log</span>
+          <span class="orch-badge danger" id="threat-count">0</span>
+        </div>
+        <div class="threat-log" id="threat-log">
+          <div class="orch-empty">No threats detected</div>
+        </div>
       </div>
-    </section>
+    </div>
 
-    <!-- Live Status Bar -->
-    <div class="live-status" id="live-status">
-      <div class="live-status-header">
-        <span class="live-dot"></span>
-        <span class="live-label">Live Status</span>
-      </div>
-      <div class="live-status-body" id="live-status-body">
-        <div class="status-line" id="status-tab">
-          <span class="status-key">Tab</span>
-          <span class="status-val" id="status-tab-val">—</span>
+    <!-- ═══ TAB: STATUS ═══ -->
+    <div class="tab-panel" id="panel-status">
+      <div class="live-status" id="live-status">
+        <div class="live-status-header">
+          <span class="live-dot"></span>
+          <span class="live-label">Live Status</span>
         </div>
-        <div class="status-line" id="status-url">
-          <span class="status-key">URL</span>
-          <span class="status-val" id="status-url-val">—</span>
-        </div>
-        <div class="status-line" id="status-last-scan">
-          <span class="status-key">Last Scan</span>
-          <span class="status-val" id="status-last-scan-val">—</span>
-        </div>
-        <div class="status-line" id="status-verdict">
-          <span class="status-key">Verdict</span>
-          <span class="status-val" id="status-verdict-val">—</span>
-        </div>
-        <div class="status-line" id="status-server">
-          <span class="status-key">Server</span>
-          <span class="status-val" id="status-server-val">—</span>
+        <div class="live-status-body" id="live-status-body">
+          <div class="status-line" id="status-tab">
+            <span class="status-key">Tab</span>
+            <span class="status-val" id="status-tab-val">—</span>
+          </div>
+          <div class="status-line" id="status-url">
+            <span class="status-key">URL</span>
+            <span class="status-val" id="status-url-val">—</span>
+          </div>
+          <div class="status-line" id="status-last-scan">
+            <span class="status-key">Last Scan</span>
+            <span class="status-val" id="status-last-scan-val">—</span>
+          </div>
+          <div class="status-line" id="status-verdict">
+            <span class="status-key">Verdict</span>
+            <span class="status-val" id="status-verdict-val">—</span>
+          </div>
+          <div class="status-line" id="status-server">
+            <span class="status-key">Server</span>
+            <span class="status-val" id="status-server-val">—</span>
+          </div>
         </div>
       </div>
     </div>
