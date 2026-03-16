@@ -22,33 +22,15 @@ Two problems. One platform.
 
 ## Architecture
 
-![Architecture Diagram](docs/Vigil-Architecture.png)
-
-```
-                    ┌─────────────────────────────────────────────────┐
-                    │              Google Cloud Platform               │
-                    │                                                   │
- ┌──────────┐      │  ┌──────────┐    ┌──────────────────────────┐    │
- │ Web App  │◄────►│  │ FastAPI  │◄──►│ Gemini Live 2.5 Flash    │    │
- │ Vite+WC  │ WS   │  │ Server   │    │ Native Audio (Vertex AI) │    │
- │ WebAudio │      │  │          │    └──────────────────────────┘    │
- └──────────┘      │  │ 8 Tools  │    ┌──────────────────────────┐    │
-                    │  │ Sessions │◄──►│ Gemini 2.5 Flash         │    │
- ┌──────────┐      │  │ Activity │    │ Vision + Search (Vertex)  │    │
- │ Chrome   │◄────►│  │ Feed     │    └──────────────────────────┘    │
- │Extension │ REST │  │          │    ┌──────────────────────────┐    │
- │ Shield   │      │  │          │◄──►│ Google Web Risk API      │    │
- └──────────┘      │  └──────────┘    └──────────────────────────┘    │
-                    │                                                   │
-                    │  Cloud Run │ Terraform │ Artifact Registry │ IAM  │
-                    └─────────────────────────────────────────────────┘
-```
+![Platform Architecture](docs/platform-architecture.png)
 
 ---
 
 ## How It Works
 
 ### 1. Theepa — Voice-First IT Agent
+
+![Voice Session — 4-Stage Diagnostic Flow](docs/voice-assistance-flow.png)
 
 **Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI
 
@@ -71,6 +53,8 @@ She speaks **20 languages** natively. Not translation — the model thinks in Ta
 
 ### 2. Vigil Shield — 4-Layer Scam Detection
 
+![Vigil Shield — 4-Layer Scam Detection Pipeline](docs/scam-detection.png)
+
 Every page you visit gets scanned automatically. No clicks needed.
 
 | Layer | What | Speed | How It Works |
@@ -83,6 +67,8 @@ Every page you visit gets scanned automatically. No clicks needed.
 Green ✓ on the extension icon = all layers passed. Red warning banner = get out.
 
 ### 3. Voice-Driven UI Navigation
+
+![UI Navigator — Voice-Driven Page Annotations](docs/ui-nav-assist-mode.png)
 
 No text input in the extension. UI navigation flows through voice:
 
