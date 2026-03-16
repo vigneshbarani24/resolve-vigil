@@ -25,23 +25,23 @@ Two problems. One platform.
 ![Architecture Diagram](docs/Vigil-Architecture.png)
 
 ```
-                    ┌─────────────────────────────────────────────────┐
-                    │              Google Cloud Platform               │
-                    │                                                   │
- ┌──────────┐      │  ┌──────────┐    ┌──────────────────────────┐    │
- │ Web App  │◄────►│  │ FastAPI  │◄──►│ Gemini Live 2.5 Flash    │    │
- │ Vite+WC  │ WS   │  │ Server   │    │ Native Audio (Vertex AI) │    │
- │ WebAudio │      │  │          │    └──────────────────────────┘    │
- └──────────┘      │  │ 8 Tools  │    ┌──────────────────────────┐    │
-                    │  │ Sessions │◄──►│ Gemini 2.5 Flash         │    │
- ┌──────────┐      │  │ Activity │    │ Vision + Search (Vertex)  │    │
- │ Chrome   │◄────►│  │ Feed     │    └──────────────────────────┘    │
- │Extension │ REST │  │          │    ┌──────────────────────────┐    │
- │ Shield   │      │  │          │◄──►│ Google Web Risk API      │    │
- └──────────┘      │  └──────────┘    └──────────────────────────┘    │
-                    │                                                   │
-                    │  Cloud Run │ Terraform │ Artifact Registry │ IAM  │
-                    └─────────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────────────────┐
+                    │               Google Cloud Platform                  │
+                    │                                                      │
+ ┌──────────┐      │  ┌───────────┐    ┌──────────────────────────────┐  │
+ │ Web App  │◄────►│  │ FastAPI   │◄──►│ Gemini Live 2.5 Flash        │  │
+ │ Vite+WC  │ WS   │  │ Server    │    │ Native Audio (Vertex AI)     │  │
+ │ WebAudio │      │  │           │    └──────────────────────────────┘  │
+ └──────────┘      │  │           │    ┌──────────────────────────────┐  │
+                    │  │ 4 Agents  │◄──►│ Gemini 2.5 Flash             │  │
+ ┌──────────┐      │  │ 16 Tools  │    │ Vision + Search (Vertex AI)  │  │
+ │ Chrome   │◄────►│  │ Sessions  │    └──────────────────────────────┘  │
+ │Extension │ REST │  │ Activity  │    ┌──────────────────────────────┐  │
+ │ Shield   │      │  │ Feed      │◄──►│ Google Web Risk API          │  │
+ └──────────┘      │  └───────────┘    └──────────────────────────────┘  │
+                    │                                                      │
+                    │  Cloud Run │ Terraform │ Artifact Registry │ IAM     │
+                    └──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -100,7 +100,9 @@ Voice is the single control plane. One conversation handles both diagnosis AND p
 
 ---
 
-## 8 Backend Tools
+## 16 Backend Tools — 4 ADK Agents
+
+### Theepa Agent (8 IT Helpdesk Tools)
 
 | # | Tool | What It Does |
 |---|------|-------------|
@@ -113,27 +115,52 @@ Voice is the single control plane. One conversation handles both diagnosis AND p
 | 7 | `update_itsm_ticket` | Status updates, resolution notes, escalation path |
 | 8 | `navigate_user_browser` | Triggers Chrome extension → Gemini Vision → page annotations |
 
+### Vigil Sub-Agent (7 Shield Tools)
+
+| # | Tool | What It Does |
+|---|------|-------------|
+| 9 | `scan_url_safety` | Full 4-layer shield scan (OSINT + Web Risk + Vision + Search) |
+| 10 | `check_domain_reputation` | Quick OSINT + Web Risk domain check — instant verdict |
+| 11 | `analyze_page_for_threats` | Gemini Vision detects visual scams, fake forms, impersonation |
+| 12 | `verify_domain_legitimacy` | Google Search cross-references domain against scam reports |
+| 13 | `detect_fake_content` | Fact-checks news/social media claims with citations from Reuters, BBC, AP |
+| 14 | `report_threat` | Logs confirmed threats with full evidence to threat database |
+| 15 | `highlight_danger_zones` | Identifies deceptive UI elements → Chrome extension renders red overlays |
+
+### + 2 Google Search Sub-Agents
+
+| Agent | Role |
+|-------|------|
+| `researcher` | IT research — portal outages, known issues, government service updates |
+| `threat_intel` | Scam/fact verification — domain reputation, scam reports, fact-checks |
+
 ---
 
-## Google ADK Multi-Agent
+## Google ADK Multi-Agent Orchestration
 
 ```
-┌─────────────────────────────────────────┐
-│  Theepa Agent (root_agent)              │
-│  Model: gemini-2.5-flash                │
-│  8 FunctionTools                        │
-│                                         │
-│  Delegates research queries to:         │
-│  ┌─────────────────────────────────┐    │
-│  │  Researcher Sub-Agent           │    │
-│  │  Tool: google_search (built-in) │    │
-│  │                                 │    │
-│  │  ⚠ ADK constraint:             │    │
-│  │  google_search CANNOT share an  │    │
-│  │  agent with other tools         │    │
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Theepa (root_agent) — THE VOICE                         │
+│  Model: gemini-2.5-flash │ 8 IT FunctionTools            │
+│                                                          │
+│  ┌──────────────────────────┐  ┌───────────────────────┐ │
+│  │  Researcher Sub-Agent    │  │  Vigil Sub-Agent      │ │
+│  │  google_search           │  │  7 Shield FunctionTools│ │
+│  │  (IT research)           │  │  (scam/phishing/fake  │ │
+│  │                          │  │   content detection)  │ │
+│  │  ⚠ ADK constraint:      │  │                       │ │
+│  │  google_search CANNOT    │  │  ┌──────────────────┐ │ │
+│  │  share an agent with     │  │  │ Threat Intel     │ │ │
+│  │  other tools             │  │  │ google_search    │ │ │
+│  └──────────────────────────┘  │  │ (scam/fact check)│ │ │
+│                                │  └──────────────────┘ │ │
+│                                └───────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
 ```
+
+**Flow**: User says "Is this page safe?" → Theepa transfers to Vigil → Vigil runs shield tools → threat_intel searches for scam reports → findings return to Theepa → Theepa speaks the result.
+
+**Flow**: User says "I see error AUTH-003" → Theepa fires 4 IT tools in parallel → researcher searches latest outage info → Theepa synthesizes and speaks the resolution.
 
 ---
 
@@ -192,12 +219,14 @@ bash deploy.sh --adk  # With ADK multi-agent
 | Endpoint | What |
 |----------|------|
 | `GET /health` | Server health + ADK status |
+| `GET /api/status` | Multi-agent status — 4 agents, 16 tools, features |
 | `GET /api/activity` | Live activity feed — every scan, tool call, session logged |
 | `GET /api/tickets` | All ITSM tickets |
+| `GET /api/threats` | Vigil threat log — confirmed threats with evidence |
 | `POST /api/shield` | Run 4-layer shield scan |
 | `POST /api/navigate` | Gemini Vision page analysis |
-| `POST /api/adk/chat` | ADK text chat |
-| `WS /ws/session` | Bidirectional voice streaming |
+| `POST /api/adk/chat` | ADK multi-agent text chat |
+| `WS /ws` | Bidirectional voice streaming |
 
 ---
 
@@ -205,12 +234,14 @@ bash deploy.sh --adk  # With ADK multi-agent
 
 | Typical Submission | Vigil |
 |-------------------|-------|
+| 1 agent, 2-3 tools | **4 agents, 16 tools** — multi-agent orchestration with ADK sub-agents |
 | Voice agent that answers questions | Voice agent with **4-stage diagnostic protocol** + ITSM tickets + escalation |
-| Tools called one at a time | **8 tools firing in parallel** — KB + error lookup + portal check simultaneously |
+| Tools called one at a time | **16 tools firing in parallel** — KB + error lookup + shield scan simultaneously |
 | English only | **20 languages** natively — speak Tamil, get tickets in English |
-| Screenshot analysis | Chrome extension that **highlights, clicks, and fills forms** on the actual page |
-| Single-purpose | **Dual-mode**: IT helpdesk voice agent + scam shield Chrome extension |
-| No proactive protection | **Auto-scans every page** — 4-layer pipeline alerts before you get phished |
+| Screenshot analysis | Chrome extension that **highlights, clicks, fills forms, and warns about danger zones** |
+| Single-purpose | **Dual-mode**: IT helpdesk voice agent + scam shield with fake content detection |
+| No proactive protection | **Auto-scans every page** — 4-layer pipeline + fact-checking with citations |
+| No transparency | **Live orchestration logs** — see every agent transfer, tool call, and reasoning in real time |
 | Manual deployment | **Terraform IaC** — one command to production |
 
 ---
@@ -231,10 +262,11 @@ bash deploy.sh --adk  # With ADK multi-agent
 
 ## What's Next
 
-- **Safe shopping** — same pipeline, expanded prompts. Fake storefronts, too-good-to-be-true deals, AI-generated reviews, seller verification. Voice: "Is this deal legit?" → full analysis. "Help me checkout" → annotates cart, shipping, payment. Zero new tools
+- **Mobile-native Vigil** — the real vision: every phone ships with this. Built-in scam shield + voice IT support. No extension needed — the OS does it. Vigil as a platform service.
+- **Safe shopping** — same pipeline, expanded prompts. Fake storefronts, too-good-to-be-true deals, AI-generated reviews, seller verification. Voice: "Is this deal legit?" → full analysis.
 - **Real WHOIS** — domain age is a strong scam signal, currently heuristic-only
 - **Persistent ITSM** — tickets vanish on restart. Needs a real database
-- **Multi-tab shield dashboard** — scan history, threat trends
+- **Multi-tab shield dashboard** — scan history, threat trends, threat intelligence sharing
 - **Enterprise** — SSO, custom KBs, role-based access
 
 ---
@@ -243,21 +275,24 @@ bash deploy.sh --adk  # With ADK multi-agent
 
 ```
 ├── resolve/                    # ADK package
-│   └── agent.py                # root_agent: Theepa + Researcher
+│   └── agent.py                # 4-agent graph: Theepa + Vigil + Researcher + Threat Intel
 ├── server/
 │   ├── main.py                 # FastAPI + WebSocket + REST + Activity Feed
 │   ├── gemini_live.py          # Gemini Live API bidirectional streaming
-│   ├── adk_agent.py            # ADK multi-agent definition
-│   ├── prompts.py              # Theepa persona (240+ lines)
+│   ├── adk_agent.py            # ADK multi-agent definition (conditional)
+│   ├── prompts.py              # Theepa + Vigil personas (400+ lines)
 │   ├── session_state.py        # 4-stage diagnostic state machine
-│   └── tools/                  # 8 tool implementations
-│       ├── kb_search.py        # Knowledge base
+│   ├── agents/
+│   │   └── diagnostic_expert.py # Cross-reference diagnostic engine
+│   └── tools/                  # 16 tool implementations
+│       ├── kb_search.py        # Knowledge base search
 │       ├── portal_lookup.py    # Error codes + portal pages
 │       ├── itsm.py             # Ticket CRUD
 │       ├── issue_tracker.py    # Issue logging
 │       ├── search_grounding.py # Google Search grounding
 │       ├── ui_navigator.py     # Gemini Vision page analysis
-│       └── shield_analyzer.py  # 4-layer scam detection + OSINT
+│       ├── shield_analyzer.py  # 4-layer scam detection engine
+│       └── vigil_tools.py      # 7 Vigil Shield ADK FunctionTools
 ├── extension/                  # Chrome Extension (Manifest V3)
 ├── frontend/                   # Vite + Web Components SPA
 ├── terraform/                  # Cloud Run IaC

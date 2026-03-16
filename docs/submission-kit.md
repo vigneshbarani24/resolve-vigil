@@ -115,13 +115,16 @@ git push origin main
 
 ## Key Selling Points (for judges)
 
-1. **Voice-driven UI navigation** — no other submission has the voice agent controlling a Chrome extension mid-conversation to annotate page elements
-2. **4-layer shield with de-escalation** — most security tools only escalate. Vigil lowers threat levels when Search confirms legitimacy
-3. **8 tools in parallel** — not sequential chatbot tool calling, parallel diagnostic execution
-4. **20 languages, one model** — native speech-to-speech, not translation
-5. **Solo build** — entire platform: backend, frontend, Chrome extension, Terraform, deployment
-6. **Production-ready observability** — live activity feed, system logs tab, per-tab scan caching
-7. **Extensible architecture** — safe shopping is the same pipeline with expanded prompts
+1. **4-agent multi-agent orchestration** — Theepa + Vigil + Researcher + Threat Intel. Hierarchical delegation, not a flat chatbot. Visible agent transfers in real-time logs.
+2. **16 tools** — 8 IT helpdesk + 7 shield + google_search. Firing in parallel, not one at a time.
+3. **Voice-driven UI navigation** — the voice agent controls a Chrome extension mid-conversation to annotate page elements. No other submission does this.
+4. **Fake content detection with citations** — "Is this article true?" → cross-references Reuters, BBC, AP → returns citations. Novel capability.
+5. **Danger zone annotations** — Vigil identifies deceptive UI elements → Chrome extension renders red warning overlays on the actual page.
+6. **4-layer shield with de-escalation** — most security tools only escalate. Vigil lowers threat levels when Search confirms legitimacy.
+7. **Transparent AI orchestration** — every agent transfer, tool call, and reasoning step visible in the extension's live activity log. Judges can SEE the multi-agent brain working.
+8. **20 languages, one model** — native speech-to-speech, not translation.
+9. **Solo build** — entire platform: backend, frontend, Chrome extension, Terraform, deployment.
+10. **Mobile-native vision** — the roadmap: every phone ships with Vigil built in. No extension needed.
 
 ---
 
@@ -129,13 +132,13 @@ git push origin main
 
 | Criteria | What We Show |
 |----------|-------------|
-| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, page analysis) + Text (ADK chat) |
-| **Agentic** | 8 tools, 4-stage diagnostic protocol, auto-escalation, ADK multi-agent |
-| **Grounding** | Google Search in tools (anti-hallucination) + Shield Layer 3 (domain verification) |
-| **UI Navigator** | Voice → navigate_user_browser → Chrome extension → DOM capture → Gemini Vision → annotations |
+| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, page analysis) + Text (ADK chat) + DOM annotations |
+| **Agentic** | 4 agents, 16 tools, hierarchical delegation, Vigil sub-agent with own tool pipeline |
+| **Grounding** | Google Search in 2 sub-agents: researcher (IT) + threat_intel (scam/fact-check with citations) |
+| **UI Navigator** | Voice → navigate_user_browser → Chrome extension → DOM capture → Gemini Vision → annotations + danger zone overlays |
 | **Cloud Native** | Vertex AI + Cloud Run + Terraform + Docker |
-| **Innovation** | 4-layer real-time scam detection with OSINT + de-escalation |
-| **Multilingual** | 20 languages natively in voice, tool output, and threat alerts |
+| **Innovation** | Multi-agent orchestration + fake content detection + danger zone annotations + transparent AI (live logs) |
+| **Multilingual** | 20 languages natively in voice, tool output, threat alerts, and fact-check results |
 
 ---
 

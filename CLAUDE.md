@@ -52,24 +52,25 @@ cd terraform && terraform init && terraform apply
 ## Project Structure
 ```
 ├── resolve/                    # ADK package (adk web / adk deploy)
-│   ├── agent.py                # root_agent export (Theepa + Researcher)
+│   ├── agent.py                # 4-agent graph: Theepa + Vigil + Researcher + Threat Intel
 │   └── __init__.py
 ├── server/
 │   ├── main.py                 # FastAPI + WebSocket + REST endpoints
 │   ├── gemini_live.py          # Gemini Live API wrapper
-│   ├── adk_agent.py            # ADK multi-agent (optional)
-│   ├── prompts.py              # Theepa persona (240+ lines)
+│   ├── adk_agent.py            # ADK multi-agent (conditional, ENABLE_ADK=true)
+│   ├── prompts.py              # Theepa + Vigil personas (400+ lines)
 │   ├── session_state.py        # 4-stage diagnostic state machine
 │   ├── config_utils.py         # GCP config helpers
 │   ├── tools/
-│   │   ├── registry.py         # 9-tool registration
+│   │   ├── registry.py         # 16-tool registration
 │   │   ├── kb_search.py        # Knowledge base search
 │   │   ├── portal_lookup.py    # Error code + portal page lookup
 │   │   ├── itsm.py             # ITSM ticket CRUD
 │   │   ├── issue_tracker.py    # Issue logging + category inference
 │   │   ├── search_grounding.py # Google Search grounding
 │   │   ├── ui_navigator.py     # Gemini Vision page analysis
-│   │   └── shield_analyzer.py  # Vigil 3-layer scam detection
+│   │   ├── shield_analyzer.py  # Vigil 4-layer scam detection engine
+│   │   └── vigil_tools.py      # 7 Vigil Shield ADK FunctionTools
 │   ├── agents/
 │   │   └── diagnostic_expert.py # Cross-reference diagnostic engine
 │   └── data/
@@ -106,8 +107,15 @@ cd terraform && terraform init && terraform apply
 - **Multi-agent**: `google_search` must be in its own sub-agent (cannot mix with other tools)
 - **Model ID**: Use `gemini-live-2.5-flash-native-audio` (not `gemini-2.0-flash-live`)
 
-## Tool Pipeline
-**Theepa agent** (9 tools):
+## Agent Graph (4 Agents, 16 Tools)
+```
+root_agent (Theepa — the voice) — 8 IT FunctionTools
+├── researcher — google_search (IT research)
+└── vigil — 7 Shield FunctionTools
+    └── threat_intel — google_search (scam/fact verification)
+```
+
+**Theepa agent** (8 IT tools):
 1. `search_knowledge_base` → 20-article IT helpdesk KB
 2. `lookup_error_code` → Error codes (AUTH, FORM, PAY, DOC, TECH, VISA, ID)
 3. `lookup_portal_page` → Portal navigation + known issues
@@ -115,16 +123,28 @@ cd terraform && terraform init && terraform apply
 5. `create_issue` → Issue logging with severity + dedup
 6. `create_itsm_ticket` → Full ITSM ticket with diagnostic report
 7. `update_itsm_ticket` → Ticket status + resolution updates
-8. `research_support_topic` → Google Search grounding (anti-hallucination)
-9. `navigate_user_browser` → Chrome extension DOM actions
+8. `navigate_user_browser` → Chrome extension DOM actions
 
-**Vigil Shield** (3 layers):
+**Vigil sub-agent** (7 shield tools):
+1. `scan_url_safety` → Full 4-layer shield scan (OSINT + Web Risk + Vision + Search)
+2. `check_domain_reputation` → Quick OSINT + Web Risk domain check
+3. `analyze_page_for_threats` → Gemini Vision scam detection
+4. `verify_domain_legitimacy` → Google Search domain reputation
+5. `detect_fake_content` → Fact-check claims with citations (Reuters, BBC, AP)
+6. `report_threat` → Log confirmed threats with evidence
+7. `highlight_danger_zones` → Danger zone annotations for Chrome extension
+
+**Vigil Shield** (4 layers):
+0. OSINT → domain heuristics, typosquatting, TLD reputation (instant)
 1. Google Web Risk API → known phishing/malware databases
-2. Gemini Vision → screenshot + DOM analysis for visual scam detection
+2. Gemini Vision → screenshot analysis for visual scam detection
 3. Google Search grounding → domain verification against scam reports
 
 **Researcher sub-agent** (isolated — google_search limitation):
-- `google_search` → ADK built-in (latest info grounding)
+- `google_search` → IT research (portal outages, known issues)
+
+**Threat Intel sub-agent** (isolated — google_search limitation):
+- `google_search` → Scam/fact verification (domain reputation, fact-checks)
 
 ## Specs (in docs/)
 - `docs/requirements.md` — User stories + acceptance criteria

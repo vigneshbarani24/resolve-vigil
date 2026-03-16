@@ -752,6 +752,221 @@ select {
 .status-val.danger { color: var(--color-danger); }
 .status-val.scanning { color: var(--color-primary); }
 
+/* ── Popup Tabs ── */
+
+.popup-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+
+.popup-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-sub);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.popup-tab:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.popup-tab.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(77, 159, 247, 0.25);
+}
+
+.tab-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(229, 115, 115, 0.8);
+  color: #fff;
+  min-width: 16px;
+  text-align: center;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* ── Orchestration Log ── */
+
+.orch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.orch-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orch-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-sub);
+}
+
+.orch-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(77, 159, 247, 0.15);
+  color: var(--color-primary);
+  letter-spacing: 0.03em;
+}
+
+.orch-badge.danger {
+  background: rgba(229, 115, 115, 0.15);
+  color: var(--color-danger);
+}
+
+.orch-log, .threat-log {
+  max-height: 200px;
+  overflow-y: auto;
+  background: rgba(16, 18, 28, 0.8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.orch-empty {
+  font-size: 11px;
+  color: var(--color-text-sub);
+  text-align: center;
+  padding: 12px;
+  opacity: 0.6;
+}
+
+.orch-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.orch-entry:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.orch-type {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.orch-type.agent {
+  background: rgba(232, 167, 62, 0.2);
+  color: #e8a73e;
+}
+
+.orch-type.tool {
+  background: rgba(167, 139, 250, 0.2);
+  color: #a78bfa;
+}
+
+.orch-type.transfer {
+  background: rgba(77, 159, 247, 0.2);
+  color: var(--color-primary);
+}
+
+.orch-type.result {
+  background: rgba(129, 199, 132, 0.2);
+  color: var(--color-success);
+}
+
+.orch-type.threat {
+  background: rgba(229, 115, 115, 0.2);
+  color: var(--color-danger);
+}
+
+.orch-msg {
+  color: var(--color-text-sub);
+  word-break: break-word;
+}
+
+.orch-msg strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.orch-time {
+  font-size: 9px;
+  color: var(--color-text-sub);
+  opacity: 0.5;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Threat log entries */
+.threat-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(229, 115, 115, 0.05);
+  border: 1px solid rgba(229, 115, 115, 0.15);
+  font-size: 11px;
+}
+
+.threat-entry .threat-url {
+  font-weight: 700;
+  color: var(--color-danger);
+  word-break: break-all;
+}
+
+.threat-entry .threat-type {
+  font-size: 10px;
+  color: var(--color-text-sub);
+}
+
 /* ── Scrollbar ── */
 
 ::-webkit-scrollbar {

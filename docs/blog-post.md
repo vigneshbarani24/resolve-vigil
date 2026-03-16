@@ -47,51 +47,63 @@ Three AI services work together:
 
 ## The Innovation: Dual-Mode Platform
 
-Most hackathon entries build a single-purpose agent. Resolve + Vigil is two agents in one platform:
+Most hackathon entries build a single-purpose agent. Vigil is a **4-agent multi-agent system**:
 
-**Theepa** (reactive): User has a problem → Theepa diagnoses, navigates, and resolves it
-**Vigil** (proactive): User browses normally → Vigil silently scans and alerts before damage is done
+**Theepa** (root agent, the voice): Handles everything. Delegates to specialized sub-agents.
+**Vigil** (sub-agent): Cybersecurity shield with 7 FunctionTools — scam scanning, fake content detection, danger zone annotations.
+**Researcher** (sub-agent): Google Search for IT research — portal outages, known issues.
+**Threat Intel** (sub-agent): Google Search for scam/fact verification — domain reputation, citations from Reuters/BBC/AP.
 
-The Chrome extension is the bridge — it serves both agents. In Assist mode, it captures DOM for Theepa's navigation guidance. In Shield mode, it captures screenshots for Vigil's scam analysis.
+The Chrome extension is the bridge — it serves all agents. It captures DOM for navigation guidance, screenshots for scam analysis, and displays live orchestration logs showing every agent transfer and tool call.
 
-## 9 Tools Working Together
+## 16 Tools Across 4 Agents
 
-Theepa's power comes from parallel tool execution:
+**Theepa** fires 8 IT tools in parallel:
 
 | Tool | Purpose |
 |------|---------|
-| `search_knowledge_base` | 20-article IT helpdesk KB with keyword scoring |
+| `search_knowledge_base` | 20-article IT helpdesk KB |
 | `lookup_error_code` | Error codes across 7 categories |
 | `lookup_portal_page` | Portal navigation + known issues |
 | `diagnose_issue` | Cross-reference all data sources |
 | `create_issue` | Log problems with dedup + severity |
 | `create_itsm_ticket` | Full diagnostic report ticket |
 | `update_itsm_ticket` | Status + resolution updates |
-| `research_support_topic` | Google Search grounding |
 | `navigate_user_browser` | Chrome extension DOM actions |
 
-The system prompt instructs Theepa to call tools **aggressively and in parallel** — the moment she hears an error code, she fires lookup, KB search, and portal page check simultaneously.
+**Vigil** runs 7 shield tools:
 
-## Vigil's 3-Layer Scam Detection
+| Tool | Purpose |
+|------|---------|
+| `scan_url_safety` | Full 4-layer shield scan |
+| `check_domain_reputation` | OSINT + Web Risk domain check |
+| `analyze_page_for_threats` | Gemini Vision scam detection |
+| `verify_domain_legitimacy` | Google Search domain verification |
+| `detect_fake_content` | Fact-check with citations (Reuters, BBC, AP) |
+| `report_threat` | Log confirmed threats |
+| `highlight_danger_zones` | Red overlays on deceptive UI elements |
 
-Layer 1 is fast and cheap: Google Web Risk API checks the URL against known databases. If clean, Layer 2 kicks in: Gemini Vision analyzes the page screenshot + DOM for visual impersonation (fake branding vs URL mismatch), suspicious forms (credential harvesting), urgency tactics, and AI-generated content. Layer 3 verifies: Google Search grounding cross-references the domain against scam reports.
+## Vigil's 4-Layer Scam Detection + Fake Content Detection
 
-This layered approach catches both known threats (Web Risk) and novel ones (Gemini Vision) while providing verifiable evidence (Search grounding).
+Layer 0 is instant: OSINT domain heuristics (TLD reputation, typosquatting, brand impersonation). Layer 1: Google Web Risk API checks the URL against known databases. Layer 2: Gemini Vision analyzes the screenshot for visual impersonation, suspicious forms, urgency tactics. Layer 3: Google Search grounding cross-references the domain against scam reports — and can **de-escalate** if the site is confirmed legitimate.
+
+But the real innovation is `detect_fake_content`: say "Is this article true?" and Vigil fact-checks the claims against Reuters, BBC, and AP, returning citations from verified sources. No other agent does this.
 
 ## What I Learned
 
-1. **Gemini Live API is production-ready** for voice agents — audio quality, latency, and interruption handling are excellent
-2. **Multi-agent patterns are essential** — google_search cannot coexist with other tools in one ADK agent, requiring a researcher sub-agent
-3. **Google Search grounding is the anti-hallucination layer** — critical for both IT support (accurate solutions) and scam detection (domain verification)
-4. **Chrome extensions unlock real interaction** — screenshot analysis alone isn't UI navigation; you need DOM capture + action execution
-5. **Vision + Voice + Tools is the killer combo** — users don't need to type anything
+1. **Multi-agent orchestration is the future** — 4 agents with hierarchical delegation is dramatically more powerful than a flat chatbot with tools
+2. **ADK's sub-agent pattern is essential** — google_search cannot coexist with other tools. We needed TWO google_search sub-agents (IT + security)
+3. **Google Search grounding is the anti-hallucination layer** — critical for both IT support and scam detection AND fact-checking
+4. **Chrome extensions unlock real interaction** — DOM capture + action execution + danger zone annotations
+5. **Transparent AI wins trust** — showing every agent transfer and tool call in real-time logs builds confidence
+6. **The vision is mobile-native** — every phone should ship with this. OS-level scam protection + voice IT support. No extension needed.
 
 ## Try It
 
-Resolve + Vigil is deployed on Google Cloud Run. The code is open source.
+Vigil is deployed on Google Cloud Run. The code is open source.
 
-- GitHub: [link]
-- Live Demo: [link]
+- GitHub: https://github.com/vigneshbarani24/Gemini-AI-Agents
+- Live Demo: https://resolve-743776360861.us-central1.run.app
 
 Built with Gemini Live API, Google ADK, Vertex AI, Google Web Risk API, and Google Cloud Run.
 

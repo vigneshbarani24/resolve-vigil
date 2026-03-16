@@ -34,10 +34,11 @@ Box 2: "Gemini 2.5 Flash"
 Box 3: "Google ADK"
   Subtitle: Agent Development Kit
   Bullets:
-  - Multi-agent orchestration
+  - 4-agent hierarchical orchestration
   - Theepa root agent (8 FunctionTools)
-  - Researcher sub-agent (google_search)
-  - Sub-agent pattern for tool isolation
+  - Vigil sub-agent (7 shield FunctionTools)
+  - Researcher sub-agent (google_search for IT)
+  - Threat Intel sub-agent (google_search for security)
 
 ROW 2 — "Platform" (blue tint):
 
@@ -93,15 +94,16 @@ Style: Rounded rectangles with colored borders matching row tint. White text. Su
 ## Diagram 2: ADK Multi-Agent Orchestration
 
 ```
-Create a diagram titled "Google ADK — Multi-Agent Architecture"
+Create a diagram titled "Google ADK — 4-Agent Hierarchical Architecture"
 
-Dark background. Show the agent hierarchy:
+Dark background. Show the 4-agent hierarchy:
 
 TOP: Small box "ADK InMemorySessionService" with note "async get_session() / create_session()"
 
 CENTER: Large rounded rectangle "Theepa Agent (root_agent)"
   Model: gemini-2.5-flash
   Border color: amber (#e8a73e)
+  Label: "Root Agent — The Voice"
 
   Inside, 8 FunctionTools as pill-shaped boxes in a 4x2 grid:
 
@@ -123,7 +125,7 @@ CENTER: Large rounded rectangle "Theepa Agent (root_agent)"
 
   Each pill colored purple (#a78bfa)
 
-BELOW Theepa: Dashed arrow labeled "delegates when KB lacks answer"
+BELOW LEFT of Theepa: Dashed arrow labeled "delegates for IT web search"
 
   Rounded rectangle "Researcher Sub-Agent"
   Model: gemini-2.5-flash
@@ -131,14 +133,51 @@ BELOW Theepa: Dashed arrow labeled "delegates when KB lacks answer"
 
   Inside: Single green pill "google_search (ADK built-in)"
 
-  Red warning box: "ADK Constraint: google_search CANNOT coexist with other tools in the same agent — must isolate in sub-agent"
+BELOW RIGHT of Theepa: Dashed arrow labeled "delegates for security analysis"
+
+  Large rounded rectangle "Vigil Sub-Agent"
+  Model: gemini-2.5-flash
+  Border color: red (#e57373)
+  Label: "Security Shield — 7 Tools"
+
+  Inside, 7 FunctionTools as pills:
+  Row 1:
+  - scan_url_safety (4-layer shield scan)
+  - check_domain_reputation (OSINT + Web Risk)
+
+  Row 2:
+  - analyze_page_for_threats (Gemini Vision)
+  - verify_domain_legitimacy (Search grounding)
+
+  Row 3:
+  - detect_fake_content (fact-check with citations)
+  - report_threat (log confirmed threats)
+
+  Row 4:
+  - highlight_danger_zones (red overlays on page)
+
+  Each pill colored red (#f87171)
+
+BELOW Vigil: Dashed arrow labeled "delegates for scam verification + fact-checking"
+
+  Rounded rectangle "Threat Intel Sub-Agent"
+  Model: gemini-2.5-flash
+  Border color: orange (#f59e0b)
+
+  Inside: Single green pill "google_search (ADK built-in)"
+  Note: "Searches Reuters, BBC, AP for fact verification"
+
+Red warning box at bottom: "ADK Constraint: google_search CANNOT coexist with other tools in the same agent — that's why we need TWO google_search sub-agents (Researcher for IT, Threat Intel for security)"
 
 LEFT: Arrow from "User (Voice or Text)" → Theepa
 RIGHT: Arrow from Theepa → "Response (Voice + Actions)"
 
 BOTTOM RIGHT: Arrow from "navigate_user_browser" tool → "Chrome Extension" box labeled "triggers DOM capture + annotation"
 
-The key insight to show: navigate_user_browser is a TOOL that Theepa calls during voice conversation. When user says "help me find the submit button", Theepa calls this tool, which sends a request to the Chrome extension to capture the page and annotate it. Voice drives UI navigation.
+Key insights to show:
+1. Theepa is the SINGLE VOICE — she speaks all results, even Vigil's findings
+2. 4 agents, 16 tools total — most sophisticated agent graph in the competition
+3. Voice drives everything: IT support, security scanning, UI navigation, fact-checking
 ```
 
 ---
@@ -326,14 +365,14 @@ Bottom note: "Native speech-to-speech — no separate STT/TTS. Voice + tool call
 ## Diagram 6: Chrome Extension Architecture
 
 ```
-Create a layered diagram titled "Vigil Chrome Extension — Shield-Only Architecture"
+Create a layered diagram titled "Vigil Chrome Extension — 3-Tab Architecture"
 
 Dark background. Three horizontal layers stacked:
 
 LAYER 1 — "Popup UI" (amber border):
-  Three sections side by side:
+  Three TABS:
 
-  "Shield Controls":
+  TAB 1 — "Shield" (default):
   - Auto-scan toggle (on/off)
   - "Scan This Page" button
   - Verdict display (icon + level + summary)
@@ -341,14 +380,21 @@ LAYER 1 — "Popup UI" (amber border):
   - Layer-by-layer findings
   - Threat evidence citations
 
-  "Live Status":
-  - Current tab name
-  - Current URL hostname
-  - Last scan time
-  - Verdict badge (Safe/Suspicious/Danger)
+  TAB 2 — "Activity" (streaming orchestration log):
+  - Real-time agent orchestration feed (polls /api/activity)
+  - Shows: agent transfers (XFER), tool calls (TOOL), results (DONE), threats (SHIELD)
+  - Tool names and agent names highlighted in bold
+  - Timestamps on every entry
+  - Threat log sub-section (from /api/threats)
+  - Badge counter shows unread events
+  - "4 Agents · 16 Tools" badge
+
+  TAB 3 — "Status":
+  - Current tab name + URL hostname
+  - Last scan time + verdict badge
   - Server connection status
 
-  "Settings":
+  "Settings" (always visible above tabs):
   - Server URL input
   - Language selector (20 languages)
   - Connect/Disconnect

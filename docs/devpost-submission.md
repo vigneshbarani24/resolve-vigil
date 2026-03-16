@@ -71,7 +71,9 @@ Voice is the single control plane. One conversation handles diagnosis AND page n
 
 The hard part wasn't any single piece — it was making them all talk to each other. Voice session calls a tool, tool triggers the extension, extension captures the page, page goes to a different Gemini model for vision analysis, result goes back to the voice model which speaks the answer. All in real time.
 
-### 8 Backend Tools
+### 16 Backend Tools — 4 ADK Agents
+
+**Theepa Agent** (8 IT tools):
 
 | Tool | What It Actually Does |
 |------|----------------------|
@@ -84,11 +86,27 @@ The hard part wasn't any single piece — it was making them all talk to each ot
 | `update_itsm_ticket` | Status updates, resolution notes, escalation |
 | `navigate_user_browser` | Triggers Chrome extension DOM capture + Gemini Vision annotations |
 
-### ADK Multi-Agent
+**Vigil Sub-Agent** (7 shield tools):
 
-Google ADK with two agents:
-- **Root agent** (8 FunctionTools) — the main diagnostic brain
-- **Researcher sub-agent** (`google_search` only) — isolated because ADK's `google_search` literally cannot coexist with other tools in the same agent. Spent 4 hours learning this the hard way.
+| Tool | What It Actually Does |
+|------|----------------------|
+| `scan_url_safety` | Full 4-layer scan — OSINT + Web Risk + Vision + Search grounding |
+| `check_domain_reputation` | Instant OSINT heuristics + Web Risk API domain check |
+| `analyze_page_for_threats` | Gemini Vision detects fake forms, impersonation, urgency scams |
+| `verify_domain_legitimacy` | Google Search cross-references domain against scam reports |
+| `detect_fake_content` | Fact-checks claims on news/social media — returns citations from Reuters, BBC, AP |
+| `report_threat` | Logs confirmed threats with evidence chain to threat database |
+| `highlight_danger_zones` | Identifies deceptive UI elements → Chrome extension renders red warning overlays |
+
+### ADK Multi-Agent Orchestration
+
+Google ADK with **four agents** in a hierarchical graph:
+- **Theepa** (root agent, 8 FunctionTools) — the voice. Speaks for everything.
+- **Vigil** (sub-agent, 7 FunctionTools) — cybersecurity shield. Theepa delegates security tasks here.
+- **Researcher** (`google_search`) — IT research. Isolated because ADK's `google_search` literally cannot coexist with other tools.
+- **Threat Intel** (`google_search`) — scam/fact verification. Vigil's own search agent for domain reputation and fact-checking.
+
+When you say "Is this page safe?", Theepa transfers to Vigil. Vigil runs its shield tools, delegates to Threat Intel for Google Search verification, then returns findings. Theepa speaks the result. The entire multi-agent orchestration — tool calls, agent transfers, reasoning — is visible in real-time in the Chrome extension's live activity log.
 
 ---
 
@@ -110,9 +128,13 @@ Google ADK with two agents:
 
 ## Accomplishments That Actually Matter
 
+- **4-agent multi-agent orchestration** — Theepa, Vigil, Researcher, Threat Intel. Not a single chatbot — a team of specialized agents that delegate, transfer, and collaborate. Visible in real-time.
 - **Voice-driven UI navigation** — no other submission does this. The voice agent controls the Chrome extension mid-conversation to annotate and interact with the user's page
+- **Fake content detection with citations** — "Is this article true?" → Vigil fact-checks against Reuters, BBC, AP. Returns citations. No other submission does fact-checking.
 - **4-layer shield with de-escalation** — most security tools only escalate. Vigil can lower a threat level when Search confirms legitimacy. This eliminates false positives
+- **Danger zone annotations** — Vigil identifies deceptive UI elements (fake buttons, dark patterns) and the Chrome extension renders red warning overlays directly on the page
 - **20 languages, one model** — native speech-to-speech, not translation. The model thinks in the target language
+- **Transparent AI** — every agent transfer, tool call, and reasoning step is visible in the extension's live activity log. Judges can SEE the orchestration happening.
 - **Solo build** — one developer, full stack: backend, frontend, Chrome extension, Terraform, deployment
 - **It actually works** — live demo at the URL above. Try it. Scan a page. Start a voice session. Break it if you can
 
@@ -129,11 +151,12 @@ Google ADK with two agents:
 
 ## What's Next
 
-- **Safe shopping** — same 4-layer pipeline, expanded prompts. Detect fake storefronts, flag too-good-to-be-true deals, spot AI-generated reviews, verify seller reputation. Voice: "Is this deal legit?" → full pipeline analysis with spoken explanation. "Help me checkout" → annotates cart, shipping, payment fields. Zero new tools needed
-- **Real WHOIS integration** — domain age is a strong signal, currently heuristic-only
-- **Persistent ITSM backend** — tickets vanish when the server restarts. Needs a real database
-- **Multi-tab shield dashboard** — scan history across all tabs, trends, threat heatmap
-- **Enterprise deployment** — SSO, role-based access, custom knowledge bases
+- **Mobile-native Vigil** — the real vision: every phone comes with this built in. An OS-level scam shield + voice IT support. No extension needed — the OS handles it. Vigil as a platform service that protects every app, every browser, every interaction.
+- **Safe shopping** — same pipeline, expanded prompts. Fake storefronts, AI-generated reviews, seller verification. Voice: "Is this deal legit?" → full analysis with citations.
+- **Real WHOIS** — domain age is a strong scam signal, currently heuristic-only
+- **Persistent ITSM** — tickets vanish on restart. Needs a real database
+- **Threat intelligence sharing** — share confirmed threats across all Vigil users
+- **Enterprise** — SSO, custom KBs, role-based access
 
 ---
 
