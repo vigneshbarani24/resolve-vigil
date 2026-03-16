@@ -56,7 +56,11 @@
       "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\" && python -m uvicorn server.main:app --host 0.0.0.0 --port 8080 2>&1)",
       "Bash(sleep 3 && curl -s http://localhost:8080/health 2>&1)",
       "Bash(netstat -ano | grep \":8080\" | head -3)",
-      "Bash(taskkill //PID 14260 //F 2>&1)"
+      "Bash(taskkill //PID 14260 //F 2>&1)",
+      "Bash(cd \"/c/KaarTech UK/Hackathons/Google Live Agent/resolve-submission\" && python -c \"from dotenv import load_dotenv; load_dotenv\\(override=True\\); import os; print\\('PROJECT_ID:', repr\\(os.getenv\\('PROJECT_ID'\\)\\)\\); print\\('LOCATION:', repr\\(os.getenv\\('LOCATION'\\)\\)\\)\")",
+      "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\frontend\" && npm run build 2>&1 | tail -10)",
+      "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\" && cp -r frontend/dist/* dist/ 2>/dev/null; ls dist/ | head -5)",
+      "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\" && export PROJECT_ID=gemini-live-agent-488709 && echo \"PROJECT_ID=$PROJECT_ID\" && bash deploy.sh 2>&1)"
     ]
   }
 }
