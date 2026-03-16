@@ -1,8 +1,0 @@
-google-genai>=1.0.0
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-python-dotenv>=1.0.0
-google-cloud-texttospeech>=2.16.0
-google-cloud-storage>=2.14.0
-pillow>=10.4.0
-imageio-ffmpeg>=0.5.1
