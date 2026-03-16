@@ -22,7 +22,7 @@ graph TB
             FASTAPI[FastAPI Server]
             GM[GeminiLive Wrapper]
             TR[Tool Registry — 16 Tools]
-            SHIELD[Shield Analyzer<br/>4-Layer Pipeline]
+            SHIELD[Shield Analyzer<br/>5-Layer Pipeline]
             NAV[UI Navigator<br/>Gemini Vision]
             AF[Activity Feed]
             SM[Session State Manager]
@@ -77,7 +77,7 @@ graph TB
 
 ---
 
-## 2. Vigil Shield — 4-Layer Detection Pipeline
+## 2. Vigil Shield — 5-Layer Detection Pipeline
 
 The core innovation. A cascading pipeline with smart gating to minimize latency for safe sites and eliminate false positives via de-escalation.
 
@@ -391,7 +391,7 @@ sequenceDiagram
     Registry-->>Agent: FunctionResponse with result
 
     Agent-->>Frontend: Emit tool_call event
-    Agent-->>User: Voice — "I've scanned this page...<br/>all 4 security layers passed."
+    Agent-->>User: Voice — "I've scanned this page...<br/>all 5 security layers passed."
 ```
 
 ---

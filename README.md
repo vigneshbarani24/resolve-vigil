@@ -25,27 +25,7 @@ And when something does go wrong — IT support is broken. The average ticket ta
 
 ## Architecture
 
-![Architecture Diagram](docs/platform-architecture.png)
-
-```
-                    ┌──────────────────────────────────────────────────────┐
-                    │               Google Cloud Platform                  │
-                    │                                                      │
- ┌──────────┐      │  ┌───────────┐    ┌──────────────────────────────┐  │
- │ Chrome   │◄────►│  │ FastAPI   │◄──►│ Gemini 2.5 Flash             │  │
- │Extension │ REST │  │ Server    │    │ Vision + Search (Vertex AI)  │  │
- │ Shield   │      │  │           │    └──────────────────────────────┘  │
- └──────────┘      │  │           │    ┌──────────────────────────────┐  │
-                    │  │ 4 Agents  │◄──►│ Google Web Risk API          │  │
- ┌──────────┐      │  │ 16 Tools  │    └──────────────────────────────┘  │
- │ Web App  │◄────►│  │ Sessions  │    ┌──────────────────────────────┐  │
- │ Vite+WC  │ WS   │  │ Activity  │◄──►│ Gemini Live 2.5 Flash        │  │
- │ WebAudio │      │  │ Feed      │    │ Native Audio (Vertex AI)     │  │
- └──────────┘      │  └───────────┘    └──────────────────────────────┘  │
-                    │                                                      │
-                    │  Cloud Run │ Terraform │ Artifact Registry │ IAM     │
-                    └──────────────────────────────────────────────────────┘
-```
+![Architecture Diagram](docs/1-architecture.png)
 
 ---
 
@@ -53,7 +33,7 @@ And when something does go wrong — IT support is broken. The average ticket ta
 
 ### 1. Vigil Shield — 4-Layer Scam Detection
 
-![Vigil Shield — 4-Layer Scam Detection Pipeline](docs/scam-detection.png)
+![Vigil Shield — 5-Layer Scam Detection Pipeline](docs/2-5layer-detection-pipeline.png)
 
 Every page you visit gets scanned automatically. No clicks needed. The Chrome extension runs a cascading pipeline:
 
@@ -79,7 +59,7 @@ Vigil doesn't just scan URLs. It reads the page:
 
 ### 3. Theepa — Voice-First IT Agent
 
-![Voice Session — 4-Stage Diagnostic Flow](docs/voice-assistance-flow.png)
+![Voice Session — 4-Stage Diagnostic Flow](docs/3-adk-architecture.png)
 
 **Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI
 
@@ -100,7 +80,7 @@ She speaks **20 languages** natively. Not translation — the model thinks in Ta
 
 ### 4. Voice-Driven UI Navigation
 
-![UI Navigator — Voice-Driven Page Annotations](docs/ui-nav-assist-mode.png)
+![Shield Scan Flow](docs/4-shield-scan-flow.png)
 
 No text input in the extension. UI navigation flows through voice:
 
@@ -122,25 +102,7 @@ Voice is the single control plane. One conversation handles both diagnosis AND p
 
 4 agents. 16 tools. Hierarchical delegation.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  Theepa (root_agent) — THE VOICE                         │
-│  Model: gemini-2.5-flash │ 8 IT FunctionTools            │
-│                                                          │
-│  ┌──────────────────────────┐  ┌───────────────────────┐ │
-│  │  Researcher Sub-Agent    │  │  Vigil Sub-Agent      │ │
-│  │  google_search           │  │  7 Shield FunctionTools│ │
-│  │  (IT research)           │  │  (scam/phishing/fake  │ │
-│  │                          │  │   content detection)  │ │
-│  │  ⚠ ADK constraint:      │  │                       │ │
-│  │  google_search CANNOT    │  │  ┌──────────────────┐ │ │
-│  │  share an agent with     │  │  │ Threat Intel     │ │ │
-│  │  other tools             │  │  │ google_search    │ │ │
-│  └──────────────────────────┘  │  │ (scam/fact check)│ │ │
-│                                │  └──────────────────┘ │ │
-│                                └───────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-```
+![ADK Multi-Agent Architecture](docs/3-adk-architecture.png)
 
 Theepa is the voice interface. She speaks for everything. But the real engine is Vigil — the 7-tool shield pipeline that scans, detects, fact-checks, and annotates.
 
@@ -187,6 +149,8 @@ Theepa is the voice interface. She speaks for everything. But the real engine is
 ---
 
 ## Cloud Deployment
+
+![Deployment Architecture](docs/9-deployment.png)
 
 | Component | Technology | Where |
 |-----------|-----------|-------|
