@@ -32,9 +32,9 @@ These aren't separate problems. They're the same problem: **people need an AI th
 
 ### 1. Vigil Shield — 5-Layer Scam Detection (Chrome Extension)
 
-![Vigil Shield in Action](docs/vigil-shield.png)
+![Vigil Shield in Action](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/vigil-shield.png)
 
-![5-Layer Detection Pipeline](docs/2-5layer-detection-pipeline.png)
+![5-Layer Detection Pipeline](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/2-5layer-detection-pipeline.png)
 
 This is the core of Vigil. A Chrome extension that silently scans every page you visit with a 5-layer AI pipeline. No button to click — it just works:
 
@@ -52,7 +52,7 @@ The green checkmark on the extension icon? That means all 5 layers ran and your 
 
 ### 2. Fake Content Detection + Danger Zone Annotations
 
-![Shield Activity Log](docs/Vigil-shield-activity.png)
+![Shield Activity Log](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/Vigil-shield-activity.png)
 
 Vigil doesn't just scan URLs — it reads the page:
 
@@ -63,7 +63,7 @@ Vigil doesn't just scan URLs — it reads the page:
 
 ### 3. Voice-First IT Support (Theepa)
 
-![Vigil Help Assistant](docs/vigil-help-assistant.png)
+![Vigil Help Assistant](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/vigil-help-assistant.png)
 
 We extended the same Gemini-powered architecture to enterprise IT support. You talk to Theepa like a real person. She listens, sees your screen, and runs through a 4-stage diagnostic protocol:
 
@@ -76,7 +76,7 @@ It speaks **20 languages** natively. Not translation — the Gemini Live model a
 
 ### 4. Voice-Driven UI Navigation
 
-![Shield Scan Flow](docs/4-shield-scan-flow.png)
+![Shield Scan Flow](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/4-shield-scan-flow.png)
 
 There's no text box in the extension. When you're in a voice session and say "I can't find the upload button," here's what happens:
 
@@ -94,9 +94,9 @@ Voice is the single control plane. One conversation handles diagnosis AND page n
 
 ## How We Built It
 
-![Vigil Home Screen](docs/vigil.png)
+![Vigil Home Screen](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/vigil.png)
 
-![System Architecture](docs/1-architecture.png)
+![System Architecture](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/1-architecture.png)
 
 **The honest version**: The Chrome extension (Manifest V3) has a service worker that auto-scans every page navigation, sending screenshots + DOM snapshots to a FastAPI backend. The backend runs the 5-layer shield pipeline: OSINT heuristics first (instant, free), then Google Web Risk API (~100ms), then Gemini Vision for deep page analysis (~3s), then Google Search grounding only if something looks suspicious (~2s), then Content Claim Verification if the page references third-party brands (~2s).
 
@@ -106,7 +106,7 @@ The hard part wasn't any single piece — it was making them all talk to each ot
 
 ### ADK Multi-Agent Orchestration (4 Agents, 16 Tools)
 
-![ADK Architecture](docs/3-adk-architecture.png)
+![ADK Architecture](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/3-adk-architecture.png)
 
 Google ADK with **four agents** in a hierarchical graph:
 - **Theepa** (root agent, 8 FunctionTools) — the voice interface. Speaks for everything.
@@ -141,7 +141,7 @@ Google ADK with **four agents** in a hierarchical graph:
 
 ### Cloud Deployment
 
-![Deployment Architecture](docs/9-deployment.png)
+![Deployment Architecture](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/9-deployment.png)
 
 | Component | Technology | Where |
 |-----------|-----------|-------|
@@ -184,9 +184,9 @@ Google ADK with **four agents** in a hierarchical graph:
 - **20 languages, one model** — native speech-to-speech, not translation. The model thinks in the target language.
 - **Transparent AI** — every agent transfer, tool call, and reasoning step is visible in the extension's live activity log. Judges can SEE the orchestration happening.
 
-![Live Tracking Logs](docs/live-tracking-logs.png)
+![Live Tracking Logs](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/live-tracking-logs.png)
 
-![Screensharing Option](docs/screensharing-option.png)
+![Screensharing Option](https://raw.githubusercontent.com/vigneshbarani24/resolve-vigil/main/docs/screensharing-option.png)
 - **Solo build** — one developer, full stack: backend, frontend, Chrome extension, Terraform, deployment.
 - **It actually works** — live demo at the URL above. Try it. Scan a page. Break it if you can.
 
