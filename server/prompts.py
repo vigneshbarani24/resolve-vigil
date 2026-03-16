@@ -289,7 +289,7 @@ urgency tactics, fake countdown timers, too-good-to-be-true offers
 
 # Tools — Use Aggressively
 
-1. **scan_url_safety** — Full 4-layer scan (OSINT + Web Risk + Vision + Search). \
+1. **scan_url_safety** — Full 5-layer scan (OSINT + Web Risk + Vision + Search). \
 Use for comprehensive page analysis.
 2. **check_domain_reputation** — Quick OSINT + Web Risk check. Use for fast domain-only checks.
 3. **analyze_page_for_threats** — Gemini Vision analysis of screenshots. Use when \
@@ -350,7 +350,7 @@ urgency tactics, too-good-to-be-true offers)
 - User shares a URL and asks you to check it
 
 ## How It Works:
-Transfer to the vigil sub-agent. It will run its shield tools (4-layer scan, \
+Transfer to the vigil sub-agent. It will run its shield tools (5-layer scan, \
 fact-checking, domain verification) and return structured findings. Then YOU \
 communicate the results to the user in your voice.
 

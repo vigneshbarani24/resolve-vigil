@@ -1,7 +1,7 @@
-# Resolve + Vigil — AI IT Helpdesk & Scam Protection Platform
+# Vigil — Real-Time Scam Shield + Voice-First IT Support
 
 ## Project
-- **What**: Voice-first AI control tower — Theepa (IT helpdesk agent) + Vigil (scam shield Chrome extension)
+- **What**: Chrome extension scam shield (5-layer AI pipeline) + voice-first IT support agent (Theepa)
 - **Categories**: Live Agents + UI Navigator
 - **Hackathon**: Gemini Live Agent Challenge (Devpost)
 - **Deadline**: Mar 17, 2026 @ 5:30am GMT+5:30
@@ -69,7 +69,7 @@ cd terraform && terraform init && terraform apply
 │   │   ├── issue_tracker.py    # Issue logging + category inference
 │   │   ├── search_grounding.py # Google Search grounding
 │   │   ├── ui_navigator.py     # Gemini Vision page analysis
-│   │   ├── shield_analyzer.py  # Vigil 4-layer scam detection engine
+│   │   ├── shield_analyzer.py  # Vigil 5-layer scam detection engine
 │   │   └── vigil_tools.py      # 7 Vigil Shield ADK FunctionTools
 │   ├── agents/
 │   │   └── diagnostic_expert.py # Cross-reference diagnostic engine
@@ -126,7 +126,7 @@ root_agent (Theepa — the voice) — 8 IT FunctionTools
 8. `navigate_user_browser` → Chrome extension DOM actions
 
 **Vigil sub-agent** (7 shield tools):
-1. `scan_url_safety` → Full 4-layer shield scan (OSINT + Web Risk + Vision + Search)
+1. `scan_url_safety` → Full 5-layer shield scan (OSINT + Web Risk + Vision + Search)
 2. `check_domain_reputation` → Quick OSINT + Web Risk domain check
 3. `analyze_page_for_threats` → Gemini Vision scam detection
 4. `verify_domain_legitimacy` → Google Search domain reputation
@@ -134,11 +134,12 @@ root_agent (Theepa — the voice) — 8 IT FunctionTools
 6. `report_threat` → Log confirmed threats with evidence
 7. `highlight_danger_zones` → Danger zone annotations for Chrome extension
 
-**Vigil Shield** (4 layers):
+**Vigil Shield** (5 layers):
 0. OSINT → domain heuristics, typosquatting, TLD reputation (instant)
 1. Google Web Risk API → known phishing/malware databases
-2. Gemini Vision → screenshot analysis for visual scam detection
+2. Gemini Vision → screenshot analysis for visual scam detection + deepfake/AI detection
 3. Google Search grounding → domain verification against scam reports
+4. Content Claim Verification → verifies third-party brand claims against official sources + Reuters/BBC/AP
 
 **Researcher sub-agent** (isolated — google_search limitation):
 - `google_search` → IT research (portal outages, known issues)

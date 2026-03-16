@@ -353,6 +353,188 @@
     return { success: true, message: 'Screen sharing stopped' };
   }
 
+  /* ─────────────── Shield Annotation Rendering ─────────────── */
+
+  const SHIELD_ANNOTATION_ID = '__vigil_shield_annotations__';
+
+  function renderShieldAnnotations(annotations) {
+    // Remove old shield annotations
+    const old = document.getElementById(SHIELD_ANNOTATION_ID);
+    if (old) old.remove();
+
+    if (!annotations || annotations.length === 0) return;
+
+    const container = document.createElement('div');
+    container.id = SHIELD_ANNOTATION_ID;
+    container.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483640;';
+    document.body.appendChild(container);
+
+    // Try to find images on the page to annotate directly
+    const images = document.querySelectorAll('img, video, picture, [style*="background-image"]');
+    const imageRects = [];
+    images.forEach((img, idx) => {
+      const rect = img.getBoundingClientRect();
+      if (rect.width > 50 && rect.height > 50 && rect.bottom > 0 && rect.top < window.innerHeight) {
+        imageRects.push({ el: img, rect, idx });
+      }
+    });
+
+    annotations.forEach((ann, i) => {
+      const region = (ann.region || '').toLowerCase();
+      const label = ann.label || 'Suspicious';
+      const detail = ann.detail || '';
+      const type = ann.type || 'ai_generated';
+
+      // Try to match annotation to an actual image element
+      let targetRect = null;
+
+      // If region is a CSS selector, try it
+      if (region.startsWith('.') || region.startsWith('#') || region.startsWith('[')) {
+        try {
+          const el = document.querySelector(region);
+          if (el) targetRect = el.getBoundingClientRect();
+        } catch {}
+      }
+
+      // Try matching by region description to image positions
+      if (!targetRect && imageRects.length > 0) {
+        const pageHeight = document.documentElement.scrollHeight;
+        const pageWidth = document.documentElement.scrollWidth;
+        const vpHeight = window.innerHeight;
+        const vpWidth = window.innerWidth;
+
+        // Map region names to viewport areas
+        let bestMatch = null;
+        let bestScore = Infinity;
+
+        imageRects.forEach(({ rect }, idx) => {
+          const centerX = rect.x + rect.width / 2;
+          const centerY = rect.y + rect.height / 2;
+          let targetX = vpWidth / 2;
+          let targetY = vpHeight / 2;
+
+          if (region.includes('top')) targetY = vpHeight * 0.25;
+          if (region.includes('bottom')) targetY = vpHeight * 0.75;
+          if (region.includes('left')) targetX = vpWidth * 0.25;
+          if (region.includes('right')) targetX = vpWidth * 0.75;
+
+          const dist = Math.sqrt((centerX - targetX) ** 2 + (centerY - targetY) ** 2);
+          if (dist < bestScore) {
+            bestScore = dist;
+            bestMatch = rect;
+          }
+        });
+
+        if (bestMatch) targetRect = bestMatch;
+      }
+
+      // Fallback: use region-based positioning on viewport
+      if (!targetRect) {
+        const vpW = window.innerWidth;
+        const vpH = window.innerHeight;
+        let x = vpW * 0.3, y = vpH * 0.3, w = vpW * 0.4, h = vpH * 0.3;
+
+        if (region.includes('top')) y = 80;
+        if (region.includes('bottom')) y = vpH * 0.6;
+        if (region.includes('left')) x = 20;
+        if (region.includes('right')) x = vpW * 0.55;
+        if (region.includes('center') && !region.includes('left') && !region.includes('right')) x = vpW * 0.25;
+
+        targetRect = { x, y, width: w, height: h };
+      }
+
+      // Create annotation overlay
+      const overlay = document.createElement('div');
+      const colors = {
+        deepfake: { border: '#ff1744', bg: 'rgba(255, 23, 68, 0.12)', text: '#ff1744' },
+        ai_generated: { border: '#ff9100', bg: 'rgba(255, 145, 0, 0.12)', text: '#ff9100' },
+        fake_review: { border: '#ff6d00', bg: 'rgba(255, 109, 0, 0.12)', text: '#ff6d00' },
+        fake_button: { border: '#d50000', bg: 'rgba(213, 0, 0, 0.15)', text: '#d50000' },
+        dark_pattern: { border: '#aa00ff', bg: 'rgba(170, 0, 255, 0.1)', text: '#aa00ff' },
+        phishing_form: { border: '#d50000', bg: 'rgba(213, 0, 0, 0.15)', text: '#d50000' },
+        unverified_claim: { border: '#ffab00', bg: 'rgba(255, 171, 0, 0.15)', text: '#ffab00' },
+        debunked_claim: { border: '#ff1744', bg: 'rgba(255, 23, 68, 0.15)', text: '#ff1744' },
+      };
+      const c = colors[type] || colors.ai_generated;
+
+      overlay.style.cssText = `
+        position: absolute;
+        left: ${targetRect.x + window.scrollX - 4}px;
+        top: ${targetRect.y + window.scrollY - 4}px;
+        width: ${targetRect.width + 8}px;
+        height: ${targetRect.height + 8}px;
+        border: 3px solid ${c.border};
+        background: ${c.bg};
+        border-radius: 8px;
+        pointer-events: none;
+        z-index: 2147483641;
+        animation: __vigil_pulse__ 2s ease-in-out infinite;
+      `;
+
+      // Badge
+      const badge = document.createElement('div');
+      badge.style.cssText = `
+        position: absolute;
+        top: -12px;
+        left: 8px;
+        background: ${c.border};
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        font-family: 'Nunito', system-ui, sans-serif;
+        padding: 2px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+        pointer-events: auto;
+        cursor: help;
+        letter-spacing: 0.03em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      `;
+      badge.textContent = label;
+      badge.title = detail;
+      overlay.appendChild(badge);
+
+      // Detail tooltip on hover
+      if (detail) {
+        const tooltip = document.createElement('div');
+        tooltip.style.cssText = `
+          position: absolute;
+          bottom: -30px;
+          left: 8px;
+          background: rgba(0,0,0,0.85);
+          color: #fff;
+          font-size: 11px;
+          font-family: 'Nunito', system-ui, sans-serif;
+          padding: 4px 10px;
+          border-radius: 4px;
+          max-width: 280px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        `;
+        tooltip.textContent = detail;
+        overlay.appendChild(tooltip);
+      }
+
+      container.appendChild(overlay);
+    });
+
+    // Add pulse animation if not already added
+    if (!document.getElementById('__vigil_pulse_style__')) {
+      const style = document.createElement('style');
+      style.id = '__vigil_pulse_style__';
+      style.textContent = `
+        @keyframes __vigil_pulse__ {
+          0%, 100% { opacity: 0.85; }
+          50% { opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
   /* ───────────────── Message Listener ───────────────── */
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -387,6 +569,11 @@
 
       case 'show_shield_banner':
         showShieldBanner(msg.threat_level, msg.summary, msg.threats);
+        sendResponse({ success: true });
+        break;
+
+      case 'render_shield_annotations':
+        renderShieldAnnotations(msg.annotations || []);
         sendResponse({ success: true });
         break;
 

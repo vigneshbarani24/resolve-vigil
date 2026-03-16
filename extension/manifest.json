@@ -2,12 +2,13 @@
   "manifest_version": 3,
   "name": "Vigil Shield",
   "version": "1.0.0",
-  "description": "Real-time scam, phishing & AI content detection — powered by Gemini Vision + Google Web Risk API + OSINT",
+  "description": "5-layer scam shield + voice IT support — OSINT, Web Risk, Vision, Search, Content Claim Verification. Powered by Gemini Live.",
   "permissions": [
     "activeTab",
     "scripting",
     "storage",
-    "tabCapture"
+    "tabCapture",
+    "offscreen"
   ],
   "host_permissions": ["<all_urls>"],
   "action": {

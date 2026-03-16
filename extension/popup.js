@@ -196,6 +196,24 @@ function showShieldResult(result) {
     $threatDetails.insertBefore(osintDiv, $threatDetails.firstChild);
   }
 
+  // Show annotations count
+  const annotations = result.annotations || [];
+  if (annotations.length > 0) {
+    const annDiv = document.createElement('div');
+    annDiv.className = 'finding-item';
+    annDiv.innerHTML = `
+      <div class="finding-header">
+        <span class="finding-severity ${annotations.some(a => a.type === 'deepfake') ? 'high' : 'medium'}">ANNOTATED</span>
+        <span class="finding-category">Page Annotations</span>
+      </div>
+      <div class="finding-detail">
+        ${annotations.length} suspicious element${annotations.length > 1 ? 's' : ''} highlighted on page:
+        ${annotations.map(a => `<br>&bull; <strong>${escapeHtml(a.label)}</strong> — ${escapeHtml(a.detail || '')}`).join('')}
+      </div>
+    `;
+    $threatDetails.appendChild(annDiv);
+  }
+
   // Show layers used
   if (result.layers_used) {
     const layerDiv = document.createElement('div');
@@ -249,6 +267,10 @@ function formatCategory(cat) {
     ssl: 'SSL/Security',
     spam: 'Spam',
     search_grounding: 'Search Verification',
+    content_verification: 'Claim Verified',
+    deepfake: 'Deepfake',
+    fake_review: 'Fake Review',
+    unverified_claim: 'Unverified Claim',
   };
   return names[cat] || (cat || '').replace(/_/g, ' ');
 }
@@ -541,6 +563,172 @@ function stopOrchPolling() {
     orchPollInterval = null;
   }
 }
+
+/* ──────────────────── Voice Session ──────────────────── */
+
+const $voiceMicBtn = $('#voice-mic-btn');
+const $voiceStatusText = $('#voice-status-text');
+const $voiceTranscript = $('#voice-transcript');
+const $voiceTools = $('#voice-tools');
+const $voiceToolsLog = $('#voice-tools-log');
+
+let voiceIsActive = false;
+
+function getVoiceSystemPrompt() {
+  return `You are Vigil, an AI security agent and IT support assistant embedded in a Chrome extension.
+
+You protect users from scams, phishing, and online threats. You can also help with IT issues.
+
+When the user asks about page safety, immediately use the shield tools to scan the current page.
+When the user needs help finding elements on a page, use navigate_user_browser to highlight them.
+When the user reports an IT issue, diagnose it using knowledge base and error lookups.
+
+Be concise. Speak in 1-2 sentences. You are inside a Chrome extension popup — keep responses short.
+
+CRITICAL: After speaking, STOP and wait for the user to respond. One turn = one response.`;
+}
+
+async function startVoiceSession() {
+  if (voiceIsActive) {
+    stopVoiceSession();
+    return;
+  }
+
+  const settings = await sendMessage({ type: 'get_settings' });
+  const serverUrl = settings.serverUrl || 'http://localhost:8080';
+
+  try {
+    // 1. Authenticate
+    const authResp = await fetch(`${serverUrl}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: settings.language || 'en' }),
+    });
+    if (!authResp.ok) throw new Error('Auth failed — is the server running?');
+    const authData = await authResp.json();
+    const token = authData.session_token;
+
+    // 2. Build WebSocket URL and setup message
+    const wsUrl = serverUrl.replace(/^http/, 'ws') + `/ws?token=${token}`;
+    const setupMessage = {
+      setup: {
+        generation_config: {
+          response_modalities: ['AUDIO'],
+          temperature: 0.7,
+          speech_config: {
+            voice_config: {
+              prebuilt_voice_config: { voice_name: 'Puck' },
+            },
+          },
+        },
+        system_instruction: { parts: [{ text: getVoiceSystemPrompt() }] },
+        tools: { function_declarations: [] },
+        input_audio_transcription: {},
+        output_audio_transcription: {},
+        realtime_input_config: {
+          automatic_activity_detection: {
+            disabled: false,
+            silence_duration_ms: 2000,
+            prefix_padding_ms: 500,
+            end_of_speech_sensitivity: 'END_SENSITIVITY_LOW',
+            start_of_speech_sensitivity: 'START_SENSITIVITY_LOW',
+          },
+        },
+      },
+    };
+
+    // 3. Tell background to create offscreen doc and start voice
+    const result = await sendMessage({
+      type: 'start_voice_session',
+      wsUrl,
+      setupMessage,
+    });
+
+    if (!result || !result.success) {
+      throw new Error(result?.error || 'Failed to start voice');
+    }
+
+    voiceIsActive = true;
+    $voiceMicBtn.classList.add('active');
+    $voiceStatusText.textContent = 'Listening...';
+    $voiceStatusText.className = 'voice-status-text listening';
+    $voiceTranscript.innerHTML = '';
+    $voiceTools.classList.remove('hidden');
+    $voiceToolsLog.innerHTML = '';
+
+  } catch (err) {
+    showError(err.message || 'Failed to start voice session');
+    stopVoiceSession();
+  }
+}
+
+function handleVoiceEvent(msg) {
+  // Input transcription (what user said)
+  const inp = msg?.serverContent?.inputTranscription;
+  if (inp && inp.text) {
+    addTranscript('user', inp.text);
+  }
+
+  // Output transcription (what agent said)
+  const out = msg?.serverContent?.outputTranscription;
+  if (out && out.text) {
+    addTranscript('agent', out.text);
+    $voiceStatusText.textContent = 'Speaking...';
+    $voiceStatusText.className = 'voice-status-text speaking';
+  }
+
+  // Turn complete
+  if (msg?.serverContent?.turnComplete) {
+    $voiceStatusText.textContent = 'Listening...';
+    $voiceStatusText.className = 'voice-status-text listening';
+  }
+
+  // Tool calls
+  if (msg?.type === 'tool_call' || msg?.type === 'tool_result' || msg?.type === 'server_tool_call') {
+    const name = msg.name || msg.tool || 'unknown';
+    const entry = document.createElement('div');
+    entry.className = 'voice-tool-entry';
+    entry.innerHTML = `<strong>${escapeHtml(name)}</strong> ${msg.type === 'tool_result' ? '— done' : '— called'}`;
+    $voiceToolsLog.appendChild(entry);
+    $voiceToolsLog.scrollTop = $voiceToolsLog.scrollHeight;
+  }
+
+  // Voice session closed
+  if (msg?.type === 'voice_closed') {
+    stopVoiceSession();
+  }
+}
+
+// Listen for events forwarded from offscreen document
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'voice_event' && msg.source === 'offscreen') {
+    handleVoiceEvent(msg.data);
+  }
+});
+
+function addTranscript(role, text) {
+  const empty = $voiceTranscript.querySelector('.transcript-empty');
+  if (empty) empty.remove();
+
+  const entry = document.createElement('div');
+  entry.className = `transcript-entry ${role}`;
+  entry.textContent = text;
+  $voiceTranscript.appendChild(entry);
+  $voiceTranscript.scrollTop = $voiceTranscript.scrollHeight;
+}
+
+function stopVoiceSession() {
+  voiceIsActive = false;
+
+  // Tell background → offscreen to stop
+  sendMessage({ type: 'stop_voice_session' }).catch(() => {});
+
+  $voiceMicBtn.classList.remove('active');
+  $voiceStatusText.textContent = 'Tap to talk to Vigil';
+  $voiceStatusText.className = 'voice-status-text';
+}
+
+$voiceMicBtn.addEventListener('click', startVoiceSession);
 
 /* ──────────────────── Boot ──────────────────── */
 

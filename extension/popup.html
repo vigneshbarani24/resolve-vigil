@@ -41,6 +41,7 @@
     <!-- ═══ TAB BAR ═══ -->
     <div class="popup-tabs" id="popup-tabs">
       <button class="popup-tab active" data-tab="shield">Shield</button>
+      <button class="popup-tab" data-tab="voice">Voice</button>
       <button class="popup-tab" data-tab="activity">Activity <span class="tab-badge hidden" id="activity-badge">0</span></button>
       <button class="popup-tab" data-tab="status">Status</button>
     </div>
@@ -79,6 +80,35 @@
           <button class="btn btn-clear hidden" id="clear-shield-btn">Clear</button>
         </div>
       </section>
+    </div>
+
+    <!-- ═══ TAB: VOICE ═══ -->
+    <div class="tab-panel" id="panel-voice">
+      <div class="voice-container">
+        <div class="voice-status" id="voice-status">
+          <span class="voice-status-text" id="voice-status-text">Tap to talk to Vigil</span>
+        </div>
+
+        <button class="voice-mic-btn" id="voice-mic-btn" title="Start voice session">
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+          <div class="mic-pulse" id="mic-pulse"></div>
+        </button>
+
+        <div class="voice-transcript" id="voice-transcript">
+          <div class="transcript-empty">Ask anything — "Is this page safe?", "Help me find the upload button", or describe your IT issue.</div>
+        </div>
+
+        <div class="voice-tools hidden" id="voice-tools">
+          <div class="voice-tools-header">
+            <span class="live-dot"></span>
+            <span>Agent Activity</span>
+          </div>
+          <div class="voice-tools-log" id="voice-tools-log"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ TAB: ACTIVITY (Orchestration + Threats) ═══ -->

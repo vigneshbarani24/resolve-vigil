@@ -131,7 +131,7 @@
 **[Show: Feature highlights — quick cuts]**
 
 **Narration:**
-> "4 agents. 16 tools. 20 languages. Fake content detection with citations. Danger zone annotations. Live orchestration logs. Chrome extension that clicks, fills, navigates, and warns. 4-layer scam detection. 4-stage diagnostic pipeline. ITSM tickets. And the vision: every phone ships with this — mobile-native scam protection + voice IT support. No extension needed."
+> "4 agents. 16 tools. 20 languages. Fake content detection with citations. Danger zone annotations. Live orchestration logs. Chrome extension that clicks, fills, navigates, and warns. 5-layer scam detection. 4-stage diagnostic pipeline. ITSM tickets. And the vision: every phone ships with this — mobile-native scam protection + voice IT support. No extension needed."
 
 ---
 

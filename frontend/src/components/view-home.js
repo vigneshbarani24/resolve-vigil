@@ -684,9 +684,9 @@ class ViewHome extends HTMLElement {
                         </div>
                         <div class="agent-name">Vigil</div>
                         <div class="agent-role">Security Sub-Agent — 7 Shield Tools</div>
-                        <p class="agent-desc">Voice-activated security sub-agent with 7 tools. 4-layer detection, fake content fact-checking with citations, and danger zone annotations on deceptive UI elements.</p>
+                        <p class="agent-desc">Voice-activated security sub-agent with 7 tools. 5-layer detection, fake content fact-checking with citations, and danger zone annotations on deceptive UI elements.</p>
                         <div class="agent-tags">
-                            <span class="agent-tag">4-Layer</span>
+                            <span class="agent-tag">5-Layer</span>
                             <span class="agent-tag">Fact-Check</span>
                             <span class="agent-tag">7 Tools</span>
                             <span class="agent-tag">Danger Zones</span>

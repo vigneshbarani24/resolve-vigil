@@ -1,10 +1,13 @@
 """
 Shield Analyzer (Vigil) — Multi-layer scam/phishing detection.
 
-Three detection layers:
+Five detection layers:
+0. OSINT Domain Analysis — instant heuristics (typosquatting, TLD reputation, brand impersonation)
 1. Google Web Risk API — checks URL against Google's known phishing/malware database
-2. Gemini Vision — analyzes screenshot + DOM for visual impersonation/scam indicators
+2. Gemini Vision — analyzes screenshot + DOM for visual scam indicators + deepfake/AI detection
 3. Google Search Grounding — cross-references domain against scam reports on the web
+4. Content Claim Verification — verifies third-party brand claims against official sources
+   (e.g. "Qatar Airways flight disruption" on Reddit → checks qatarairways.com + news)
 
 Domain-agnostic — works on any website.
 """
@@ -59,6 +62,15 @@ CONCRETE, SPECIFIC evidence of malicious intent. Vague suspicions are NOT enough
 4. **Payment Fraud**: Payment forms on non-HTTPS, or fake payment processors
 5. **Visual Cloning**: Page is a near-exact copy of a known brand but on a suspicious domain
 6. **Malware Distribution**: Fake download buttons, drive-by downloads, deceptive software offers
+7. **AI-Generated / Deepfake Content**: Images that show signs of AI generation — unnatural skin \
+   texture, warped fingers/hands, asymmetric ears/eyes, inconsistent lighting/shadows, blurry \
+   backgrounds that don't match foreground sharpness, text rendered incorrectly in images, \
+   perfect skin with no pores, hair that merges into background, mismatched reflections. \
+   Also look for AI-generated product photos, fake testimonial headshots, and synthetic stock photos \
+   used to build false credibility.
+8. **Fake Reviews / Testimonials**: Review sections where headshots look AI-generated, names seem \
+   fabricated, all reviews are suspiciously positive with similar writing style, or review dates \
+   are clustered unnaturally.
 
 ## SEVERITY GUIDE:
 - **safe**: No threats found. This is where MOST sites should land.
@@ -94,7 +106,7 @@ SHIELD_RESPONSE_SCHEMA = {
                 "properties": {
                     "category": {
                         "type": "STRING",
-                        "description": "Category: domain, phishing, scam, transaction, content, ai_generated, visual_clone, ssl, spam",
+                        "description": "Category: domain, phishing, scam, transaction, content, ai_generated, deepfake, fake_review, visual_clone, ssl, spam",
                     },
                     "severity": {
                         "type": "STRING",
@@ -118,6 +130,36 @@ SHIELD_RESPONSE_SCHEMA = {
             "items": {"type": "STRING"},
             "description": "Short list of threat labels for quick display (2-5 items)",
         },
+        "annotations": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "type": {
+                        "type": "STRING",
+                        "description": "Annotation type: deepfake, ai_generated, fake_review, fake_button, dark_pattern, phishing_form",
+                    },
+                    "label": {
+                        "type": "STRING",
+                        "description": "Short label for the annotation overlay (e.g. 'AI-Generated Image', 'Deepfake Detected', 'Fake Review')",
+                    },
+                    "detail": {
+                        "type": "STRING",
+                        "description": "Why this element is flagged (e.g. 'Unnatural skin texture, warped fingers')",
+                    },
+                    "region": {
+                        "type": "STRING",
+                        "description": "Approximate location on page: top-left, top-center, top-right, center-left, center, center-right, bottom-left, bottom-center, bottom-right. Or a CSS selector if identifiable.",
+                    },
+                    "confidence": {
+                        "type": "STRING",
+                        "description": "Confidence: low, medium, high",
+                    },
+                },
+                "required": ["type", "label", "detail", "region"],
+            },
+            "description": "Visual annotations for suspicious elements that should be highlighted on the page. Include ALL AI-generated images, deepfakes, fake reviews, deceptive buttons, and dark patterns found. Empty array if page is clean.",
+        },
         "domain_analysis": {
             "type": "STRING",
             "description": "Analysis of the domain/URL legitimacy with reasoning",
@@ -130,8 +172,30 @@ SHIELD_RESPONSE_SCHEMA = {
             "type": "STRING",
             "description": "What the user should do (in their language)",
         },
+        "content_claims": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "entity": {
+                        "type": "STRING",
+                        "description": "The brand/organization/entity referenced (e.g. 'Qatar Airways', 'PayPal', 'NHS')",
+                    },
+                    "claim": {
+                        "type": "STRING",
+                        "description": "What is being claimed (e.g. 'flight disruptions announced', 'account suspended', 'prize won')",
+                    },
+                    "official_domain": {
+                        "type": "STRING",
+                        "description": "The expected official domain for this entity (e.g. 'qatarairways.com', 'paypal.com')",
+                    },
+                },
+                "required": ["entity", "claim", "official_domain"],
+            },
+            "description": "Third-party brands/entities whose claims appear in the content but the page is NOT on their official domain. Empty if the page is on the brand's own domain or no third-party claims are made.",
+        },
     },
-    "required": ["threat_level", "summary", "findings", "threats", "recommendation"],
+    "required": ["threat_level", "summary", "findings", "threats", "annotations", "content_claims", "recommendation"],
 }
 
 
@@ -333,6 +397,85 @@ async def _search_domain_reputation(client, page_url: str, page_title: str = "")
         return ""
 
 
+async def _verify_content_claims(client, claims: list, page_url: str) -> list:
+    """Verify third-party content claims against official sources via Google Search.
+
+    For each claim (e.g. 'Qatar Airways announced flight disruptions'),
+    searches for the official source and returns verification results.
+    """
+    results = []
+    for claim in claims[:3]:  # Max 3 claims to avoid rate limits
+        entity = claim.get("entity", "")
+        claim_text = claim.get("claim", "")
+        official_domain = claim.get("official_domain", "")
+
+        if not entity or not claim_text:
+            continue
+
+        try:
+            search_query = (
+                f'site:{official_domain} OR "{entity}" official announcement: '
+                f'{claim_text}. Is this real? Check {official_domain} and major '
+                f'news sources (Reuters, BBC, AP, CNN) for confirmation.'
+            )
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=search_query,
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    temperature=0.1,
+                ),
+            )
+
+            result_text = ""
+            if response.candidates and response.candidates[0].content:
+                for part in response.candidates[0].content.parts:
+                    if part.text:
+                        result_text += part.text
+
+            # Determine if claim is verified
+            result_lower = result_text.lower()
+            verified = any(phrase in result_lower for phrase in [
+                "confirmed", "official", "announced", "according to",
+                f"{official_domain}", "verified", "statement",
+            ])
+            debunked = any(phrase in result_lower for phrase in [
+                "fake", "hoax", "false", "misleading", "no such",
+                "not confirmed", "fabricated", "misinformation", "debunked",
+            ])
+
+            status = "verified" if verified and not debunked else "unverified"
+            if debunked:
+                status = "debunked"
+
+            results.append({
+                "entity": entity,
+                "claim": claim_text,
+                "official_domain": official_domain,
+                "status": status,
+                "detail": result_text[:400],
+                "source": "Content Claim Verification (Layer 4)",
+            })
+
+            logger.info(
+                f"Content claim verification: {entity} — {claim_text[:50]}... → {status}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Content claim verification failed for {entity}: {e}")
+            results.append({
+                "entity": entity,
+                "claim": claim_text,
+                "official_domain": official_domain,
+                "status": "unverified",
+                "detail": f"Verification failed: {e}",
+                "source": "Content Claim Verification (Layer 4)",
+            })
+
+    return results
+
+
 async def analyze_page_safety(
     screenshot_b64: str,
     dom_summary: dict,
@@ -377,7 +520,28 @@ async def analyze_page_safety(
             f"Analyze this page for scam/phishing/fraud indicators.\n"
             f"URL: {page_url or 'Unknown'}\n"
             f"Title: {page_title or 'Unknown'}\n"
-            f"Respond in: {language}"
+            f"Respond in: {language}\n\n"
+            f"IMPORTANT — IMAGE ANALYSIS:\n"
+            f"Carefully examine ALL images visible on this page. For each image, check:\n"
+            f"- Is it AI-generated? (unnatural skin, warped hands/fingers, perfect symmetry, "
+            f"inconsistent lighting, blurred text in image, hair merging into background)\n"
+            f"- Is it a deepfake? (face swap artifacts, mismatched skin tones around edges, "
+            f"inconsistent ear/eye symmetry, unnatural jawline)\n"
+            f"- Are testimonial/review headshots fake? (stock-like quality, no natural imperfections)\n"
+            f"- Are product images AI-generated? (impossible reflections, floating objects, "
+            f"unrealistic perfection)\n\n"
+            f"For ANY suspicious image or element, add an entry to the 'annotations' array with "
+            f"the region where it appears on the page and why it's flagged. Annotations will be "
+            f"rendered as visual warning overlays directly on the user's page.\n\n"
+            f"CONTENT CLAIM DETECTION (CRITICAL):\n"
+            f"If this page references, quotes, or displays content FROM a third-party brand/entity "
+            f"(e.g. an airline announcement on Reddit, a bank notice on a forum, a government "
+            f"statement on social media), you MUST populate the 'content_claims' array. Include:\n"
+            f"- The entity name (e.g. 'Qatar Airways')\n"
+            f"- What is being claimed (e.g. 'flight disruptions due to weather')\n"
+            f"- The official domain where this should be verified (e.g. 'qatarairways.com')\n"
+            f"Do NOT include content_claims if the page IS the brand's official site. "
+            f"Only flag when content ABOUT a brand appears on a DIFFERENT domain."
             f"{dom_context}"
         )
 
@@ -428,6 +592,17 @@ async def analyze_page_safety(
                 search_context = await _search_domain_reputation(client, page_url, page_title)
             except Exception as se:
                 logger.warning(f"Shield search grounding failed: {se}")
+
+        # ── Step 2b: Content Claim Verification (Layer 4) ──
+        # If content references third-party brands, verify claims against official sources
+        content_claims = vision_result.get("content_claims") or []
+        claim_results = []
+        if content_claims:
+            logger.info(f"Found {len(content_claims)} content claims to verify: {[c.get('entity') for c in content_claims]}")
+            try:
+                claim_results = await _verify_content_claims(client, content_claims, page_url)
+            except Exception as ce:
+                logger.warning(f"Content claim verification failed: {ce}")
 
         # ── Step 3: Merge all layers ──
 
@@ -550,11 +725,51 @@ async def analyze_page_safety(
                 f"Suspicious domain characteristics (score: {osint_result['score']}/100)"
             ]
 
+        # ── Content claim verification results ──
+        for cr in claim_results:
+            findings.append({
+                "category": "content_verification",
+                "severity": "medium" if cr["status"] == "unverified" else (
+                    "high" if cr["status"] == "debunked" else "safe"
+                ),
+                "detail": f"{cr['entity']}: \"{cr['claim']}\" — {cr['status'].upper()}. {cr['detail'][:200]}",
+                "evidence": f"Checked against {cr['official_domain']} and major news sources",
+                "source": cr.get("source", "Content Claim Verification (Layer 4)"),
+            })
+
+            # Add annotation for unverified/debunked claims
+            if cr["status"] in ("unverified", "debunked"):
+                annotations_to_add = {
+                    "type": "unverified_claim",
+                    "label": f"{'DEBUNKED' if cr['status'] == 'debunked' else 'UNVERIFIED'}: {cr['entity']}",
+                    "detail": f"This claim about {cr['entity']} could not be verified against {cr['official_domain']}. {cr['detail'][:100]}",
+                    "region": "top-center",
+                    "confidence": "high" if cr["status"] == "debunked" else "medium",
+                }
+                vision_result.setdefault("annotations", []).append(annotations_to_add)
+
+            # Escalate threat level for debunked claims
+            if cr["status"] == "debunked":
+                current = vision_result.get("threat_level", "safe")
+                if current in ("safe", "low"):
+                    vision_result["threat_level"] = "medium"
+                elif current == "medium":
+                    vision_result["threat_level"] = "high"
+                vision_result.setdefault("threats", []).append(
+                    f"DEBUNKED: {cr['entity']} claim is false/misleading"
+                )
+
+        # Extract annotations from vision result
+        annotations = vision_result.get("annotations", [])
+        if annotations:
+            logger.info(f"Shield found {len(annotations)} annotations to render on page")
+
         return {
             "threat_level": vision_result.get("threat_level", "safe"),
             "summary": vision_result.get("summary", ""),
             "threats": vision_result.get("threats", []),
             "findings": findings,
+            "annotations": annotations,
             "domain_analysis": vision_result.get("domain_analysis", ""),
             "impersonating": vision_result.get("impersonating", ""),
             "recommendation": vision_result.get("recommendation", ""),
@@ -566,7 +781,8 @@ async def analyze_page_safety(
                 "domain": osint_result.get("domain", ""),
                 "tld": osint_result.get("tld", ""),
             },
-            "layers_used": ["osint_domain", "web_risk_api", "gemini_vision", "google_search_grounding"],
+            "claim_verifications": claim_results,
+            "layers_used": ["osint_domain", "web_risk_api", "gemini_vision", "google_search_grounding", "content_claim_verification"],
             "success": True,
         }
 

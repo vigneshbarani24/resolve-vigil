@@ -26,7 +26,7 @@ Gemini Live API solves all three:
 
 ## Architecture
 
-The system has four layers:
+The system has four main layers:
 
 ### Frontend (Vite + Web Components)
 A dark-themed SPA with real-time audio visualization, a visual diagnostic pipeline tracker (4 stages), issue panel, and session summary with downloadable reports. Web Audio worklets handle PCM streaming at 16kHz capture / 24kHz playback.
@@ -37,7 +37,7 @@ Bidirectional WebSocket streams audio and JSON between the browser and Gemini Li
 ### Chrome Extension (Manifest V3)
 The extension does two things:
 1. **UI Navigator**: Captures DOM elements with bounding rectangles, sends to Gemini Vision, receives structured actions (highlight, click, fill, scroll), and executes them on the page
-2. **Vigil Shield**: Auto-scans every page via 4-layer detection (OSINT heuristics → Web Risk API → Gemini Vision → Google Search grounding with de-escalation)
+2. **Vigil Shield**: Auto-scans every page via 5-layer detection (OSINT heuristics → Web Risk API → Gemini Vision → Google Search grounding with de-escalation)
 
 ### AI Layer (Gemini Live + Gemini Flash + Web Risk)
 Three AI services work together:
@@ -75,7 +75,7 @@ The Chrome extension is the bridge — it serves all agents. It captures DOM for
 
 | Tool | Purpose |
 |------|---------|
-| `scan_url_safety` | Full 4-layer shield scan |
+| `scan_url_safety` | Full 5-layer shield scan |
 | `check_domain_reputation` | OSINT + Web Risk domain check |
 | `analyze_page_for_threats` | Gemini Vision scam detection |
 | `verify_domain_legitimacy` | Google Search domain verification |

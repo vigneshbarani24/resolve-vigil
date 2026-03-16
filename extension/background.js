@@ -169,6 +169,15 @@ async function shieldScan(tabId, language) {
     threats: result.threats || [],
   });
 
+  // 3b. Render annotations for AI-generated/deepfake/suspicious elements
+  const annotations = result.annotations || [];
+  if (annotations.length > 0) {
+    chrome.tabs.sendMessage(tabId, {
+      type: 'render_shield_annotations',
+      annotations,
+    });
+  }
+
   // 4. Update extension badge (per-tab)
   updateBadge(result.threat_level, tabId);
 
@@ -295,6 +304,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 /* ──────────────── Message Handler ──────────────── */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Forward voice events from offscreen to popup (just pass through)
+  if (msg.type === 'voice_event' && msg.source === 'offscreen') {
+    return false;
+  }
+
   const handleAsync = async () => {
     try {
       switch (msg.type) {
@@ -329,6 +343,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'clear_annotations': {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (tab) chrome.tabs.sendMessage(tab.id, { type: 'clear_annotations' });
+          return { success: true };
+        }
+
+        /* ── Voice (opens dedicated voice window) ── */
+        case 'start_voice_session': {
+          // Open a small voice window — Chrome allows mic in extension pages
+          const voiceWindow = await chrome.windows.create({
+            url: chrome.runtime.getURL(`voice.html?ws=${encodeURIComponent(msg.wsUrl)}&setup=${encodeURIComponent(JSON.stringify(msg.setupMessage))}`),
+            type: 'popup',
+            width: 380,
+            height: 500,
+            focused: true,
+          });
+          return { success: true, windowId: voiceWindow.id };
+        }
+
+        case 'stop_voice_session': {
+          // Voice window handles its own cleanup
           return { success: true };
         }
 
@@ -397,3 +429,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleAsync().then(sendResponse);
   return true;
 });
+
+/* ──────────────── Offscreen Document (Voice) ──────────────── */
+
+async function ensureOffscreenDoc() {
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+  });
+  if (existingContexts.length > 0) return;
+
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['USER_MEDIA'],
+    justification: 'Microphone capture for Vigil voice sessions',
+  });
+}

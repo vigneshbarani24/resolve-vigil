@@ -6,7 +6,7 @@ ADK FunctionTools in the Vigil sub-agent. They can also be used in
 raw Gemini Live mode via the tool registry.
 
 Tools:
-1. scan_url_safety — full 4-layer shield scan
+1. scan_url_safety — full 5-layer shield scan
 2. check_domain_reputation — quick OSINT + Web Risk
 3. analyze_page_for_threats — Gemini Vision scam detection
 4. verify_domain_legitimacy — Google Search domain reputation
@@ -51,7 +51,7 @@ def _get_client():
 # ─── Tool 1: Full 4-Layer Shield Scan ───
 
 async def scan_url_safety(url: str, page_title: str = "") -> str:
-    """Scan a URL for scam, phishing, and fraud using a 4-layer shield pipeline.
+    """Scan a URL for scam, phishing, and fraud using a 5-layer shield pipeline.
 
     Runs OSINT domain heuristics, Google Web Risk API, Gemini Vision analysis,
     and Google Search grounding. Use for comprehensive page safety analysis.
@@ -564,7 +564,7 @@ VIGIL_TOOL_DECLARATIONS = [
     {
         "name": "scan_url_safety",
         "description": (
-            "Scan a URL for scam, phishing, and fraud using a 4-layer shield pipeline "
+            "Scan a URL for scam, phishing, and fraud using a 5-layer shield pipeline "
             "(OSINT + Web Risk + Vision + Search). Use for comprehensive page safety analysis."
         ),
         "parameters": {
