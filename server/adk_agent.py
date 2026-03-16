@@ -16,7 +16,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-MODEL = os.getenv("MODEL", "gemini-live-2.5-flash-native-audio")
+# ADK text chat uses Flash (not Live audio model)
+MODEL = os.getenv("ADK_MODEL", "gemini-2.5-flash")
 RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "gemini-2.5-flash")
 
 # Only import ADK if explicitly enabled

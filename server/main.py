@@ -295,6 +295,71 @@ async def get_session_transcript(token: str):
         headers={"Content-Disposition": f'attachment; filename="resolve-transcript-{token[:8]}.txt"'}
     )
 
+@app.post("/api/adk/chat")
+async def adk_chat(request: Request):
+    """ADK-powered text chat endpoint.
+
+    When ENABLE_ADK=true, this runs queries through the full ADK agent graph
+    (Theepa + Researcher sub-agent with google_search).
+    Falls back to a simple error if ADK is not enabled.
+    """
+    if not is_adk_enabled():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "ADK not enabled. Set ENABLE_ADK=true in .env"},
+        )
+    try:
+        from google.adk.runners import Runner
+        from google.adk.sessions import InMemorySessionService
+        from google.genai import types as genai_types
+        from server.adk_agent import root_agent
+
+        body = await request.json()
+        user_message = body.get("message", "")
+        session_id = body.get("session_id", "adk-default")
+
+        session_service = InMemorySessionService()
+        runner = Runner(agent=root_agent, app_name="resolve", session_service=session_service)
+
+        session = session_service.get_session(
+            app_name="resolve", user_id="user", session_id=session_id
+        )
+        if session is None:
+            session = session_service.create_session(
+                app_name="resolve", user_id="user", session_id=session_id
+            )
+
+        content = genai_types.Content(
+            role="user", parts=[genai_types.Part.from_text(text=user_message)]
+        )
+
+        response_parts = []
+        tool_calls_made = []
+        async for event in runner.run_async(
+            user_id="user", session_id=session.id, new_message=content
+        ):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if part.text:
+                        response_parts.append(part.text)
+                    if part.function_call:
+                        tool_calls_made.append(part.function_call.name)
+
+        return JSONResponse(content={
+            "response": "\n".join(response_parts),
+            "tools_used": tool_calls_made,
+            "agent": "theepa",
+            "mode": "adk",
+        })
+
+    except Exception as e:
+        logger.error(f"ADK chat error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "response": "ADK agent error"},
+        )
+
+
 @app.post("/api/shield")
 async def shield_scan(request: Request):
     """Analyze a page screenshot for scam/phishing/fraud indicators.

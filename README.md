@@ -204,12 +204,20 @@ cp terraform.tfvars.example terraform.tfvars
 terraform init && terraform apply
 ```
 
-### ADK Mode (optional)
+### ADK Mode (multi-agent orchestration)
 
 ```bash
-# Enable ADK multi-agent orchestration
+# Option 1: ADK built-in UI (development)
+adk web resolve/
+
+# Option 2: Enable ADK in FastAPI server
 export ENABLE_ADK=true
 python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
+# POST /api/adk/chat  — text chat via ADK Runner
+
+# Option 3: ADK deploy to Cloud Run (production)
+export PROJECT_ID=your-project-id
+bash deploy.sh --adk
 ```
 
 ---
@@ -217,6 +225,9 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
 ## Project Structure
 
 ```
+├── resolve/                         # ADK package (adk web / adk deploy)
+│   ├── agent.py                     # root_agent export (Theepa + Researcher)
+│   └── __init__.py
 ├── server/
 │   ├── main.py                     # FastAPI + WebSocket + REST endpoints
 │   ├── gemini_live.py              # Gemini Live API wrapper (turn gating)

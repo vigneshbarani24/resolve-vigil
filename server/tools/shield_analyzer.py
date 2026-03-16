@@ -308,14 +308,6 @@ async def analyze_page_safety(
             "success": True,
         }
 
-        return {
-            "threat_level": "safe",
-            "summary": "Unable to analyze. Proceed with caution.",
-            "threats": [],
-            "recommendation": "Could not complete analysis.",
-            "success": False,
-        }
-
     except Exception as e:
         logger.error(f"Shield analysis error: {e}", exc_info=True)
         return {
