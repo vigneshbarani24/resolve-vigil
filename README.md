@@ -169,8 +169,8 @@ Theepa is the voice interface. She speaks for everything. But the real engine is
 
 ```bash
 # Clone
-git clone https://github.com/vigneshbarani24/Gemini-AI-Agents.git
-cd Gemini-AI-Agents
+git clone https://github.com/vigneshbarani24/resolve-vigil.git
+cd resolve-vigil
 
 # Backend
 pip install -r requirements.txt
