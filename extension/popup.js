@@ -80,6 +80,13 @@ const $loading = $('#loading');
 const $loadingText = $('#loading-text');
 const $error = $('#error');
 
+// Live Status
+const $statusTabVal = $('#status-tab-val');
+const $statusUrlVal = $('#status-url-val');
+const $statusLastScanVal = $('#status-last-scan-val');
+const $statusVerdictVal = $('#status-verdict-val');
+const $statusServerVal = $('#status-server-val');
+
 /* ──────────────────── State ──────────────────── */
 
 let currentMode = 'shield'; // 'shield' | 'assist'
@@ -106,6 +113,12 @@ async function init() {
 
   updateModeUI();
   checkConnection();
+
+  // Load cached scan for current tab
+  const cached = await sendMessage({ type: 'get_tab_scan' });
+  if (cached && cached.threat_level) {
+    updateLiveStatusScan('done', cached.threat_level);
+  }
 }
 
 /* ──────────────────── Mode Switching ──────────────────── */
@@ -187,9 +200,27 @@ function showShieldResult(result) {
   $verdictLevel.textContent = v.label;
   $verdictText.textContent = result.summary || 'No threats detected.';
 
-  // Threat details
+  // Render detailed findings with evidence and sources
   $threatDetails.innerHTML = '';
-  if (result.threats && result.threats.length > 0) {
+
+  const findings = result.findings || [];
+  if (findings.length > 0) {
+    findings.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'finding-item';
+      item.innerHTML = `
+        <div class="finding-header">
+          <span class="finding-severity ${f.severity || 'safe'}">${(f.severity || 'safe').toUpperCase()}</span>
+          <span class="finding-category">${formatCategory(f.category)}</span>
+        </div>
+        <div class="finding-detail">${escapeHtml(f.detail || '')}</div>
+        ${f.evidence ? `<div class="finding-evidence">${escapeHtml(f.evidence)}</div>` : ''}
+        ${f.source ? `<div class="finding-source">${escapeHtml(f.source)}</div>` : ''}
+      `;
+      $threatDetails.appendChild(item);
+    });
+  } else if (result.threats && result.threats.length > 0) {
+    // Fallback to old-style threat strings
     result.threats.forEach(threat => {
       const item = document.createElement('div');
       item.className = 'threat-item';
@@ -198,7 +229,39 @@ function showShieldResult(result) {
     });
   }
 
+  // Show OSINT domain score
+  if (result.osint && result.osint.domain_score !== undefined) {
+    const osintDiv = document.createElement('div');
+    osintDiv.className = 'finding-item';
+    const score = result.osint.domain_score;
+    const scoreColor = score >= 90 ? '#81c784' : score >= 70 ? '#f0ab00' : '#e57373';
+    osintDiv.innerHTML = `
+      <div class="finding-header">
+        <span class="finding-severity safe">OSINT</span>
+        <span class="finding-category">Domain Authority</span>
+      </div>
+      <div class="finding-detail">
+        <span style="color:${scoreColor};font-weight:700;font-size:14px">${score}/100</span>
+        <span style="margin-left:6px">${result.osint.domain} (.${result.osint.tld})</span>
+      </div>
+      ${result.osint.flags.length ? `<div class="finding-evidence">${result.osint.flags.join(' · ')}</div>` : ''}
+    `;
+    $threatDetails.insertBefore(osintDiv, $threatDetails.firstChild);
+  }
+
+  // Show layers used
+  if (result.layers_used) {
+    const layerDiv = document.createElement('div');
+    layerDiv.className = 'finding-source';
+    layerDiv.style.marginTop = '6px';
+    layerDiv.style.paddingTop = '6px';
+    layerDiv.style.borderTop = '1px solid var(--color-border)';
+    layerDiv.textContent = `Layers: ${result.layers_used.map(l => l.replace(/_/g, ' ')).join(' → ')}`;
+    $threatDetails.appendChild(layerDiv);
+  }
+
   $shieldResult.classList.remove('hidden');
+  $('#clear-shield-btn').classList.remove('hidden');
 
   // Update shield icon in header
   if (level === 'high' || level === 'critical') {
@@ -216,10 +279,46 @@ function showShieldResult(result) {
   }
 }
 
+function clearShieldResult() {
+  $shieldResult.classList.add('hidden');
+  $threatDetails.innerHTML = '';
+  $shieldIcon.textContent = '\u{1F6E1}';
+  $shieldTitle.textContent = 'Shield Active';
+  $shieldSubtitle.textContent = 'Auto-scanning pages for threats';
+  $('#clear-shield-btn').classList.add('hidden');
+  // Clear badge
+  sendMessage({ type: 'shield_auto_scan', enabled: $shieldToggle.checked });
+}
+
+function formatCategory(cat) {
+  const names = {
+    web_risk: 'Web Risk API',
+    domain: 'Domain Check',
+    phishing: 'Phishing',
+    scam: 'Scam Indicators',
+    transaction: 'Transaction Risk',
+    content: 'Content',
+    ai_generated: 'AI Content',
+    visual_clone: 'Visual Cloning',
+    ssl: 'SSL/Security',
+    spam: 'Spam',
+    search_grounding: 'Search Verification',
+    domain: 'Domain OSINT',
+  };
+  return names[cat] || (cat || '').replace(/_/g, ' ');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 async function handleShieldScan() {
   if (isAnalyzing) return;
 
   showLoading(true, 'Scanning for threats...');
+  updateLiveStatusScan('scanning');
   $shieldResult.classList.add('hidden');
   $error.classList.add('hidden');
 
@@ -231,11 +330,14 @@ async function handleShieldScan() {
 
     if (result.error) {
       showError(result.error);
+      updateLiveStatusScan('done', 'safe');
     } else {
       showShieldResult(result);
+      updateLiveStatusScan('done', result.threat_level);
     }
   } catch (err) {
     showError(err.message || 'Scan failed');
+    updateLiveStatusScan('done', 'safe');
   } finally {
     showLoading(false);
   }
@@ -383,6 +485,7 @@ $modeShield.addEventListener('click', () => switchMode('shield'));
 $modeAssist.addEventListener('click', () => switchMode('assist'));
 $connectBtn.addEventListener('click', handleConnect);
 $scanNowBtn.addEventListener('click', handleShieldScan);
+$('#clear-shield-btn').addEventListener('click', clearShieldResult);
 $analyzeBtn.addEventListener('click', handleAnalyze);
 $clearBtn.addEventListener('click', handleClear);
 $executeBtn.addEventListener('click', handleExecuteAll);
@@ -400,6 +503,61 @@ $shieldToggle.addEventListener('change', () => {
   $shieldSubtitle.textContent = enabled ? 'Auto-scanning pages for threats' : 'Manual scan only';
 });
 
+/* ──────────────────── Live Status ──────────────────── */
+
+async function updateLiveStatus() {
+  // Current tab info
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      $statusTabVal.textContent = (tab.title || 'Unknown').slice(0, 35);
+      const url = tab.url || '';
+      try {
+        const parsed = new URL(url);
+        $statusUrlVal.textContent = parsed.hostname;
+      } catch {
+        $statusUrlVal.textContent = url.slice(0, 30);
+      }
+    }
+  } catch {}
+
+  // Server status
+  if (isConnected) {
+    $statusServerVal.textContent = 'Connected';
+    $statusServerVal.className = 'status-val safe';
+  } else {
+    $statusServerVal.textContent = 'Disconnected';
+    $statusServerVal.className = 'status-val danger';
+  }
+}
+
+function updateLiveStatusScan(phase, verdict) {
+  if (phase === 'scanning') {
+    $statusLastScanVal.textContent = 'Scanning...';
+    $statusLastScanVal.className = 'status-val scanning';
+    $statusVerdictVal.textContent = '...';
+    $statusVerdictVal.className = 'status-val';
+  } else if (phase === 'done') {
+    const now = new Date();
+    $statusLastScanVal.textContent = now.toLocaleTimeString();
+    $statusLastScanVal.className = 'status-val';
+
+    const level = verdict || 'safe';
+    const labels = {
+      safe: 'Safe', low: 'Low Risk',
+      medium: 'Suspicious', high: 'Danger', critical: 'Scam Detected',
+    };
+    const cls = (level === 'high' || level === 'critical') ? 'danger'
+      : level === 'medium' ? 'warning' : 'safe';
+    $statusVerdictVal.textContent = labels[level] || 'Safe';
+    $statusVerdictVal.className = `status-val ${cls}`;
+  }
+}
+
+// Refresh live status every 2s (tab changes etc.)
+setInterval(updateLiveStatus, 2000);
+
 /* ──────────────────── Boot ──────────────────── */
 
 init();
+updateLiveStatus();

@@ -38,9 +38,30 @@ async function captureScreenshot() {
   });
 }
 
+/* ──────────────────── Content Script Injection ──────────────────── */
+
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+  } catch {
+    // Content script not loaded — inject it
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js'],
+    });
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['overlay.css'],
+    });
+    // Brief wait for script to initialize
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+
 /* ──────────────────── DOM Capture (via content script) ──────────────────── */
 
 async function captureDOMFromTab(tabId) {
+  await ensureContentScript(tabId);
   return new Promise((resolve, reject) => {
     chrome.tabs.sendMessage(tabId, { type: 'capture_dom' }, (response) => {
       if (chrome.runtime.lastError) {
@@ -114,9 +135,16 @@ async function checkBackendHealth() {
   }
 }
 
+/* ──────────────── Per-Tab Scan Cache ──────────────── */
+
+const tabScanCache = {};  // tabId → { threat_level, summary, ts }
+
 /* ──────────────── Shield Scan Flow ──────────────── */
 
 async function shieldScan(tabId, language) {
+  // 0. Ensure content script is loaded
+  await ensureContentScript(tabId);
+
   // 1. Capture screenshot + DOM
   const [screenshot, domSummary] = await Promise.all([
     captureScreenshot(),
@@ -125,6 +153,13 @@ async function shieldScan(tabId, language) {
 
   // 2. Send to backend for threat analysis
   const result = await callShieldAPI(screenshot, domSummary, language);
+
+  // Cache result for this tab
+  tabScanCache[tabId] = {
+    threat_level: result.threat_level,
+    summary: result.summary,
+    ts: Date.now(),
+  };
 
   // 3. Show safety banner on the page
   chrome.tabs.sendMessage(tabId, {
@@ -307,6 +342,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case 'get_settings': {
           return await getSettings();
+        }
+
+        case 'get_tab_scan': {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && tabScanCache[tab.id]) {
+            return tabScanCache[tab.id];
+          }
+          return { threat_level: null, summary: null, ts: null };
         }
 
         /* ── Screenshare ── */

@@ -26,7 +26,7 @@ class AppRoot extends HTMLElement {
 
         this.applyTheme(this.currentTheme);
 
-        // Header - Immergo style (minimal, right-aligned, floating)
+        // Header - Neural Command (minimal, floating)
         const header = document.createElement('header');
         header.style.cssText = `
             display: flex;

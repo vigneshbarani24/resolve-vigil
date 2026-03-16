@@ -1,92 +1,144 @@
-# Devpost Submission — Guardian
+# Devpost Submission — Resolve + Vigil
 
 ## Title
-Guardian — AI SAP Support Control Tower with Voice Agent Jessica
+Resolve + Vigil — AI IT Helpdesk & Real-Time Scam Protection with Voice, Vision & Chrome Extension
 
 ## Tagline
-Talk to your AI SAP veteran. She sees your screen, hears your voice, and resolves issues in real time.
+Two AI agents, one platform. Theepa resolves IT issues by voice. Vigil shields you from scams in real time.
+
+## Try It Live
+https://resolve-743776360861.us-central1.run.app
 
 ---
 
-## Description (~1000 words)
+## Inspiration
 
-### The Problem
+IT support wastes billions every year. The average ticket takes hours — most of that is back-and-forth gathering basic information: "What error do you see? What page are you on? What did you try?" By the time Tier 1 has enough context to diagnose, the SLA is blown.
 
-SAP Application Management Services (AMS) is a $30B+ industry where enterprises pay for ongoing support of their SAP systems. The typical support workflow looks like this: a user encounters an error, logs a ticket with a vague description, waits hours or days for a support agent to respond, then goes through multiple rounds of back-and-forth to provide basic information the agent needs — the error code, the transaction code, the steps to reproduce. By the time Tier 1 support has gathered enough information to actually diagnose the issue, the SLA is blown.
+But there's a second problem nobody's solving: **scams**. Users navigate phishing pages that impersonate legitimate portals, enter credentials on fake login forms, and fall for AI-generated fraud. Traditional security catches known threats — but the sophisticated ones slip through.
 
-The core problem is information loss. Users don't know what's relevant. Support agents can't see the user's screen. Context is lost between messages. The same "Can you send me the exact error message?" gets asked thousands of times per day across global SAP operations.
+We built Resolve + Vigil to solve both problems with two AI agents on a single platform.
 
-### The Solution
+---
 
-Guardian is an AI-powered SAP AMS Control Tower that eliminates this information gap entirely. Instead of logging a ticket and waiting, users speak directly to **Jessica** — an AI SAP support veteran powered by Google's Gemini Live API.
+## What It Does
 
-Jessica conducts a structured diagnostic interview over voice, following the exact same protocol a senior SAP consultant would use:
+**Resolve + Vigil** is a voice-first AI platform with a Chrome extension that tackles IT support and scam protection simultaneously.
 
-1. **Triage**: Capture the user's name, error code, T-code, and module. Assess impact and set priority.
-2. **Sanity Check**: Guide the user to recreate the error while watching their screen.
-3. **Tool Blitz**: Simultaneously search the knowledge base, look up error codes, check T-code details, and run cross-reference diagnostics — all in parallel.
-4. **Guided Diagnostics**: Command the user to run SU53, SM12, SM37 and report results.
-5. **Resolution**: Apply KB solutions or escalate with a complete Root Cause Analysis.
-6. **Ticket Discipline**: Create a comprehensive ITSM ticket documenting everything.
+### Theepa — Virtual Internal Assistant (Live Agent)
 
-### Multimodal Experience — See, Hear, Speak
+Theepa conducts structured diagnostic interviews over voice, following the protocol a senior IT specialist would use:
 
-Guardian breaks the "text box" paradigm completely:
+1. **Identify**: Captures user name, portal, error code, and page. Assesses impact and sets P1/P2/P3 priority
+2. **Diagnose**: Simultaneously searches the knowledge base, looks up error codes, checks portal details, and runs cross-reference diagnostics — all tools fire in parallel
+3. **Resolve**: Guides the user step-by-step while watching their screen via the Chrome extension. Highlights buttons, fills forms, navigates pages on the user's behalf
+4. **Verify**: Confirms the fix worked, creates ITSM tickets with complete diagnostic reports, or escalates to the right team
 
-- **Hear**: Users speak naturally to Jessica. She listens, asks probing follow-up questions, and can be interrupted mid-sentence. The conversation flows like a real phone call with a senior consultant.
+She speaks 20 languages, uses 9 backend tools, and the conversation flows like a real phone call — interruptible, natural, contextual.
 
-- **See**: Users can share their screen or paste screenshots (Ctrl+V). Jessica uses Gemini's vision capabilities to read SAP error messages, identify T-codes, and spot issues directly from the UI — no need for the user to type anything.
+### Vigil — Scam & Phishing Shield
 
-- **Speak**: Jessica has a distinct persona — she's professional, authoritative, SLA-obsessed, and refuses to accept vague answers. She pronounces "S-A-P" as individual letters and T-codes with clear pauses. She speaks in 15 languages while keeping technical terms in English.
+Vigil runs silently in the Chrome extension with a 4-layer detection pipeline:
 
-### Technical Architecture
+- **Layer 0: OSINT Domain Analysis** — Instant heuristic checks: TLD reputation, typosquatting detection, brand impersonation, domain authority score (0-100)
+- **Layer 1: Google Web Risk API** — Checks URLs against Google's known phishing/malware database
+- **Layer 2: Gemini Vision** — Analyzes page screenshots + DOM for visual impersonation, fake forms, scam indicators, AI-generated content
+- **Layer 3: Google Search Grounding** — Cross-references suspicious domains against scam reports on the web
 
-The frontend is a Vite-built SPA using Web Components, Web Audio API for real-time audio streaming, and the MediaDevices API for screen capture. It connects via WebSocket to a FastAPI backend.
+No user action needed — Vigil auto-scans every page navigation and alerts you before you get phished.
 
-The backend manages bidirectional audio/JSON streaming with Gemini Live API (`gemini-live-2.5-flash-native-audio`) through Vertex AI. When Gemini decides to use a tool, the backend executes it server-side and returns the result — the user sees real-time visual feedback as tools fire.
+### UI Navigator — Chrome Extension
 
-**8 Backend Tools:**
-1. `search_knowledge_base` — Searches a curated SAP KB with keyword scoring
-2. `lookup_sap_error` — Error code lookup with fuzzy matching
-3. `lookup_transaction_code` — T-code details and module mapping
-4. `diagnose_sap_issue` — Cross-reference engine combining KB + errors + T-codes
-5. `create_issue` — Issue logging with deduplication
-6. `create_itsm_ticket` — Full diagnostic report ticket creation
-7. `update_itsm_ticket` — Ticket status and resolution updates
-8. `research_sap_topic` — **Google Search grounding** via Gemini Flash for latest OSS notes and patches
+The extension doesn't just analyze pages — it **acts**. When Theepa says "click Submit," the extension captures DOM elements, sends them to Gemini Vision, highlights the target with pulsing annotations, and optionally clicks/fills/scrolls on behalf of the user.
 
-The Google Search grounding tool is critical for anti-hallucination. When Jessica's internal KB doesn't have an answer, she uses a separate Gemini Flash call with `google_search` grounding to find the latest SAP OSS notes, patches, and community solutions from the web. This ensures her advice is factual and up-to-date.
+---
 
-### Innovation Highlights
+## How We Built It
 
-- **Turn Gating**: Server-side logic prevents the model from generating multiple responses per turn — a common challenge with Live API voice agents.
-- **Live T-Code Overlay**: When Jessica mentions a T-code (like "Run SU53"), a visual command card with a copy button appears in the UI.
-- **Session Timer + SLA Clock**: Real-time session duration with P1/P2/P3 SLA indicators based on issue severity.
-- **4-Stage Diagnostic Pipeline**: Visual progress tracker showing Initiation → Diagnosis → Troubleshoot → Resolution.
-- **Post-Session RCA**: Every session generates a downloadable Root Cause Analysis report and full transcript.
+### Architecture
 
-### Impact
+- **Frontend**: Vite SPA with 8 Web Components + Web Audio API (AudioWorklet processors for zero-latency voice capture/playback)
+- **Backend**: FastAPI + WebSocket for bidirectional audio/JSON streaming with Gemini Live API
+- **Voice Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI — real-time speech-to-speech with tool calling
+- **Vision Model**: `gemini-2.5-flash` via Vertex AI — screenshot analysis, search grounding, shield detection
+- **ADK Multi-Agent**: Google ADK with Theepa agent (9 FunctionTools) + Researcher sub-agent (isolated `google_search` — required by ADK architecture)
+- **Chrome Extension**: Manifest V3 with service worker (auto-scan, REST API), content script (DOM capture, annotations, actions), dual-mode popup (Vigil + Assist)
+- **Deployment**: Google Cloud Run + Terraform IaC
 
-Guardian transforms SAP support from a multi-day ticket-based process into a single real-time voice conversation. It captures 100% of diagnostic information on the first interaction, eliminates back-and-forth, and either resolves the issue live or produces a complete L2 handoff package. For enterprises with thousands of SAP users, this means faster resolution, lower support costs, and happier users.
+### 9 Backend Tools
 
-### Built With
+| Tool | Purpose |
+|------|---------|
+| `search_knowledge_base` | 20-article IT helpdesk KB with keyword scoring |
+| `lookup_error_code` | Error codes across 7 categories |
+| `lookup_portal_page` | Portal navigation + known issues |
+| `diagnose_issue` | Cross-reference KB + errors + pages |
+| `create_issue` | Issue logging with severity + dedup |
+| `create_itsm_ticket` | ITSM ticket with diagnostic report |
+| `update_itsm_ticket` | Status + resolution updates |
+| `research_support_topic` | Google Search grounding (anti-hallucination) |
+| `navigate_user_browser` | Chrome extension DOM actions |
 
-- Gemini Live API (`gemini-live-2.5-flash-native-audio`) — Voice + Vision
-- Gemini Flash (`gemini-2.5-flash`) — Google Search Grounding
-- Google GenAI SDK (`google-genai`)
-- Vertex AI
-- Google Cloud Run
-- FastAPI + WebSocket
-- Vite + Web Components
-- Terraform (IaC)
+### Key Technical Decisions
+
+- **Sub-agent pattern for google_search**: ADK's `google_search` cannot coexist with other tools in one agent. We isolate it in a Researcher sub-agent that Theepa delegates to when the internal KB doesn't have the answer
+- **4-layer Shield with smart gating**: OSINT runs instantly (no API calls), Web Risk is fast (~100ms), Vision takes ~3s, Search only triggers when Vision flags suspicious. This minimizes latency for safe sites
+- **Smart de-escalation**: If Google Search confirms a flagged domain is legitimate, the threat level is automatically lowered — preventing false positives
+- **Per-tab scan caching**: Shield results persist per browser tab so reopening the popup shows previous scan results instantly
+
+---
+
+## Challenges We Ran Into
+
+1. **ADK google_search constraint**: Spent hours debugging why tools stopped working when `google_search` was added to the same agent. ADK requires it in a separate sub-agent
+2. **Gemini Live API model ID**: The correct model is `gemini-live-2.5-flash-native-audio`, not `gemini-2.0-flash-live` — documentation was ambiguous
+3. **Shield false positives**: Initial Gemini Vision analysis flagged legitimate sites like Google and GitHub as suspicious. Required extensive prompt engineering to establish a "safe by default" stance with concrete evidence requirements
+4. **Chrome extension content script injection**: Tabs opened before the extension was installed don't have the content script. Built a `ensureContentScript()` pattern that pings the tab and auto-injects if needed
+5. **ADK async session service**: `InMemorySessionService.get_session()` and `create_session()` are async in newer ADK versions — had to `await` them
+
+---
+
+## Accomplishments We're Proud Of
+
+- **Dual-agent platform** that solves two real problems (IT support + scam detection) in one product
+- **4-layer scam detection** with OSINT domain scoring, Google Web Risk API, Gemini Vision, and Google Search grounding — with smart escalation AND de-escalation
+- **20-language voice support** with Gemini Live API — the agent speaks naturally in Tamil, Hindi, German, Japanese, etc.
+- **Chrome extension that acts** — not just analysis but real click/fill/scroll on the user's page
+- **Live activity feed** (`/api/activity`) showing real-time backend operations for transparency
+- **One-command deployment** to Cloud Run with Terraform IaC
+- **Solo build** — entire platform built by one developer
+
+---
+
+## What We Learned
+
+- Google ADK's sub-agent pattern is essential for `google_search` isolation — this constraint isn't well-documented but critical
+- Gemini Vision for security analysis requires very careful prompt engineering — the model is eager to flag threats, requiring explicit "safe by default" instructions
+- Web Audio API AudioWorklets provide the best voice latency for real-time streaming
+- The combination of OSINT heuristics + API-based detection gives the best accuracy/speed tradeoff for scam detection
+
+---
+
+## What's Next
+
+- **Real WHOIS integration** for domain age checking (currently heuristic-only)
+- **Persistent ITSM backend** (currently in-memory)
+- **Multi-tab Shield dashboard** showing scan history across all tabs
+- **Enterprise SSO** integration for real IT helpdesk deployment
+- **Mobile companion app** with voice support
 
 ---
 
 ## Built With (Tags)
-Gemini Live API, Vertex AI, Google Cloud Run, Google GenAI SDK, Python, FastAPI, JavaScript, Vite, Terraform, WebSocket, Web Audio API
+Gemini Live API, Vertex AI, Google Cloud Run, Google GenAI SDK, Google ADK, Google Web Risk API, Google Search Grounding, Python, FastAPI, JavaScript, Vite, Web Components, Web Audio API, Chrome Extension, Terraform, Docker, WebSocket
 
-## Category
-Live Agents
+## Categories
+Live Agents, UI Navigator
 
 ## Team
 KaarTech UK (Solo)
+
+## Links
+- **Live Demo**: https://resolve-743776360861.us-central1.run.app
+- **GitHub**: https://github.com/vigneshbarani24/Gemini-AI-Agents
+- **Demo Video**: (link to be added)

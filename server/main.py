@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+load_dotenv(override=True)
 
 from server.gemini_live import GeminiLive
 from server.config_utils import get_project_id
@@ -19,9 +20,11 @@ from server.tools import register_all_tools, TOOL_DECLARATIONS
 from server.session_state import create_session, get_session, end_session
 from server.adk_agent import is_adk_enabled
 
-load_dotenv(override=True)
-
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 PROJECT_ID = get_project_id()
@@ -29,7 +32,26 @@ LOCATION = os.getenv("LOCATION", "us-central1")
 MODEL = os.getenv("MODEL", "gemini-live-2.5-flash-native-audio")
 SESSION_TIME_LIMIT = int(os.getenv("SESSION_TIME_LIMIT", "300"))
 
+# ── Activity Feed (visible proof for demo/judging) ──
+from collections import deque
+ACTIVITY_LOG: deque = deque(maxlen=100)
+
+def log_activity(category: str, action: str, detail: str = "", severity: str = "info"):
+    """Log an activity event for the live feed."""
+    entry = {
+        "ts": time.strftime("%H:%M:%S"),
+        "epoch": time.time(),
+        "category": category,
+        "action": action,
+        "detail": detail[:200],
+        "severity": severity,
+    }
+    ACTIVITY_LOG.appendleft(entry)
+    icon = {"shield": "🛡️", "voice": "🎙️", "tool": "🔧", "adk": "🤖", "system": "⚙️", "nav": "🧭"}.get(category, "📌")
+    logger.info(f"{icon} [{category.upper()}] {action} — {detail[:120]}")
+
 app = FastAPI()
+_BOOT_TIME = time.time()
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,6 +92,26 @@ async def get_status():
         "features": ["voice", "vision", "screen_share", "vigil_shield", "ui_navigator", "multilingual"],
         "languages": 20,
         "adk_enabled": is_adk_enabled(),
+        "project_id": PROJECT_ID,
+        "location": LOCATION,
+    }
+
+@app.get("/api/activity")
+async def get_activity_feed(limit: int = 50):
+    """Live activity feed — shows all agent actions, tool calls, shield scans, etc.
+
+    Jury-visible proof that the system is working end-to-end.
+    """
+    return {
+        "activities": list(ACTIVITY_LOG)[:limit],
+        "total": len(ACTIVITY_LOG),
+        "system": {
+            "uptime_seconds": int(time.time() - _BOOT_TIME),
+            "model": MODEL,
+            "adk_enabled": is_adk_enabled(),
+            "project_id": PROJECT_ID,
+            "active_sessions": len(valid_tokens),
+        },
     }
 
 @app.post("/api/auth")
@@ -101,6 +143,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
 
     del valid_tokens[token]
     logger.info("WebSocket connection accepted")
+    log_activity("voice", "Session started", f"Token: {token[:8]}..., Model: {MODEL}")
 
     session = get_session(token)
     if session:
@@ -244,6 +287,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         session.add_transcript("model", out["text"])
                 # Emit session state after tool events
                 if isinstance(event, dict) and event.get("type") in ("tool_call", "tool_result", "server_tool_call"):
+                    tool_name = event.get("name", event.get("tool", "unknown"))
+                    log_activity("tool", f"Tool: {event['type']}", f"{tool_name}")
                     await emit_session_state()
 
     try:
@@ -317,15 +362,16 @@ async def adk_chat(request: Request):
         body = await request.json()
         user_message = body.get("message", "")
         session_id = body.get("session_id", "adk-default")
+        log_activity("adk", "Chat query", f"Message: {user_message[:80]}")
 
         session_service = InMemorySessionService()
         runner = Runner(agent=root_agent, app_name="resolve", session_service=session_service)
 
-        session = session_service.get_session(
+        session = await session_service.get_session(
             app_name="resolve", user_id="user", session_id=session_id
         )
         if session is None:
-            session = session_service.create_session(
+            session = await session_service.create_session(
                 app_name="resolve", user_id="user", session_id=session_id
             )
 
@@ -345,6 +391,7 @@ async def adk_chat(request: Request):
                     if part.function_call:
                         tool_calls_made.append(part.function_call.name)
 
+        log_activity("adk", f"Chat complete → {len(tool_calls_made)} tools used", f"Tools: {', '.join(tool_calls_made) or 'none'}")
         return JSONResponse(content={
             "response": "\n".join(response_parts),
             "tools_used": tool_calls_made,
@@ -369,12 +416,21 @@ async def shield_scan(request: Request):
     from server.tools.shield_analyzer import analyze_page_safety
     try:
         body = await request.json()
+        page_url = body.get("page_url", "")
+        log_activity("shield", "Scan started", f"URL: {page_url}")
         result = await analyze_page_safety(
             screenshot_b64=body.get("screenshot", ""),
             dom_summary=body.get("dom_summary", {}),
             language=body.get("language", "English"),
-            page_url=body.get("page_url", ""),
+            page_url=page_url,
             page_title=body.get("page_title", ""),
+        )
+        level = result.get("threat_level", "safe")
+        layers = result.get("layers_used", [])
+        log_activity(
+            "shield", f"Scan complete → {level.upper()}",
+            f"URL: {page_url} | Layers: {', '.join(layers)} | {result.get('summary', '')[:80]}",
+            severity="warning" if level in ("medium", "high", "critical") else "info",
         )
         return JSONResponse(content=result)
     except Exception as e:
@@ -398,14 +454,18 @@ async def navigate_page(request: Request):
     from server.tools.ui_navigator import analyze_page_screenshot
     try:
         body = await request.json()
+        query = body.get("query", "Help me navigate this page")
+        log_activity("nav", "UI analysis started", f"Query: {query[:80]}")
         result = await analyze_page_screenshot(
             screenshot_b64=body.get("screenshot", ""),
             dom_summary=body.get("dom_summary", {}),
-            query=body.get("query", "Help me navigate this page"),
+            query=query,
             language=body.get("language", "English"),
             page_url=body.get("page_url", ""),
             page_title=body.get("page_title", ""),
         )
+        actions_count = len(result.get("actions", []))
+        log_activity("nav", f"UI analysis complete → {actions_count} actions", f"Query: {query[:80]}")
         return JSONResponse(content=result)
     except Exception as e:
         logger.error(f"Navigate endpoint error: {e}", exc_info=True)
@@ -420,6 +480,10 @@ async def serve_spa(full_path: str):
     if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
     return FileResponse("dist/index.html")
+
+@app.on_event("startup")
+async def on_startup():
+    log_activity("system", "Server started", f"Model: {MODEL} | ADK: {is_adk_enabled()} | Project: {PROJECT_ID}")
 
 if __name__ == "__main__":
     import uvicorn

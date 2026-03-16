@@ -17,11 +17,13 @@ COPY dist/ dist/
 # Copy server code
 COPY server/ server/
 
+# Copy ADK package
+COPY resolve/ resolve/
+
 # Copy Chrome extension (served as static download)
 COPY extension/ extension/
 
-# Copy env example (override with real env vars at runtime)
-COPY .env.example .env
+# Note: env vars are set via Cloud Run --set-env-vars, not .env file
 
 EXPOSE 8080
 

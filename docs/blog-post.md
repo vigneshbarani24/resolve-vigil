@@ -1,4 +1,4 @@
-# Building an AI SAP Support Agent with Gemini Live API
+# Building a Voice-First AI IT Helpdesk & Scam Shield with Gemini Live API
 
 *Created for the Gemini Live Agent Challenge hackathon #GeminiLiveAgentChallenge*
 
@@ -6,97 +6,93 @@
 
 ## The Idea
 
-What if SAP support felt like calling a brilliant senior consultant who never sleeps, never forgets, and can see your screen?
+What if IT support felt like calling a brilliant senior specialist who never sleeps, speaks 20 languages, and can see your screen? And what if the same platform also protected you from scams and phishing — automatically, on every page you visit?
 
-That's Guardian — an AI-powered SAP AMS Control Tower where you talk to **Jessica**, a voice AI agent who conducts structured diagnostic interviews, reads your SAP screens, searches knowledge bases and the web, and produces complete Root Cause Analysis reports. All in a single real-time conversation.
+That's **Resolve + Vigil** — a dual-agent AI platform where **Theepa**, a voice AI agent, conducts structured diagnostic interviews and navigates your browser, while **Vigil**, a Chrome extension shield, auto-scans every page for scams, phishing, and AI-generated fraud.
 
 ## Why Gemini Live API?
 
-SAP support is inherently a **conversation**. Users are frustrated, they describe problems imprecisely, and they need guidance step by step. Text-based AI chatbots fail here because:
+IT support is inherently a **conversation**. Users are frustrated, describe problems imprecisely, and need step-by-step guidance. Text chatbots fail because:
 
 1. Users don't know what information is relevant
-2. Typing error codes and T-codes is error-prone
-3. The back-and-forth of chat is too slow for urgent issues
+2. Typing error codes and descriptions is error-prone
+3. Chat back-and-forth is too slow for urgent issues
 
 Gemini Live API solves all three:
-- **Voice** means users can describe problems naturally
-- **Vision** means Jessica can read errors directly from screen shares
+- **Voice** means users describe problems naturally
+- **Vision** means Theepa reads errors directly from screen captures
 - **Real-time** means the conversation flows like a phone call
-- **Interruption support** means users can jump in when Jessica is going down the wrong path
+- **Interruption support** means users can jump in when Theepa is going down the wrong path
 
 ## Architecture
 
-The system has three layers:
+The system has four layers:
 
 ### Frontend (Vite + Web Components)
-A dark-themed SPA with real-time audio visualization, screen capture via `getDisplayMedia`, clipboard paste for screenshots, and a visual diagnostic pipeline tracker. Web Audio worklets handle PCM audio streaming at 16kHz.
+A dark-themed SPA with real-time audio visualization, a visual diagnostic pipeline tracker (4 stages), issue panel, and session summary with downloadable reports. Web Audio worklets handle PCM streaming at 16kHz capture / 24kHz playback.
 
 ### Backend (FastAPI + WebSocket)
-Bidirectional WebSocket streams audio and JSON between the browser and Gemini Live API. The backend manages 8 server-side tools that Gemini can call during conversation. When a tool fires, the result goes back to Gemini and the frontend gets a visual update.
+Bidirectional WebSocket streams audio and JSON between the browser and Gemini Live API. The backend manages 9 server-side tools that Gemini calls during conversation. When a tool fires, the result goes back to Gemini and the frontend gets real-time visual feedback.
 
-### AI Layer (Gemini Live + Gemini Flash)
-Two Gemini models work together:
-- **Gemini Live** (`gemini-live-2.5-flash-native-audio`) handles the voice conversation and vision input
-- **Gemini Flash** (`gemini-2.5-flash`) handles Google Search grounding in a separate call (because `google_search` conflicts with `function_declarations` in the Live API)
+### Chrome Extension (Manifest V3)
+The extension does two things:
+1. **UI Navigator**: Captures DOM elements with bounding rectangles, sends to Gemini Vision, receives structured actions (highlight, click, fill, scroll), and executes them on the page
+2. **Vigil Shield**: Auto-scans every page via 3-layer detection (Web Risk API → Gemini Vision → Google Search grounding)
 
-## The Hardest Problem: Multi-Response Bug
+### AI Layer (Gemini Live + Gemini Flash + Web Risk)
+Three AI services work together:
+- **Gemini Live** (`gemini-live-2.5-flash-native-audio`) handles voice conversation and vision input
+- **Gemini Flash** (`gemini-2.5-flash`) handles Google Search grounding and vision analysis (because `google_search` conflicts with `function_declarations` in the Live API)
+- **Google Web Risk API** checks URLs against known phishing/malware databases
 
-The biggest challenge was preventing Jessica from generating multiple responses per turn. With Gemini Live API, the model sometimes continues speaking after a `turn_complete` event — generating a second response before the user has said anything.
+## The Innovation: Dual-Mode Platform
 
-The fix was three-layered:
+Most hackathon entries build a single-purpose agent. Resolve + Vigil is two agents in one platform:
 
-1. **VAD Tuning**: Increased `silence_duration_ms` to 3000ms and set both speech sensitivities to `LOW`
-2. **Server-Side Turn Gating**: After `turn_complete`, a flag suppresses model output until user audio arrives
-3. **Prompt Engineering**: Added an "ABSOLUTE RULE" at the end of the system prompt: *"One turn = one response = then silence."*
+**Theepa** (reactive): User has a problem → Theepa diagnoses, navigates, and resolves it
+**Vigil** (proactive): User browses normally → Vigil silently scans and alerts before damage is done
 
-## Google Search Grounding — The Anti-Hallucination Layer
+The Chrome extension is the bridge — it serves both agents. In Assist mode, it captures DOM for Theepa's navigation guidance. In Shield mode, it captures screenshots for Vigil's scam analysis.
 
-SAP is a domain where hallucination is dangerous. A wrong OSS note number or incorrect configuration advice could cause a production outage. We added `research_sap_topic` as the 8th tool — when Jessica's internal KB has no answer, she calls Gemini Flash with Google Search grounding to find the latest SAP OSS notes, patches, and community solutions.
+## 9 Tools Working Together
 
-```python
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=f"Research SAP topic: {query}",
-    config=types.GenerateContentConfig(
-        tools=[types.Tool(google_search=types.GoogleSearch())],
-    ),
-)
-```
-
-This returns grounded answers with source URLs — no hallucination, always verifiable.
-
-## 8 Tools Working Together
-
-Jessica's power comes from her tools:
+Theepa's power comes from parallel tool execution:
 
 | Tool | Purpose |
 |------|---------|
-| `search_knowledge_base` | Local KB with keyword scoring |
-| `lookup_sap_error` | Error code → root cause + fix |
-| `lookup_transaction_code` | T-code → module + context |
-| `diagnose_sap_issue` | Cross-reference all data |
-| `create_issue` | Log problems with dedup |
-| `create_itsm_ticket` | Full diagnostic report |
+| `search_knowledge_base` | 20-article IT helpdesk KB with keyword scoring |
+| `lookup_error_code` | Error codes across 7 categories |
+| `lookup_portal_page` | Portal navigation + known issues |
+| `diagnose_issue` | Cross-reference all data sources |
+| `create_issue` | Log problems with dedup + severity |
+| `create_itsm_ticket` | Full diagnostic report ticket |
 | `update_itsm_ticket` | Status + resolution updates |
-| `research_sap_topic` | Google Search grounding |
+| `research_support_topic` | Google Search grounding |
+| `navigate_user_browser` | Chrome extension DOM actions |
 
-The system prompt instructs Jessica to call tools **aggressively and in parallel** — the moment she hears an error code, she fires `lookup_sap_error`, `search_knowledge_base`, and `lookup_transaction_code` simultaneously.
+The system prompt instructs Theepa to call tools **aggressively and in parallel** — the moment she hears an error code, she fires lookup, KB search, and portal page check simultaneously.
+
+## Vigil's 3-Layer Scam Detection
+
+Layer 1 is fast and cheap: Google Web Risk API checks the URL against known databases. If clean, Layer 2 kicks in: Gemini Vision analyzes the page screenshot + DOM for visual impersonation (fake branding vs URL mismatch), suspicious forms (credential harvesting), urgency tactics, and AI-generated content. Layer 3 verifies: Google Search grounding cross-references the domain against scam reports.
+
+This layered approach catches both known threats (Web Risk) and novel ones (Gemini Vision) while providing verifiable evidence (Search grounding).
 
 ## What I Learned
 
-1. **Gemini Live API is production-ready** for voice agents — the audio quality, latency, and interruption handling are excellent
-2. **Turn management** is the #1 challenge for Live API agents — you need both client-side and server-side controls
-3. **Google Search grounding** is essential for domain-specific agents — it eliminates the "confident but wrong" failure mode
-4. **System prompts matter enormously** for voice agents — Jessica's persona, protocol, and guardrails are 240+ lines of carefully tuned instructions
-5. **Vision + Voice + Tools** is the killer combo — users don't need to type anything, Jessica handles it all
+1. **Gemini Live API is production-ready** for voice agents — audio quality, latency, and interruption handling are excellent
+2. **Multi-agent patterns are essential** — google_search cannot coexist with other tools in one ADK agent, requiring a researcher sub-agent
+3. **Google Search grounding is the anti-hallucination layer** — critical for both IT support (accurate solutions) and scam detection (domain verification)
+4. **Chrome extensions unlock real interaction** — screenshot analysis alone isn't UI navigation; you need DOM capture + action execution
+5. **Vision + Voice + Tools is the killer combo** — users don't need to type anything
 
 ## Try It
 
-Guardian is deployed on Google Cloud Run. The code is open source.
+Resolve + Vigil is deployed on Google Cloud Run. The code is open source.
 
 - GitHub: [link]
 - Live Demo: [link]
 
-Built with Gemini Live API, Vertex AI, Google Cloud Run, and the Google GenAI SDK.
+Built with Gemini Live API, Google ADK, Vertex AI, Google Web Risk API, and Google Cloud Run.
 
 *#GeminiLiveAgentChallenge*

@@ -1,96 +1,109 @@
-# Guardian — Demo Video Script (< 4 minutes)
+# Resolve + Vigil — Demo Video Script (< 4 minutes)
 
 ## Recording Tips
 - Screen record at 1080p or higher
 - Use a quiet room for voice narration
 - Have the app running locally or on Cloud Run
-- Pre-load a test scenario (VA01 error recommended)
+- Pre-load a test scenario (portal login error recommended)
+- Have the Chrome extension installed and connected
 
 ---
 
 ## [0:00 – 0:20] HOOK (Problem Statement)
 
-**[Show: SAP error screen / frustrated support ticket queue]**
+**[Show: Frustrated user on a government portal / support ticket queue]**
 
 **Narration:**
-> "SAP support costs enterprises billions every year. The average Tier 1 ticket takes 4 hours to resolve — most of that time is wasted on back-and-forth gathering basic information. What if one AI agent could handle Tier 0.5 support live, in real-time, over voice?"
+> "IT support wastes billions every year. The average ticket takes hours — most of that time is back-and-forth gathering basic information. And while users wait, they're navigating phishing pages and scam sites that slip past every filter. What if two AI agents could solve both problems at once?"
 
 ---
 
 ## [0:20 – 0:35] SOLUTION INTRO
 
-**[Show: Guardian home screen — dark UI with floating SAP particles]**
+**[Show: Resolve home screen — dark UI with professional design]**
 
 **Narration:**
-> "This is Guardian. An AI SAP Control Tower powered by Gemini Live API. Meet Jessica — your AI SAP veteran who sees your screen, hears your voice, and resolves issues in real time."
+> "This is Resolve + Vigil. Two AI agents, one platform. Meet Theepa — a voice-first IT support agent who sees your screen, speaks 20 languages, and runs 9 tools simultaneously. And Vigil — a scam shield that auto-scans every page you visit."
 
 **[Click "Start Session" button]**
 
 ---
 
-## [0:35 – 2:30] LIVE DEMO
+## [0:35 – 1:50] LIVE DEMO — THEEPA (IT Support)
 
-### Opening (0:35 – 0:50)
-**[Jessica greets the user via voice]**
+### Opening (0:35 – 0:45)
+**[Theepa greets the user via voice]**
 
-> Jessica: "Hey, I'm Jessica, your S-A-P Guardian at KaarTech..."
+> Theepa: "Hi, I'm Theepa, your IT support specialist..."
 
 **[Call out: Voice is natural, interruptible, professional persona]**
 
-### Voice Interaction (0:50 – 1:15)
-**[Speak to Jessica]:**
-> "Hi Jessica, I'm having an error in VA01 — Sales Order creation. I'm getting error VG035."
+### Voice Interaction (0:45 – 1:10)
+**[Speak to Theepa]:**
+> "Hi Theepa, I'm trying to submit a form on the benefits portal but I keep getting error AUTH-003."
 
-**[Show: Jessica immediately calls multiple tools — KB search, error lookup, T-code lookup]**
+**[Show: Theepa immediately calls multiple tools — KB search, error lookup, portal page lookup]**
 **[Show: Diagnostic tracker progresses from Initiation → Diagnosis]**
-**[Show: T-code command overlay flashes: "Jessica says: Run SU53"]**
 
-### Screen Sharing (1:15 – 1:45)
-**[Click "Share Screen" — show an SAP-like screenshot]**
-
-**Narration:**
-> "Watch this — I share my screen, and Jessica reads the error directly from the UI."
-
-**[Jessica identifies the error from the screenshot and calls lookup tools]**
-**[Show: Session timer counting, SLA badge appears (P2)]**
-
-### Paste Screenshot (1:45 – 2:00)
-**[Ctrl+V paste a screenshot]**
+### Screen Navigation (1:10 – 1:30)
+**[Show Chrome extension highlighting elements on the page]**
 
 **Narration:**
-> "I can also paste screenshots directly. Jessica analyzes them instantly."
+> "Watch this — Theepa doesn't just tell you what to click. Through the Chrome extension, she highlights the exact button, fills forms, and navigates the page for you."
 
-### Google Search Grounding (2:00 – 2:15)
-**[Jessica calls research_sap_topic for an OSS note]**
+**[Show: Extension annotations with step badges, pulsing highlights]**
+
+### Google Search Grounding (1:30 – 1:40)
+**[Theepa calls research_support_topic]**
 
 **Narration:**
-> "When the internal KB doesn't have the answer, Jessica searches the web with Google Search grounding — finding the latest SAP OSS notes and patches. No hallucination."
+> "When the internal KB doesn't have the answer, Theepa searches the web with Google Search grounding — no hallucination, always verifiable."
 
-**[Show: "[Researched: 3 web sources found]" in transcript]**
+### Ticket Creation (1:40 – 1:50)
+**[Theepa creates an ITSM ticket with diagnostic report]**
+**[Show: Session summary with downloadable report]**
 
-### Ticket Creation (2:15 – 2:30)
-**[Jessica creates an ITSM ticket with full diagnostic report]**
-**[Show: "[Ticket INC-xxxxx created]" in transcript]**
-**[Click "End Session" → Summary view with RCA download]**
+---
+
+## [1:50 – 2:30] LIVE DEMO — VIGIL (Scam Shield)
+
+### Shield Mode (1:50 – 2:05)
+**[Show: Chrome extension popup — toggle to Shield mode]**
+
+**Narration:**
+> "Now the real innovation. Switch to Vigil Shield mode. Every page you visit is automatically scanned for scams, phishing, and AI-generated fraud."
+
+### Scam Detection (2:05 – 2:25)
+**[Navigate to a suspicious-looking page]**
+
+**[Show: Vigil alert popup with threat details]**
+- Layer 1: Web Risk API flags the domain
+- Layer 2: Gemini Vision detects fake login form
+- Layer 3: Google Search confirms scam reports
+
+**Narration:**
+> "Three layers of detection. Google Web Risk API checks the URL. Gemini Vision analyzes the page visually — fake branding, suspicious forms, urgency tactics. Then Google Search verifies against known scam reports. All automatic."
+
+**[Show: Threat level badge, detailed recommendations]**
 
 ---
 
 ## [2:30 – 3:00] ARCHITECTURE
 
-**[Show: Architecture diagram]**
+**[Show: Architecture diagram from README]**
 
 **Narration:**
-> "Under the hood: A Vite frontend connects via WebSocket to a FastAPI backend on Cloud Run. Gemini Live API handles voice and vision. 8 backend tools execute in parallel — knowledge base search, SAP error lookup, diagnostics, ITSM ticketing, and Google Search grounding. All running on Google Cloud with Vertex AI."
+> "Under the hood: A Vite frontend connects via WebSocket to FastAPI on Cloud Run. Gemini Live API handles voice and vision. 9 backend tools execute in parallel. The Chrome extension captures DOM and executes actions. Vigil's 3-layer shield uses Web Risk API, Gemini Vision, and Google Search grounding. All on Google Cloud with Vertex AI."
 
 ---
 
 ## [3:00 – 3:20] CLOUD DEPLOYMENT
 
 **[Show: GCP Console — Cloud Run service running]**
-**[Show: Logs streaming]**
+**[Show: Terraform code in the repo]**
 
 **Narration:**
-> "Deployed on Cloud Run with one command. Infrastructure managed with Terraform. The entire backend is production-ready on Google Cloud."
+> "Deployed on Cloud Run with one command. Infrastructure as Code with Terraform. ADK multi-agent pattern with researcher sub-agent for google_search isolation."
 
 ---
 
@@ -99,30 +112,32 @@
 **[Show: Feature highlights — quick cuts]**
 
 **Narration:**
-> "8 tools, 15 languages, screen analysis with vision, Google Search grounding for anti-hallucination, 4-stage diagnostic pipeline, live T-code command overlay, SLA tracking, and complete RCA generation. All in a single voice conversation."
+> "9 parallel tools. 20 languages. Chrome extension that clicks, fills, and navigates. 3-layer scam detection with auto-scan. 4-stage diagnostic pipeline. SLA tracking. Full ITSM ticket generation. And two AI agents working together — one protects, one resolves. No other submission does both."
 
 ---
 
 ## [3:45 – 4:00] CLOSING
 
-**[Show: Guardian logo / home screen]**
+**[Show: Resolve + Vigil home screen]**
 
 **Narration:**
-> "Guardian. Your AI SAP veteran. Built with Gemini Live API on Google Cloud."
+> "Resolve + Vigil. Two agents. One platform. Built with Gemini Live API, Google ADK, and Vertex AI on Google Cloud."
 
-**[Show: URL + GitHub link]**
+**[Show: GitHub URL + live demo URL]**
 
 ---
 
 ## B-Roll Shots to Capture
-1. Guardian home screen (dark theme, particles)
-2. Session starting — Jessica's greeting
-3. Diagnostic tracker progressing through stages
-4. T-code overlay toast appearing
-5. Screen share with SAP screenshot
-6. Ctrl+V paste screenshot
-7. Transcript showing tool results
-8. Session timer + SLA badge
-9. Summary view with RCA download button
-10. GCP Console — Cloud Run logs
-11. Architecture diagram (full screen, 3-5 seconds)
+1. Home screen (dark theme, professional design)
+2. Session starting — Theepa's greeting
+3. Diagnostic tracker progressing through 4 stages
+4. Chrome extension highlighting page elements
+5. Extension filling a form field
+6. Vigil Shield alert popup with threat details
+7. Transcript showing parallel tool results
+8. Session timer + SLA badge (P1/P2/P3)
+9. Summary view with diagnostic report download
+10. Chrome extension popup (both modes)
+11. GCP Console — Cloud Run service + logs
+12. Architecture diagram (full screen, 3-5 seconds)
+13. Terraform files in repo

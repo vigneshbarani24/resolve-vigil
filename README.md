@@ -1,27 +1,174 @@
-# Resolve + Vigil — AI IT Helpdesk & Scam Protection Platform
+# Resolve + Vigil
 
-> **Two AI agents. One platform. Theepa talks you through IT issues. Vigil shields you from scams.**
+### AI IT Helpdesk & Real-Time Scam Protection Platform
 
-Resolve is not another chatbot. It's a **voice-first AI control tower** with a **Chrome extension** that does two things no other submission does:
-
-1. **Theepa** (Live Agent) — Speaks 20 languages, sees your screen, runs 9 backend tools in parallel, and resolves IT issues in real time via Gemini Live API
-2. **Vigil** (Shield Mode) — Auto-scans every page you visit for scams, phishing, fake sites, AI-generated fraud, and spam — powered by Gemini Vision + Google Search grounding
-
-**Categories**: Live Agents + UI Navigator | **Hackathon**: Gemini Live Agent Challenge
+> Two AI agents. One platform. **Theepa** talks you through IT issues by voice. **Vigil** shields you from scams in real time.
 
 ---
 
-## What Makes This Different
+## Try It Live
 
-| Everyone Else | Resolve + Vigil |
-|--------------|-----------------|
-| Voice agent that answers questions | Voice agent that **drives diagnostic protocol**, creates tickets, escalates with full reports |
-| Text-based tool calling | **9 tools firing in parallel** — KB search + error lookup + web search simultaneously |
-| English-only demo | **20 languages** — speak Tamil, get tickets in English |
-| Screenshot analysis | **Chrome extension that highlights, clicks, and fills forms** on the actual page |
-| Single-purpose agent | **Two-mode platform**: Shield (scam detection) + Assist (IT navigation) |
-| No proactive protection | **Vigil auto-scans every page** — alerts before you get phished |
-| Mock deployment | **Terraform IaC + Cloud Run** — one command production deployment |
+| Surface | URL |
+|---------|-----|
+| **Web App** | [resolve-743776360861.us-central1.run.app](https://resolve-743776360861.us-central1.run.app) |
+| **Chrome Extension** | Load `extension/` folder in `chrome://extensions` (Developer Mode) |
+
+> **Note**: Voice sessions require microphone access. Shield scans take ~3-5 seconds per page. Best experienced on desktop Chrome.
+
+---
+
+## High-Level System Overview
+
+Resolve + Vigil is a **dual-agent AI platform** built on Google Cloud:
+
+- **Theepa** (Virtual Internal Assistant) — A voice-first IT support agent that conducts structured diagnostic interviews, runs 9 backend tools in parallel, sees the user's screen, and speaks 20 languages via **Gemini Live API**
+- **Vigil** (Scam Shield) — A Chrome extension that auto-scans every page for phishing, scams, and fraud using a **4-layer detection pipeline**: OSINT Domain Analysis, Google Web Risk API, Gemini Vision, and Google Search Grounding
+
+Both agents run on a single **FastAPI backend** deployed to **Google Cloud Run**, with optional **Google ADK** multi-agent orchestration.
+
+<!-- Architecture diagram -->
+![Architecture](Resolve-Architecture.png)
+
+---
+
+## Cloud Deployment
+
+| Component | Technology | Deployment |
+|-----------|-----------|-----------|
+| **Web Frontend** | Vite + Web Components + Web Audio API | Cloud Run (static) |
+| **Backend API** | FastAPI + WebSocket + ADK | Cloud Run |
+| **Voice Model** | `gemini-live-2.5-flash-native-audio` | Vertex AI |
+| **Vision/Search** | `gemini-2.5-flash` | Vertex AI |
+| **Threat DB** | Google Web Risk API | GCP |
+| **Search Grounding** | Gemini Flash + Google Search | Vertex AI |
+| **Chrome Extension** | Manifest V3 | Self-hosted |
+| **IaC** | Terraform | Cloud Run + IAM + Artifact Registry |
+
+---
+
+## How Our Multi-Agent System Works
+
+### Google ADK Integration
+
+Resolve uses the **Google Agent Development Kit (ADK)** for multi-agent orchestration:
+
+1. **Agent Definitions**: `LlmAgent` with `FunctionTool` wrappers — type hints + docstrings auto-generate tool declarations
+2. **Sub-Agent Pattern**: `google_search` is isolated in a dedicated Researcher sub-agent (ADK constraint: cannot mix with other tools)
+3. **Async Runner**: `runner.run_async()` with `InMemorySessionService` for session management
+4. **Dual Mode**: ADK text chat (`/api/adk/chat`) + raw Gemini Live API voice streaming (`/ws`)
+
+---
+
+### Stage 1: Voice Conversation (Theepa — Live Agent)
+
+**Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI
+
+The user speaks naturally to Theepa. She listens, transcribes, understands intent, and responds with natural voice — all in real time via bidirectional WebSocket streaming.
+
+- **Interruptible**: User can cut in mid-sentence
+- **20 Languages**: Speak Tamil, get tickets in English
+- **Persona**: Professional, warm, SLA-obsessed IT specialist
+- **Web Audio**: Capture/playback via AudioWorklet processors (no latency)
+
+<!-- Demo GIF: Voice conversation -->
+<!-- ![Voice Demo](Resolve-Voice-Demo.gif) -->
+
+---
+
+### Stage 2: Structured Diagnostic Protocol (9 Tools)
+
+**Model**: `gemini-2.5-flash` (tool execution) + `gemini-live-2.5-flash-native-audio` (voice)
+
+When Theepa identifies an IT issue, she follows a **4-stage diagnostic pipeline**:
+
+```
+IDENTIFY → DIAGNOSE → RESOLVE → VERIFY
+```
+
+Each stage fires multiple tools **in parallel**:
+
+| # | Tool | What It Does |
+|---|------|-------------|
+| 1 | `search_knowledge_base` | Searches 20-article IT helpdesk KB with keyword scoring |
+| 2 | `lookup_error_code` | Resolves error codes across 7 categories (AUTH, FORM, PAY, DOC, TECH, VISA, ID) |
+| 3 | `lookup_portal_page` | Looks up portal page details, navigation paths, known issues |
+| 4 | `diagnose_issue` | Cross-references KB + error codes + portal pages for root cause |
+| 5 | `create_issue` | Logs issues with severity categorization + deduplication |
+| 6 | `create_itsm_ticket` | Creates full ITSM tickets with diagnostic report attached |
+| 7 | `update_itsm_ticket` | Updates ticket status, resolution notes, escalation path |
+| 8 | `research_support_topic` | Google Search grounding via Gemini Flash (anti-hallucination) |
+| 9 | `navigate_user_browser` | Sends visual guidance actions to Chrome extension |
+
+The **Researcher sub-agent** (isolated `google_search`) handles real-time web research when the internal KB doesn't have the answer.
+
+<!-- Demo GIF: Tool execution -->
+<!-- ![Tools Demo](Resolve-Tools-Demo.gif) -->
+
+---
+
+### Stage 3: UI Navigator (Chrome Extension — Assist Mode)
+
+**Model**: `gemini-2.5-flash` (vision analysis)
+
+When Theepa says "click the Submit button," the Chrome extension:
+
+1. **Captures** all interactive DOM elements with bounding rectangles
+2. **Screenshots** the visible tab via `chrome.tabs.captureVisibleTab`
+3. **Sends** screenshot + DOM to Gemini Vision for analysis
+4. **Renders** visual annotations: pulsing highlight boxes, step badges, directional labels
+5. **Executes** actions on behalf of the user: click, fill form fields, scroll to element
+
+This is real UI navigation — not just screenshot analysis, but actual interaction with the page.
+
+<!-- Demo GIF: UI Navigator -->
+<!-- ![Navigator Demo](Resolve-Navigator-Demo.gif) -->
+
+---
+
+### Stage 4: Vigil Shield (Chrome Extension — Shield Mode)
+
+**4-Layer Detection Pipeline** — scans every page automatically:
+
+| Layer | Technology | Speed | What It Checks |
+|-------|-----------|-------|---------------|
+| **0. OSINT** | Domain heuristics (no API) | <1ms | TLD reputation, typosquatting, brand impersonation, subdomain depth, domain authority score |
+| **1. Web Risk** | Google Web Risk API | ~100ms | Known phishing, malware, unwanted software (Google's threat database) |
+| **2. Vision** | Gemini 2.5 Flash | ~3s | Screenshot + DOM analysis: visual cloning, phishing forms, scam indicators, AI-generated content, fake urgency |
+| **3. Search** | Gemini Flash + Google Search | ~2s | Cross-references domain against scam reports on the web (only triggers if Layer 2 flags suspicious) |
+
+**Key behaviors**:
+- **Auto-scan**: Every page navigation triggers a background scan — no user action needed
+- **Smart escalation**: Layer 3 only fires when Layer 2 finds something suspicious (saves API calls)
+- **Smart de-escalation**: If Google Search confirms a site is legitimate, the threat level is lowered
+- **Domain authority score**: OSINT layer produces a 0-100 trust score with specific flags
+- **Per-tab caching**: Results persist per tab so reopening the popup shows previous scan
+- **Live status bar**: Shows current tab, URL, last scan time, verdict, server connection
+
+<!-- Demo GIF: Vigil Shield -->
+<!-- ![Shield Demo](Resolve-Shield-Demo.gif) -->
+
+---
+
+## Activity Feed & Backend Observability
+
+The backend exposes a **live activity feed** at `/api/activity` — every shield scan, voice session, tool call, and ADK query is logged with timestamps and emoji-tagged categories:
+
+```
+🛡️ [SHIELD] Scan complete → SAFE — URL: google.com | Layers: osint, web_risk, vision, search
+🔧 [TOOL] Tool: tool_call — search_knowledge_base
+🎙️ [VOICE] Session started — Token: abc12345..., Model: gemini-live-2.5-flash-native-audio
+🤖 [ADK] Chat complete → 3 tools used — Tools: search_knowledge_base, lookup_error_code, diagnose_issue
+```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /health` | Server health + ADK status |
+| `GET /api/status` | Model, tools, features, project info |
+| `GET /api/activity` | Live activity feed with system stats |
+| `GET /api/tickets` | All ITSM tickets created |
+| `POST /api/adk/chat` | ADK text chat (Theepa + Researcher) |
+| `POST /api/shield` | Vigil Shield scan |
+| `POST /api/navigate` | UI Navigator analysis |
 
 ---
 
@@ -29,12 +176,11 @@ Resolve is not another chatbot. It's a **voice-first AI control tower** with a *
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 18+
+- Python 3.11+, Node.js 18+
 - Google Cloud project with Vertex AI API enabled
 - `gcloud` CLI authenticated (`gcloud auth application-default login`)
 
-### 1. Clone & Install
+### 1. Install & Run
 
 ```bash
 git clone https://github.com/vigneshbarani24/Gemini-AI-Agents.git
@@ -45,158 +191,31 @@ pip install -r requirements.txt
 
 # Frontend
 cd frontend && npm install && npm run build && cd ..
-```
 
-### 2. Configure
-
-```bash
+# Configure
 cp .env.example .env
-# Edit .env with your GCP project ID
-```
+# Edit .env: set PROJECT_ID=your-gcp-project-id
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROJECT_ID` | Your GCP project ID | (auto-detected) |
-| `LOCATION` | GCP region | `us-central1` |
-| `MODEL` | Gemini Live model | `gemini-live-2.5-flash-native-audio` |
-| `SESSION_TIME_LIMIT` | Max session seconds | `300` |
-| `ENABLE_ADK` | Enable ADK multi-agent | `false` |
-
-### 3. Run
-
-```bash
+# Run
 python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
-# Open http://localhost:8080
 ```
 
-### 4. Install Chrome Extension
+### 2. Install Chrome Extension
 
-1. Open `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked" → select the `extension/` folder
-4. Click the Resolve icon → enter server URL → Connect
-5. **Shield mode is ON by default** — Vigil auto-scans every page
+1. Open `chrome://extensions/` → Enable **Developer mode**
+2. Click **Load unpacked** → select the `extension/` folder
+3. Click the Resolve icon → enter server URL (`http://localhost:8080`) → **Connect**
+4. Shield mode is ON by default — Vigil auto-scans every page
 
----
-
-## Architecture
-
-```
-                          ┌─────────────────────────────────────┐
-                          │         Google Cloud (Vertex AI)     │
-                          │                                     │
-                          │  ┌─────────────────────────────┐    │
-                          │  │  Gemini Live API             │    │
-                          │  │  (2.5-flash-native-audio)    │    │
-                          │  │  Voice + Vision + Tools      │    │
-                          │  └──────────┬──────────────────┘    │
-                          │             │                       │
-                          │  ┌──────────▼──────────────────┐    │
-                          │  │  FastAPI (Cloud Run)         │    │
-┌──────────────────┐      │  │  ├── WebSocket (voice/video) │    │
-│  Browser (SPA)   │◄─ws──│──│  ├── POST /api/navigate     │    │
-│  Web Audio API   │      │  │  ├── POST /api/shield        │──┐ │
-│  Screen Capture  │      │  │  └── Tool Registry (9 tools) │  │ │
-│  Diagnostic UX   │      │  └─────────────────────────────┘  │ │
-└──────────────────┘      │                                    │ │
-                          │  ┌─────────────────────────────┐   │ │
-┌──────────────────┐      │  │  Gemini 2.5 Flash           │   │ │
-│  Chrome Extension│──REST│──│  ├── Vision (Shield/Navigate)│◄──┘ │
-│  ├── Vigil Shield│      │  │  └── Google Search Grounding │    │
-│  ├── UI Navigator│      │  └─────────────────────────────┘    │
-│  └── DOM Actions │      │                                     │
-└──────────────────┘      │  ┌─────────────────────────────┐    │
-                          │  │  ADK Multi-Agent (optional)  │    │
-                          │  │  ├── Theepa (9 FunctionTools)│    │
-                          │  │  └── Researcher (google_search)   │
-                          │  └─────────────────────────────┘    │
-                          └─────────────────────────────────────┘
-```
-
----
-
-## Features
-
-### Theepa — Live Voice Agent (9 Tools)
-
-| # | Tool | Purpose |
-|---|------|---------|
-| 1 | `search_knowledge_base` | Search 20-article IT helpdesk KB |
-| 2 | `lookup_error_code` | Portal error codes (AUTH, FORM, PAY, DOC, TECH, VISA, ID) |
-| 3 | `lookup_portal_page` | Portal navigation paths and page details |
-| 4 | `diagnose_issue` | Cross-reference KB + errors + pages for complex diagnosis |
-| 5 | `create_issue` | Log problems with severity and category |
-| 6 | `create_itsm_ticket` | Full ITSM ticket with diagnostic report |
-| 7 | `update_itsm_ticket` | Update ticket status, resolution, escalation |
-| 8 | `research_support_topic` | Google Search grounding — latest solutions from the web |
-| 9 | `navigate_user_browser` | Trigger visual guidance on user's screen via extension |
-
-**Diagnostic Pipeline**: Initiation → Diagnosis → Troubleshoot → Resolution (visual progress tracking)
-
-### Vigil — Scam & Phishing Shield
-
-| Detection | How It Works |
-|-----------|-------------|
-| **Domain Impersonation** | Gemini Vision compares page branding vs URL domain |
-| **Phishing Forms** | DOM analysis of form targets, credential fields, suspicious actions |
-| **Scam Indicators** | Fake urgency, too-good-to-be-true offers, fake trust badges |
-| **AI-Generated Content** | Detects deepfakes, AI text patterns, fake reviews |
-| **Transaction Risk** | Suspicious payment pages, non-HTTPS on sensitive forms |
-| **Live Verification** | Google Search grounding cross-references domain against known scam reports |
-| **Spam Detection** | Redirect chains, fake downloads, misleading ad placement |
-
-**Auto-scan**: Every page navigation triggers a background scan. No user action needed.
-
-### UI Navigator — Chrome Extension
-
-| Capability | Description |
-|-----------|-------------|
-| **DOM Capture** | Extracts all interactive elements with bounding rects |
-| **Visual Annotations** | Highlight boxes with step badges, labels, pulse animations |
-| **Action Execution** | Click buttons, fill forms, scroll — on behalf of the user |
-| **Screen Sharing** | Periodic frame capture sent to backend for analysis |
-| **20 Languages** | All guidance rendered in the user's chosen language |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **AI Model (Voice)** | Gemini Live `gemini-live-2.5-flash-native-audio` via Vertex AI |
-| **AI Model (Vision)** | Gemini Flash `gemini-2.5-flash` via Vertex AI |
-| **AI Framework** | Google ADK (`google-adk`) — multi-agent with FunctionTools |
-| **AI SDK** | `google-genai` (Google GenAI SDK for Python) |
-| **Search Grounding** | Gemini Flash + Google Search (anti-hallucination + domain verification) |
-| **Backend** | Python 3.11 / FastAPI / WebSocket (bidirectional streaming) |
-| **Frontend** | Vanilla JS / Vite / Web Audio API / Web Components |
-| **Extension** | Chrome Manifest V3 / Content Script / Background Worker |
-| **Hosting** | Google Cloud Run |
-| **IaC** | Terraform (Cloud Run + Artifact Registry + IAM) |
-
----
-
-## Deployment
-
-### Cloud Run (one command)
+### 3. Deploy to Cloud Run
 
 ```bash
 export PROJECT_ID=your-project-id
-bash deploy.sh
+bash deploy.sh        # Standard deploy (FastAPI + Gemini Live)
+bash deploy.sh --adk  # ADK deploy (multi-agent with google_search)
 ```
 
-### Docker
-
-```bash
-cd frontend && npm run build && cd ..
-docker build -t resolve .
-docker run -p 8080:8080 \
-  -e PROJECT_ID=your-project-id \
-  -e LOCATION=us-central1 \
-  resolve
-```
-
-### Terraform (automated IaC — bonus)
+### 4. Terraform (IaC)
 
 ```bash
 cd terraform
@@ -204,69 +223,74 @@ cp terraform.tfvars.example terraform.tfvars
 terraform init && terraform apply
 ```
 
-### ADK Mode (multi-agent orchestration)
-
-```bash
-# Option 1: ADK built-in UI (development)
-adk web resolve/
-
-# Option 2: Enable ADK in FastAPI server
-export ENABLE_ADK=true
-python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
-# POST /api/adk/chat  — text chat via ADK Runner
-
-# Option 3: ADK deploy to Cloud Run (production)
-export PROJECT_ID=your-project-id
-bash deploy.sh --adk
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PROJECT_ID` | GCP project ID | (auto-detected) |
+| `LOCATION` | GCP region | `us-central1` |
+| `MODEL` | Gemini Live model | `gemini-live-2.5-flash-native-audio` |
+| `ENABLE_ADK` | Enable ADK multi-agent | `true` |
 
 ---
 
 ## Project Structure
 
 ```
+resolve-submission/
 ├── resolve/                         # ADK package (adk web / adk deploy)
-│   ├── agent.py                     # root_agent export (Theepa + Researcher)
+│   ├── agent.py                     # root_agent: Theepa + Researcher sub-agent
 │   └── __init__.py
 ├── server/
-│   ├── main.py                     # FastAPI + WebSocket + REST endpoints
-│   ├── gemini_live.py              # Gemini Live API wrapper (turn gating)
-│   ├── adk_agent.py                # ADK multi-agent (Theepa + Researcher)
-│   ├── prompts.py                  # Theepa persona (240+ lines)
-│   ├── session_state.py            # 4-stage diagnostic state machine
-│   ├── config_utils.py             # GCP config helpers
+│   ├── main.py                      # FastAPI + WebSocket + REST + Activity Feed
+│   ├── gemini_live.py               # Gemini Live API bidirectional streaming
+│   ├── adk_agent.py                 # ADK multi-agent definition
+│   ├── prompts.py                   # Theepa persona (240+ lines)
+│   ├── session_state.py             # 4-stage diagnostic state machine
 │   ├── tools/
-│   │   ├── registry.py             # Pluggable tool registration (9 tools)
-│   │   ├── kb_search.py            # Knowledge base search
-│   │   ├── portal_lookup.py        # Error code + portal page lookup
-│   │   ├── itsm.py                 # ITSM ticket CRUD
-│   │   ├── issue_tracker.py        # Issue logging + category inference
-│   │   ├── search_grounding.py     # Google Search grounding
-│   │   ├── ui_navigator.py         # Gemini Vision page analysis
-│   │   └── shield_analyzer.py      # Vigil scam/phishing detection
+│   │   ├── registry.py              # 9-tool registration
+│   │   ├── kb_search.py             # Knowledge base search
+│   │   ├── portal_lookup.py         # Error code + portal page lookup
+│   │   ├── itsm.py                  # ITSM ticket CRUD
+│   │   ├── issue_tracker.py         # Issue logging + category inference
+│   │   ├── search_grounding.py      # Google Search grounding
+│   │   ├── ui_navigator.py          # Gemini Vision page analysis
+│   │   └── shield_analyzer.py       # Vigil 4-layer scam detection + OSINT
 │   ├── agents/
-│   │   └── diagnostic_expert.py    # Cross-reference diagnostic engine
+│   │   └── diagnostic_expert.py     # Cross-reference diagnostic engine
 │   └── data/
 │       ├── helpdesk_knowledge_base.json  # 20 IT helpdesk articles
 │       └── helpdesk_reference.json       # Error codes + portal paths
-├── extension/
-│   ├── manifest.json               # Chrome Manifest V3
-│   ├── background.js               # Service worker (screenshots, REST, auto-scan)
-│   ├── content.js                  # DOM capture, annotations, actions, shield banner
-│   ├── popup.html/js/css           # Two-mode UI (Vigil + Assist)
-│   ├── overlay.css                 # Page annotation styles
-│   └── config.js                   # Modular branding config
-├── frontend/
-│   ├── src/
-│   │   ├── components/             # Web Components
-│   │   └── lib/gemini-live/        # Gemini Live client + audio worklets
-│   └── vite.config.js
-├── terraform/                      # Cloud Run + Artifact Registry + IAM
+├── extension/                       # Chrome Extension (Manifest V3)
+│   ├── manifest.json
+│   ├── background.js                # Service worker: auto-scan, REST, per-tab cache
+│   ├── content.js                   # DOM capture, annotations, actions, shield banner
+│   ├── popup.html/js/css            # Dual-mode UI (Vigil + Assist) + Live Status
+│   └── overlay.css                  # Page annotation styles
+├── frontend/                        # Vite + Web Components SPA
+│   ├── src/components/              # 8 Web Components
+│   └── src/lib/gemini-live/         # Gemini Live client + AudioWorklets
+├── terraform/                       # Cloud Run + Artifact Registry + IAM
 ├── Dockerfile
-├── deploy.sh
-├── requirements.txt
-└── README.md
+├── deploy.sh                        # One-command Cloud Run deployment
+└── requirements.txt
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Voice AI** | Gemini Live API (`gemini-live-2.5-flash-native-audio`) via Vertex AI |
+| **Vision AI** | Gemini Flash (`gemini-2.5-flash`) via Vertex AI |
+| **Agent Framework** | Google ADK (`google-adk`) — multi-agent with FunctionTools |
+| **AI SDK** | `google-genai` (Google GenAI SDK for Python) |
+| **Search Grounding** | Gemini Flash + Google Search |
+| **Threat Detection** | Google Web Risk API + OSINT Domain Analysis |
+| **Backend** | Python 3.11 / FastAPI / WebSocket |
+| **Frontend** | Vite / Web Components / Web Audio API |
+| **Extension** | Chrome Manifest V3 |
+| **Hosting** | Google Cloud Run |
+| **IaC** | Terraform |
 
 ---
 
@@ -274,25 +298,45 @@ bash deploy.sh --adk
 
 | Criteria | How We Deliver |
 |----------|---------------|
-| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, screen share) + Text (chat input) |
-| **Agentic** | 9 tools firing in parallel, 4-stage diagnostic protocol, autonomous escalation |
-| **Grounding** | Google Search grounding in both Theepa (support research) and Vigil (domain verification) |
+| **Multimodal** | Voice (Gemini Live) + Vision (screenshots, screen share) + Text (chat, extension) |
+| **Agentic** | 9 tools in parallel, 4-stage diagnostic protocol, autonomous escalation, ADK multi-agent |
+| **Grounding** | Google Search in Theepa (support research) AND Vigil (domain verification) |
 | **UI Navigator** | Chrome extension: DOM capture → Gemini Vision → highlight/click/fill on actual pages |
-| **Cloud** | Vertex AI + Cloud Run + Terraform IaC (automated deployment) |
-| **Innovation** | Vigil Shield — no other submission has real-time scam detection with auto-scan |
-| **20 Languages** | Full multilingual voice + all UI guidance + threat alerts in user's language |
-| **Production-Ready** | Docker, Terraform, session management, SLA tracking, ITSM integration |
+| **Cloud Native** | Vertex AI + Cloud Run + Terraform IaC + Docker |
+| **Innovation** | 4-layer real-time scam detection with OSINT scoring — no other submission has this |
+| **Multilingual** | 20 languages — voice + UI guidance + threat alerts |
+| **Production-Ready** | Session management, SLA tracking, ITSM tickets, activity feed, per-tab scan cache |
 
 ---
 
-## Bonus Points
+## What Makes This Different
 
-- **Automated Cloud Deployment**: `terraform/main.tf` + `deploy.sh` (IaC)
-- **Content**: Blog post / demo video (link TBD)
-- **GDG**: Profile link TBD
+| Other Submissions | Resolve + Vigil |
+|-------------------|-----------------|
+| Voice agent that answers questions | Voice agent with **4-stage diagnostic protocol** that creates tickets and escalates |
+| Text-based tool calling | **9 tools firing in parallel** — KB + error lookup + web search simultaneously |
+| English-only | **20 languages** — speak Tamil, get tickets in English |
+| Screenshot analysis only | Chrome extension that **highlights, clicks, and fills forms** on the actual page |
+| Single-purpose agent | **Dual-mode platform**: Shield (scam detection) + Assist (IT navigation) |
+| No proactive protection | **Vigil auto-scans every page** — 4-layer pipeline alerts before you get phished |
+| Manual deployment | **Terraform IaC + Cloud Run** — one command production deployment |
+| No observability | **Live activity feed** with timestamped tool calls, scans, and sessions |
 
 ---
 
-## License
+## Categories
 
-Built for the Gemini Live Agent Challenge hackathon.
+- **Live Agents** — Theepa: voice-first IT support with Gemini Live API
+- **UI Navigator** — Chrome Extension: DOM capture → Gemini Vision → page actions
+
+---
+
+## Built With
+
+Gemini Live API, Gemini 2.5 Flash, Vertex AI, Google ADK, Google Web Risk API, Google Search Grounding, Google GenAI SDK, FastAPI, Python, WebSocket, Vite, Web Components, Web Audio API, Chrome Extension (Manifest V3), Google Cloud Run, Terraform, Docker
+
+---
+
+## Team
+
+**KaarTech UK** (Solo) — Built for the Gemini Live Agent Challenge

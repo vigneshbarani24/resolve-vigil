@@ -31,41 +31,49 @@ def _get_client():
 
 
 SHIELD_SYSTEM_PROMPT = """\
-You are a cybersecurity AI analyst specializing in detecting scams, phishing, \
-and fraudulent websites. You analyze screenshots of web pages along with their \
-DOM structure to determine if the site is legitimate or potentially dangerous.
+You are a cybersecurity AI analyst. Your job is to protect users from REAL threats \
+like scams, phishing, and fraud — while NEVER crying wolf on legitimate websites.
 
-Your analysis checks for:
+## DEFAULT STANCE: SAFE
+Most websites are legitimate. Your default verdict is "safe" unless you find \
+CONCRETE, SPECIFIC evidence of malicious intent. Vague suspicions are NOT enough.
 
-1. **Domain Impersonation**: Is the URL trying to mimic a legitimate website? \
-   (e.g., "paypai.com" instead of "paypal.com", "g00gle.com" instead of "google.com")
+## LEGITIMATE SITES — DO NOT FLAG:
+- Well-known services: Google, YouTube, GitHub, Amazon, Facebook, Twitter/X, \
+  LinkedIn, Reddit, Wikipedia, Microsoft, Apple, Netflix, Spotify, StackOverflow, \
+  medium.com, substack.com, dev.to, etc.
+- Sites on their official/expected domain (google.com, github.com, amazon.co.uk, etc.)
+- Login forms on HTTPS with matching domain branding — this is NORMAL behavior
+- Cookie consent banners, newsletter popups, notification requests — these are NORMAL
+- Sites with ads — ads alone are NOT a threat indicator
+- News sites, blogs, forums, documentation sites — content sites are generally safe
+- Government sites (.gov, .gov.uk, etc.) on their official domains
 
-2. **Phishing Forms**: Does the page have login/payment forms that could steal credentials? \
-   Are there signs of fake login pages (mismatched branding, suspicious form targets)?
+## ONLY FLAG when you find CLEAR evidence of:
+1. **Domain Impersonation**: URL deliberately mimics another (e.g., "paypai.com", "g00gle.com") — \
+   NOT just any unfamiliar domain
+2. **Credential Theft**: Login form posting to a DIFFERENT domain than the page, \
+   or a page impersonating a known brand's login on the wrong domain
+3. **Active Scam**: Fake urgency ("Account locked in 24h!"), too-good-to-be-true \
+   prizes/giveaways, fake countdown timers, advance-fee fraud
+4. **Payment Fraud**: Payment forms on non-HTTPS, or fake payment processors
+5. **Visual Cloning**: Page is a near-exact copy of a known brand but on a suspicious domain
+6. **Malware Distribution**: Fake download buttons, drive-by downloads, deceptive software offers
 
-3. **Scam Indicators**: Fake urgency ("Your account will be locked!"), \
-   too-good-to-be-true offers, fake countdown timers, fake trust badges.
+## SEVERITY GUIDE:
+- **safe**: No threats found. This is where MOST sites should land.
+- **low**: Minor observation worth noting but not actionable (e.g., self-signed cert on internal tool)
+- **medium**: ONLY if there is specific suspicious evidence that needs user awareness
+- **high**: ONLY if there is strong evidence of active phishing/scam/fraud attempt
+- **critical**: ONLY if Google Web Risk API confirms it, or there is overwhelming evidence
 
-4. **Transaction Risk**: Pages asking for payment/banking details on non-HTTPS or \
-   suspicious domains. Fake payment processors.
-
-5. **Content Authenticity**: Misinformation, fake news articles, clickbait with \
-   no real sources, impersonation of news outlets, unverified viral claims.
-
-6. **AI-Generated Content**: Signs of AI-generated text (repetitive phrasing, \
-   generic language), deepfake images, AI-generated reviews or testimonials \
-   designed to build false trust.
-
-7. **Visual Cloning**: Is the page visually copying a legitimate service but hosted \
-   on a different domain? (e.g., fake banking portal, fake government service)
-
-8. **SSL/Security**: Missing HTTPS on sensitive pages, mixed content warnings.
-
-9. **Spam Indicators**: Excessive pop-ups, redirect chains, fake download buttons, \
-   misleading ad placement designed to trick clicks.
-
-Be conservative — flag genuine threats but don't false-positive on legitimate sites. \
-If in doubt, mark as "medium" and explain why.
+## RULES:
+- When in doubt, mark "safe" with an explanation — NOT "medium"
+- An unfamiliar domain is NOT suspicious by itself — millions of legitimate sites exist
+- Having login forms, payment forms, or popups is NORMAL website behavior
+- Each finding MUST cite specific evidence (exact URL, DOM element, visual element)
+- NEVER flag a site just because you don't recognize the brand
+- If the domain matches the brand shown on page and uses HTTPS → it's almost certainly safe
 """
 
 SHIELD_RESPONSE_SCHEMA = {
@@ -79,14 +87,40 @@ SHIELD_RESPONSE_SCHEMA = {
             "type": "STRING",
             "description": "One-line summary of the finding in the user's language",
         },
+        "findings": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "category": {
+                        "type": "STRING",
+                        "description": "Category: domain, phishing, scam, transaction, content, ai_generated, visual_clone, ssl, spam",
+                    },
+                    "severity": {
+                        "type": "STRING",
+                        "description": "Severity: safe, low, medium, high, critical",
+                    },
+                    "detail": {
+                        "type": "STRING",
+                        "description": "Detailed explanation of what was found and why it matters, citing specific evidence from the page",
+                    },
+                    "evidence": {
+                        "type": "STRING",
+                        "description": "Specific observed evidence: exact text, URL, DOM element, or visual element that led to this finding",
+                    },
+                },
+                "required": ["category", "severity", "detail", "evidence"],
+            },
+            "description": "List of findings with evidence and reasoning (1-8 items)",
+        },
         "threats": {
             "type": "ARRAY",
             "items": {"type": "STRING"},
-            "description": "List of specific threats detected (2-5 items)",
+            "description": "Short list of threat labels for quick display (2-5 items)",
         },
         "domain_analysis": {
             "type": "STRING",
-            "description": "Analysis of the domain/URL legitimacy",
+            "description": "Analysis of the domain/URL legitimacy with reasoning",
         },
         "impersonating": {
             "type": "STRING",
@@ -97,8 +131,128 @@ SHIELD_RESPONSE_SCHEMA = {
             "description": "What the user should do (in their language)",
         },
     },
-    "required": ["threat_level", "summary", "threats", "recommendation"],
+    "required": ["threat_level", "summary", "findings", "threats", "recommendation"],
 }
+
+
+def _analyze_domain_osint(page_url: str) -> dict:
+    """OSINT-style domain analysis — no external API calls, pure heuristics.
+
+    Checks domain characteristics that indicate legitimacy or suspicion:
+    - TLD reputation (known good vs suspicious)
+    - Domain length and character patterns
+    - Subdomain depth
+    - Lookalike/typosquatting detection
+    - Known brand impersonation
+    """
+    result = {
+        "score": 100,  # Start at 100 (trustworthy), deduct for red flags
+        "flags": [],
+        "domain": "",
+        "tld": "",
+        "is_ip": False,
+        "subdomain_depth": 0,
+    }
+
+    try:
+        parsed = urlparse(page_url)
+        hostname = (parsed.netloc or "").lower().split(":")[0]  # Strip port
+        result["domain"] = hostname
+
+        if not hostname:
+            return result
+
+        # Check if IP address instead of domain
+        import re
+        if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', hostname):
+            result["is_ip"] = True
+            result["score"] -= 30
+            result["flags"].append("IP address instead of domain name")
+            return result
+
+        parts = hostname.split(".")
+        tld = parts[-1] if parts else ""
+        result["tld"] = tld
+
+        # Subdomain depth (example.com = 0, sub.example.com = 1)
+        # For known 2-part TLDs like co.uk, adjust
+        two_part_tlds = {"co.uk", "com.au", "co.in", "org.uk", "co.za", "com.br", "co.jp"}
+        sld = ".".join(parts[-2:])
+        if sld in two_part_tlds:
+            result["subdomain_depth"] = max(0, len(parts) - 3)
+        else:
+            result["subdomain_depth"] = max(0, len(parts) - 2)
+
+        if result["subdomain_depth"] >= 3:
+            result["score"] -= 15
+            result["flags"].append(f"Deep subdomain nesting ({result['subdomain_depth']} levels)")
+
+        # Suspicious TLDs (commonly abused)
+        suspicious_tlds = {"tk", "ml", "ga", "cf", "gq", "xyz", "top", "club", "buzz", "surf",
+                           "icu", "cam", "rest", "monster", "click", "link", "work"}
+        if tld in suspicious_tlds:
+            result["score"] -= 20
+            result["flags"].append(f"Suspicious TLD: .{tld} (commonly abused)")
+
+        # Trusted TLDs
+        trusted_tlds = {"gov", "edu", "mil", "int"}
+        if tld in trusted_tlds:
+            result["score"] += 10
+            result["flags"].append(f"Trusted TLD: .{tld}")
+
+        # Well-known domains (never flag these)
+        known_safe = {
+            "google.com", "youtube.com", "github.com", "amazon.com", "microsoft.com",
+            "apple.com", "facebook.com", "twitter.com", "x.com", "linkedin.com",
+            "reddit.com", "wikipedia.org", "stackoverflow.com", "medium.com",
+            "netflix.com", "spotify.com", "bbc.co.uk", "bbc.com", "cnn.com",
+            "nytimes.com", "theguardian.com", "aws.amazon.com", "cloud.google.com",
+            "portal.azure.com", "dev.to", "npmjs.com", "pypi.org",
+        }
+        base_domain = ".".join(parts[-2:]) if len(parts) >= 2 else hostname
+        if base_domain in known_safe or hostname in known_safe:
+            result["score"] = 100
+            result["flags"] = [f"Known trusted domain: {base_domain}"]
+            return result
+
+        # Domain length (very long = suspicious)
+        domain_name = parts[-2] if len(parts) >= 2 else parts[0]
+        if len(domain_name) > 25:
+            result["score"] -= 10
+            result["flags"].append(f"Unusually long domain name ({len(domain_name)} chars)")
+
+        # Excessive hyphens (phishing pattern)
+        if domain_name.count("-") >= 3:
+            result["score"] -= 15
+            result["flags"].append(f"Excessive hyphens in domain ({domain_name.count('-')})")
+
+        # Number-letter mixing (l00kalike patterns)
+        if re.search(r'[a-z][0-9][a-z]|[0-9][a-z][0-9]', domain_name):
+            # Only flag if it's not a known pattern like "web3" or "i18n"
+            if not re.match(r'^(web3|i18n|l10n|w3|k8s)', domain_name):
+                result["score"] -= 10
+                result["flags"].append("Letter-number mixing (possible lookalike)")
+
+        # Brand typosquatting detection
+        brands = {
+            "paypal": "paypal.com", "google": "google.com", "amazon": "amazon.com",
+            "microsoft": "microsoft.com", "apple": "apple.com", "facebook": "facebook.com",
+            "netflix": "netflix.com", "instagram": "instagram.com", "whatsapp": "whatsapp.com",
+            "linkedin": "linkedin.com", "twitter": "twitter.com",
+        }
+        for brand, official in brands.items():
+            if brand in domain_name and base_domain != official:
+                # Could be a subdomain of the real brand or a fake
+                if not hostname.endswith(f".{official}"):
+                    result["score"] -= 25
+                    result["flags"].append(f"Possible impersonation of {brand} (official: {official})")
+
+    except Exception as e:
+        logger.warning(f"Domain OSINT analysis error: {e}")
+
+    # Clamp score
+    result["score"] = max(0, min(100, result["score"]))
+    return result
 
 
 async def _check_web_risk(page_url: str) -> dict:
@@ -152,9 +306,9 @@ async def _search_domain_reputation(client, page_url: str, page_title: str = "")
         domain = urlparse(page_url).netloc or page_url
 
         search_query = (
-            f'Is "{domain}" a scam or phishing site? '
-            f'Check for fraud reports, scam alerts, and legitimacy of this website. '
-            f'Page title: {page_title}'
+            f'What is "{domain}"? Is this website legitimate or has it been reported '
+            f'as a scam/phishing site? Look for both positive reputation AND any '
+            f'fraud/scam reports. Page title: {page_title}'
         )
 
         response = client.models.generate_content(
@@ -235,7 +389,11 @@ async def analyze_page_safety(
             types.Part.from_text(text=user_prompt),
         ]
 
-        # ── Step 0: Google Web Risk API (known threat database) ──
+        # ── Step 0a: Domain OSINT (instant, no API calls) ──
+        osint_result = _analyze_domain_osint(page_url) if page_url else {"score": 100, "flags": []}
+        logger.info(f"OSINT score for {page_url}: {osint_result['score']} | Flags: {osint_result['flags']}")
+
+        # ── Step 0b: Google Web Risk API (known threat database) ──
         web_risk_result = await _check_web_risk(page_url) if page_url else {"is_threat": False}
 
         # ── Step 1: Vision analysis (screenshot + DOM) ──
@@ -263,9 +421,9 @@ async def analyze_page_safety(
             vision_result = {"threat_level": "safe", "summary": "", "threats": [], "recommendation": ""}
 
         # ── Step 2: Google Search grounding (cross-reference domain) ──
-        # Only search if vision found something suspicious or domain is worth checking
+        # Only search if vision ALREADY found something suspicious — don't search for safe sites
         search_context = ""
-        if page_url and (vision_result.get("threat_level") in ("medium", "high", "critical") or page_url):
+        if page_url and vision_result.get("threat_level") in ("medium", "high", "critical"):
             try:
                 search_context = await _search_domain_reputation(client, page_url, page_title)
             except Exception as se:
@@ -284,27 +442,131 @@ async def analyze_page_safety(
             )
 
         # Layer 2: Google Search grounding
+        search_finding = None
         if search_context:
             vision_result["search_intel"] = search_context
-            if "scam" in search_context.lower() or "phishing" in search_context.lower() or "fraud" in search_context.lower():
+            domain = urlparse(page_url).netloc if page_url else "unknown"
+            search_finding = {
+                "category": "search_grounding",
+                "severity": "safe",
+                "detail": search_context[:300],
+                "evidence": f"Google Search results for domain reputation of {domain}",
+                "source": "Google Search Grounding (Gemini Flash)",
+            }
+
+            # Smart escalation: only escalate if search results CONFIRM the domain is bad
+            # Look for strong negative signals — not just mentions of scam/phishing in general
+            search_lower = search_context.lower()
+            negative_phrases = [
+                f"{domain.lower()} is a scam",
+                f"{domain.lower()} is a phishing",
+                f"{domain.lower()} is fraudulent",
+                "confirmed scam",
+                "confirmed phishing",
+                "known scam site",
+                "known phishing site",
+                "reported as scam",
+                "reported as phishing",
+                "avoid this site",
+                "do not trust",
+            ]
+            positive_phrases = [
+                "is legitimate",
+                "is a legitimate",
+                "is not a scam",
+                "is safe",
+                "is a real",
+                "trusted website",
+                "reputable",
+                "well-known",
+            ]
+
+            has_negative = any(phrase in search_lower for phrase in negative_phrases)
+            has_positive = any(phrase in search_lower for phrase in positive_phrases)
+
+            if has_negative and not has_positive:
                 current = vision_result.get("threat_level", "safe")
-                escalation = {"safe": "medium", "low": "medium", "medium": "high"}
+                escalation = {"medium": "high"}  # Only escalate medium→high, not safe→medium
                 if current in escalation:
                     vision_result["threat_level"] = escalation[current]
                     vision_result["threats"] = vision_result.get("threats", []) + [
-                        "Google Search reports scam/fraud activity associated with this domain"
+                        "Google Search confirms scam/fraud reports for this domain"
                     ]
+                search_finding["severity"] = "high"
+            elif has_positive:
+                # Search confirms site is legitimate — de-escalate if vision was suspicious
+                current = vision_result.get("threat_level", "safe")
+                deescalation = {"medium": "low", "low": "safe"}
+                if current in deescalation:
+                    vision_result["threat_level"] = deescalation[current]
+                search_finding["severity"] = "safe"
+                search_finding["detail"] = f"Search verification: {domain} appears legitimate. " + search_finding["detail"]
+
+        # ── Build findings with layer sources ──
+        findings = vision_result.get("findings") or []
+
+        # Add source attribution to vision findings
+        for f in findings:
+            f["source"] = "Gemini Vision Analysis (Layer 2)"
+
+        # Prepend Web Risk finding if present
+        if web_risk_result.get("is_threat"):
+            findings.insert(0, {
+                "category": "web_risk",
+                "severity": "critical",
+                "detail": web_risk_result["detail"],
+                "evidence": f"URL {page_url} matched Google's threat database for: {', '.join(web_risk_result.get('threat_types', []))}",
+                "source": "Google Web Risk API (Layer 1)",
+            })
+
+        # Append search grounding finding
+        if search_finding:
+            findings.append(search_finding)
+
+        # Add OSINT domain analysis finding
+        osint_severity = "safe"
+        if osint_result["score"] < 50:
+            osint_severity = "high"
+        elif osint_result["score"] < 75:
+            osint_severity = "medium"
+        elif osint_result["score"] < 90:
+            osint_severity = "low"
+
+        osint_flags_str = "; ".join(osint_result["flags"]) if osint_result["flags"] else "No flags"
+        findings.append({
+            "category": "domain",
+            "severity": osint_severity,
+            "detail": f"Domain authority score: {osint_result['score']}/100. {osint_flags_str}",
+            "evidence": f"Domain: {osint_result.get('domain', 'unknown')} | TLD: .{osint_result.get('tld', '?')} | Subdomains: {osint_result.get('subdomain_depth', 0)}",
+            "source": "OSINT Domain Analysis (Layer 0)",
+        })
+
+        # If OSINT score is very low, escalate
+        if osint_result["score"] < 50:
+            current = vision_result.get("threat_level", "safe")
+            if current in ("safe", "low"):
+                vision_result["threat_level"] = "medium"
+            vision_result["threats"] = vision_result.get("threats", []) + [
+                f"Suspicious domain characteristics (score: {osint_result['score']}/100)"
+            ]
 
         return {
             "threat_level": vision_result.get("threat_level", "safe"),
             "summary": vision_result.get("summary", ""),
             "threats": vision_result.get("threats", []),
+            "findings": findings,
             "domain_analysis": vision_result.get("domain_analysis", ""),
             "impersonating": vision_result.get("impersonating", ""),
             "recommendation": vision_result.get("recommendation", ""),
             "search_intel": vision_result.get("search_intel", ""),
             "web_risk": web_risk_result,
-            "layers_used": ["web_risk_api", "gemini_vision", "google_search_grounding"],
+            "osint": {
+                "domain_score": osint_result["score"],
+                "flags": osint_result["flags"],
+                "domain": osint_result.get("domain", ""),
+                "tld": osint_result.get("tld", ""),
+            },
+            "layers_used": ["osint_domain", "web_risk_api", "gemini_vision", "google_search_grounding"],
             "success": True,
         }
 

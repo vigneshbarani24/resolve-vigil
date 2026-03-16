@@ -76,9 +76,12 @@
         <div class="threat-details" id="threat-details"></div>
       </div>
 
-      <button class="btn btn-shield" id="scan-now-btn">
-        <span class="btn-icon">&#x1F50D;</span> Scan This Page
-      </button>
+      <div class="shield-actions">
+        <button class="btn btn-shield" id="scan-now-btn">
+          <span class="btn-icon">&#x1F50D;</span> Scan This Page
+        </button>
+        <button class="btn btn-clear hidden" id="clear-shield-btn">Clear</button>
+      </div>
     </section>
 
     <!-- ═══ ASSIST MODE ═══ -->
@@ -113,6 +116,36 @@
       <!-- Explanation -->
       <div class="explanation hidden" id="explanation"></div>
     </section>
+
+    <!-- Live Status Bar -->
+    <div class="live-status" id="live-status">
+      <div class="live-status-header">
+        <span class="live-dot"></span>
+        <span class="live-label">Live Status</span>
+      </div>
+      <div class="live-status-body" id="live-status-body">
+        <div class="status-line" id="status-tab">
+          <span class="status-key">Tab</span>
+          <span class="status-val" id="status-tab-val">—</span>
+        </div>
+        <div class="status-line" id="status-url">
+          <span class="status-key">URL</span>
+          <span class="status-val" id="status-url-val">—</span>
+        </div>
+        <div class="status-line" id="status-last-scan">
+          <span class="status-key">Last Scan</span>
+          <span class="status-val" id="status-last-scan-val">—</span>
+        </div>
+        <div class="status-line" id="status-verdict">
+          <span class="status-key">Verdict</span>
+          <span class="status-val" id="status-verdict-val">—</span>
+        </div>
+        <div class="status-line" id="status-server">
+          <span class="status-key">Server</span>
+          <span class="status-val" id="status-server-val">—</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Loading -->
     <div class="loading hidden" id="loading">

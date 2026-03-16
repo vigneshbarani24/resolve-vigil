@@ -357,6 +357,10 @@
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     switch (msg.type) {
+      case 'ping':
+        sendResponse({ ok: true });
+        break;
+
       case 'capture_dom':
         sendResponse(captureDOM());
         break;
