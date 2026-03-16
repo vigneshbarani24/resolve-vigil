@@ -9,7 +9,7 @@ Activated via: ENABLE_ADK=true in .env
 Default mode: Raw google-genai SDK (server/gemini_live.py)
 
 Architecture is modular — swap tool imports + system prompt to rebrand
-(e.g., Guardian SAP AMS, or any other vertical).
+for any vertical.
 """
 import os
 import logging

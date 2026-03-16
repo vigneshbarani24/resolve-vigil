@@ -1,7 +1,7 @@
 /**
  * Resolve AI Navigator — Configuration
  *
- * Swap this file to rebrand the extension (e.g., Guardian, other products).
+ * Swap this file to rebrand the extension for other products.
  * All branding, endpoints, and language defaults live here.
  */
 export const CONFIG = {
