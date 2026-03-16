@@ -102,6 +102,41 @@ SHIELD_RESPONSE_SCHEMA = {
 }
 
 
+async def _search_domain_reputation(client, page_url: str, page_title: str = "") -> str:
+    """Cross-reference a domain against known scam/phishing reports via Google Search."""
+    try:
+        # Extract domain from URL
+        from urllib.parse import urlparse
+        domain = urlparse(page_url).netloc or page_url
+
+        search_query = (
+            f'Is "{domain}" a scam or phishing site? '
+            f'Check for fraud reports, scam alerts, and legitimacy of this website. '
+            f'Page title: {page_title}'
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=search_query,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.1,
+            ),
+        )
+
+        result_text = ""
+        if response.candidates and response.candidates[0].content:
+            for part in response.candidates[0].content.parts:
+                if part.text:
+                    result_text += part.text
+
+        return result_text[:500]  # Cap length
+
+    except Exception as e:
+        logger.warning(f"Domain reputation search failed: {e}")
+        return ""
+
+
 async def analyze_page_safety(
     screenshot_b64: str,
     dom_summary: dict,
@@ -158,34 +193,62 @@ async def analyze_page_safety(
             types.Part.from_text(text=user_prompt),
         ]
 
+        # ── Step 1: Vision analysis (screenshot + DOM) ──
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=SHIELD_SYSTEM_PROMPT,
-                temperature=0.1,  # Low temp for safety analysis
+                temperature=0.1,
                 response_mime_type="application/json",
                 response_schema=SHIELD_RESPONSE_SCHEMA,
             ),
         )
 
+        vision_result = None
         if response.candidates and response.candidates[0].content:
             text = ""
             for part in response.candidates[0].content.parts:
                 if part.text:
                     text += part.text
-
             if text:
-                result = json.loads(text)
-                return {
-                    "threat_level": result.get("threat_level", "safe"),
-                    "summary": result.get("summary", ""),
-                    "threats": result.get("threats", []),
-                    "domain_analysis": result.get("domain_analysis", ""),
-                    "impersonating": result.get("impersonating", ""),
-                    "recommendation": result.get("recommendation", ""),
-                    "success": True,
-                }
+                vision_result = json.loads(text)
+
+        if not vision_result:
+            vision_result = {"threat_level": "safe", "summary": "", "threats": [], "recommendation": ""}
+
+        # ── Step 2: Google Search grounding (cross-reference domain) ──
+        # Only search if vision found something suspicious or domain is worth checking
+        search_context = ""
+        if page_url and (vision_result.get("threat_level") in ("medium", "high", "critical") or page_url):
+            try:
+                search_context = await _search_domain_reputation(client, page_url, page_title)
+            except Exception as se:
+                logger.warning(f"Shield search grounding failed: {se}")
+
+        # ── Step 3: Merge vision + search results ──
+        if search_context:
+            # If search found scam reports, escalate threat level
+            vision_result["search_intel"] = search_context
+            if "scam" in search_context.lower() or "phishing" in search_context.lower() or "fraud" in search_context.lower():
+                current = vision_result.get("threat_level", "safe")
+                escalation = {"safe": "medium", "low": "medium", "medium": "high"}
+                if current in escalation:
+                    vision_result["threat_level"] = escalation[current]
+                    vision_result["threats"] = vision_result.get("threats", []) + [
+                        f"Google Search reports scam/fraud activity associated with this domain"
+                    ]
+
+        return {
+            "threat_level": vision_result.get("threat_level", "safe"),
+            "summary": vision_result.get("summary", ""),
+            "threats": vision_result.get("threats", []),
+            "domain_analysis": vision_result.get("domain_analysis", ""),
+            "impersonating": vision_result.get("impersonating", ""),
+            "recommendation": vision_result.get("recommendation", ""),
+            "search_intel": vision_result.get("search_intel", ""),
+            "success": True,
+        }
 
         return {
             "threat_level": "safe",

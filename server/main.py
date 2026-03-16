@@ -17,6 +17,7 @@ from server.gemini_live import GeminiLive
 from server.config_utils import get_project_id
 from server.tools import register_all_tools, TOOL_DECLARATIONS
 from server.session_state import create_session, get_session, end_session
+from server.adk_agent import is_adk_enabled
 
 load_dotenv(override=True)
 
@@ -43,6 +44,8 @@ if os.path.exists("dist/assets"):
     app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
 if os.path.exists("dist/audio-processors"):
     app.mount("/audio-processors", StaticFiles(directory="dist/audio-processors"), name="audio-processors")
+if os.path.exists("extension"):
+    app.mount("/extension", StaticFiles(directory="extension"), name="extension")
 
 # In-memory token storage
 valid_tokens: Dict[str, float] = {}
@@ -56,11 +59,18 @@ def cleanup_tokens():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "adk": is_adk_enabled()}
 
 @app.get("/api/status")
 async def get_status():
-    return {"mode": "simple", "missing": []}
+    return {
+        "mode": "adk" if is_adk_enabled() else "live",
+        "model": MODEL,
+        "tools": 9,
+        "features": ["voice", "vision", "screen_share", "vigil_shield", "ui_navigator", "multilingual"],
+        "languages": 20,
+        "adk_enabled": is_adk_enabled(),
+    }
 
 @app.post("/api/auth")
 async def authenticate(request: Request):

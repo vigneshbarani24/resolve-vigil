@@ -17,6 +17,9 @@ COPY dist/ dist/
 # Copy server code
 COPY server/ server/
 
+# Copy Chrome extension (served as static download)
+COPY extension/ extension/
+
 # Copy env example (override with real env vars at runtime)
 COPY .env.example .env
 
