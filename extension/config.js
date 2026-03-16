@@ -8,9 +8,9 @@ export const CONFIG = {
   // Branding
   name: 'Vigil Shield',
   agentName: 'Theepa',
-  tagline: 'AI IT Helpdesk — Visual Navigator',
+  tagline: 'Voice-First IT Support + Real-Time Scam Shield',
   shieldName: 'Vigil',
-  shieldTagline: 'Scam, Spam & AI Content Shield',
+  shieldTagline: '4-Agent Security Shield — 7 Tools, Fact-Check, Danger Zones',
 
   // Colors (Vigil theme)
   colors: {

@@ -1,189 +1,213 @@
-# Guardian — Architecture Diagrams
+# Vigil — Multi-Agent Architecture
 
-> SAP AMS Control Tower with Voice AI Agent "Jessica"
+> Voice-First IT Support + Real-Time Scam Shield
+> Updated: 2026-03-16
 
 ---
 
-## 1. Detailed Architecture Diagram
+## 1. System Overview
 
-```mermaid
+Vigil is a voice-first AI platform with two missions: (1) Theepa, an IT helpdesk agent that diagnoses issues through natural conversation, and (2) Vigil Shield, a Chrome extension that detects scams, phishing, and fake content in real time.
+
+The system uses 4 ADK agents, 16 tools, bidirectional voice streaming via Gemini Live API, and a Chrome extension for browser-level protection and UI navigation.
+
 ---
-title: "Guardian — SAP AMS Control Tower (Detailed Architecture)"
+
+## 2. Four-Agent Graph
+
+```
+                    ┌─────────────────────────┐
+                    │      theepa (root)       │
+                    │  gemini-live-2.5-flash-  │
+                    │    native-audio          │
+                    │  8 IT helpdesk tools     │
+                    └────┬──────┬─────────┬────┘
+                         │      │         │
+              ┌──────────┘      │         └──────────┐
+              ▼                 ▼                     ▼
+   ┌──────────────────┐ ┌─────────────┐  ┌───────────────────┐
+   │  vigil (sub)     │ │ researcher  │  │  threat_intel     │
+   │  gemini-2.5-     │ │ (sub)       │  │  (sub)            │
+   │  flash           │ │ gemini-2.5- │  │  gemini-2.5-flash │
+   │  7 shield tools  │ │ flash       │  │  google_search    │
+   └──────────────────┘ │google_search│  └───────────────────┘
+                        └─────────────┘
+```
+
+**Agent responsibilities:**
+
+| Agent | Model | Tools | Purpose |
+|-------|-------|-------|---------|
+| `theepa` (root) | `gemini-live-2.5-flash-native-audio` | 8 IT tools | Voice IT helpdesk agent — diagnoses issues, creates tickets, navigates browser |
+| `vigil` (sub) | `gemini-2.5-flash` | 7 shield tools | Scam/phishing detection — URL scanning, DOM analysis, fake content detection |
+| `researcher` (sub) | `gemini-2.5-flash` | `google_search` | IT topic research with search grounding (anti-hallucination) |
+| `threat_intel` (sub) | `gemini-2.5-flash` | `google_search` | Scam/threat fact-checking via web search verification |
+
+**ADK constraint**: `google_search` cannot coexist with other tools in one agent, hence the dedicated `researcher` and `threat_intel` sub-agents.
+
 ---
-graph LR
-    subgraph Browser["Browser — Vite SPA"]
-        direction TB
-        UI["Web Components UI\n(Home / Session / Summary)"]
-        WA["Web Audio API\n(Mic Capture + Playback)"]
-        SC["Screen Capture\n(Vision Input)"]
-        WSC["WebSocket Client\n(Audio + JSON)"]
-        UI --- WA
-        UI --- SC
-        WA --- WSC
-        SC --- WSC
-    end
 
-    WSC <-->|"WebSocket /ws\n(bidirectional:\naudio blobs + JSON events)"| WSH
+## 3. Tool Pipeline
 
-    subgraph CloudRun["Cloud Run — FastAPI Backend"]
-        direction TB
-        WSH["WebSocket Handler\n(main.py)"]
-        SSM["Session State Manager\n(session_state.py)"]
-        GL["GeminiLive Client\n(gemini_live.py)"]
-        PR["Jessica Persona\n(prompts.py)"]
-        RCA["RCA Generator\n(Transcript + RCA Downloads)"]
+### IT Helpdesk Tools (8)
 
-        WSH --- SSM
-        WSH --- GL
-        GL --- PR
-        SSM --- RCA
+| # | Tool | Data Source | Purpose |
+|---|------|-------------|---------|
+| 1 | `search_knowledge_base` | Local JSON KB | Search 20+ IT helpdesk articles |
+| 2 | `lookup_error_code` | Reference JSON | Look up error codes (AUTH, FORM, PAY, DOC, TECH, VISA, ID) |
+| 3 | `lookup_portal_page` | Reference JSON | Portal navigation + known issues per page |
+| 4 | `diagnose_issue` | Cross-reference engine | Cross-reference KB + errors + pages for diagnosis |
+| 5 | `create_issue` | Issue tracker (in-memory) | Log issue with severity + category inference + dedup |
+| 6 | `create_itsm_ticket` | ITSM system (in-memory) | Create full ITSM ticket with diagnostic report |
+| 7 | `update_itsm_ticket` | ITSM system | Update ticket status + resolution notes |
+| 8 | `navigate_user_browser` | Chrome extension | Send DOM actions to user's browser via extension |
 
-        subgraph Tools["8 Backend Tools"]
-            direction TB
-            T1["search_knowledge_base"]
-            T2["lookup_sap_error"]
-            T3["lookup_transaction_code"]
-            T4["diagnose_sap_issue"]
-            T5["create_issue"]
-            T6["create_itsm_ticket"]
-            T7["update_itsm_ticket"]
-            T8["research_sap_topic"]
-        end
+### Vigil Shield Tools (7)
 
-        GL --> Tools
-    end
+| # | Tool | Layer | Purpose |
+|---|------|-------|---------|
+| 1 | `scan_url_safety` | Web Risk API | Check URL against Google's known threat database |
+| 2 | `check_domain_reputation` | Domain analysis | Evaluate domain age, registrar, SSL, and reputation signals |
+| 3 | `analyze_page_for_threats` | Gemini Vision | Screenshot + DOM analysis for visual scam indicators |
+| 4 | `verify_domain_legitimacy` | Search grounding | Cross-reference domain against known scam reports |
+| 5 | `detect_fake_content` | Gemini Vision | Identify AI-generated fake reviews, logos, testimonials |
+| 6 | `report_threat` | Threat logging | Log confirmed threats with evidence and severity |
+| 7 | `highlight_danger_zones` | Chrome extension | Annotate dangerous DOM elements with visual warnings |
 
-    subgraph GCP["Google Cloud Platform"]
-        direction TB
-        GEMINI["Gemini Live API\ngemini-live-2.5-flash-native-audio\n(Voice + Vision)"]
-        FLASH["Gemini Flash\ngemini-2.5-flash\n(+ Google Search Grounding)"]
-        VERTEX["Vertex AI"]
-    end
+### Google Search Grounding (1)
 
-    GL <-->|"Live API\n(streaming audio + tool calls)"| GEMINI
-    T8 -->|"search grounding"| FLASH
-    GEMINI --- VERTEX
-    FLASH --- VERTEX
+| # | Tool | Agent | Purpose |
+|---|------|-------|---------|
+| 1 | `google_search` | researcher / threat_intel | Web search for IT topics and threat verification |
 
-    subgraph DataStores["Data Stores"]
-        direction TB
-        KB["Local JSON\nKnowledge Base\n(sap_knowledge_base.json)"]
-        REF["SAP Reference Data\n(sap_reference.json)"]
-        CROSS["Cross-Reference\nEngine"]
-        ISSUES["Issue Tracker\n(in-memory)"]
-        ITSM["ITSM System\n(in-memory)"]
-    end
+---
 
-    T1 --> KB
-    T2 --> REF
-    T3 --> REF
-    T4 --> CROSS
-    CROSS --> KB
-    CROSS --> REF
-    T5 --> ISSUES
-    T6 --> ITSM
-    T7 --> ITSM
+## 4. Data Flow
 
-    subgraph Downloads["User Downloads"]
-        DL1["Transcript (.txt)"]
-        DL2["RCA Report (.txt)"]
-    end
-
-    RCA --> Downloads
-
-    %% Styling
-    classDef browserStyle fill:#4285F4,stroke:#1a73e8,color:#fff,stroke-width:2px
-    classDef serverStyle fill:#34A853,stroke:#1e8e3e,color:#fff,stroke-width:2px
-    classDef gcpStyle fill:#FBBC04,stroke:#f9ab00,color:#333,stroke-width:2px
-    classDef toolStyle fill:#EA4335,stroke:#d93025,color:#fff,stroke-width:1px
-    classDef dataStyle fill:#9C27B0,stroke:#7B1FA2,color:#fff,stroke-width:1px
-    classDef downloadStyle fill:#607D8B,stroke:#455A64,color:#fff,stroke-width:1px
-
-    class UI,WA,SC,WSC browserStyle
-    class WSH,SSM,GL,PR,RCA serverStyle
-    class GEMINI,FLASH,VERTEX gcpStyle
-    class T1,T2,T3,T4,T5,T6,T7,T8 toolStyle
-    class KB,REF,CROSS,ISSUES,ITSM dataStyle
-    class DL1,DL2 downloadStyle
+```
+User speaks into mic
+    │
+    ▼
+Browser (Web Audio API) ──PCM 16kHz──▶ WebSocket /ws
+    │                                       │
+    ▼                                       ▼
+Frontend SPA                         FastAPI WebSocket Handler
+(Vite + Web Components)                     │
+    ▲                                       ▼
+    │                              Gemini Live API session
+    │                              (bidirectional audio + tool calls)
+    │                                       │
+    │                              ┌────────┴────────┐
+    │                              │  Tool dispatch   │
+    │                              │  (registry.py)   │
+    │                              └────────┬────────┘
+    │                                       │
+    │                              Tools execute + return
+    │                                       │
+    │                                       ▼
+    └──────── audio + JSON events ◀── Response streamed back
 ```
 
 ---
 
-## 2. Presentation Diagram (Demo-Friendly)
+## 5. WebSocket Protocol (`/ws`)
 
-```mermaid
+**Client-to-server messages:**
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `audio` | Base64 PCM bytes | Microphone audio at 16kHz mono |
+| `image` | Base64 JPEG | Screen capture for vision analysis |
+| `config` | JSON | Session configuration (language, mode) |
+| `end` | — | End session gracefully |
+
+**Server-to-client messages:**
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `audio` | Base64 PCM bytes | Agent voice response |
+| `transcript` | `{role, text}` | Real-time transcript (user + agent) |
+| `tool_call` | `{name, args, result}` | Tool invocation notification |
+| `state` | `{stage, details}` | Session state machine update |
+| `shield_alert` | `{threat_level, details}` | Vigil threat detection alert |
+| `error` | `{message}` | Error notification |
+
 ---
-title: "Guardian — SAP AMS Control Tower"
+
+## 6. REST Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/` | Serve frontend SPA |
+| `GET` | `/health` | Health check |
+| `POST` | `/api/shield/scan` | Chrome extension: submit URL for shield scan |
+| `GET` | `/api/shield/status/{scan_id}` | Poll scan result |
+| `POST` | `/api/issue` | Create issue via REST |
+| `GET` | `/api/session/{token}/transcript` | Download session transcript |
+| `GET` | `/api/session/{token}/report` | Download diagnostic report |
+
 ---
-graph LR
-    USER["fa:fa-user SAP Consultant\n(Browser)"]
 
-    subgraph Frontend["Frontend — Vite SPA"]
-        APP["Voice Chat + Screen Share\n+ Live Transcript"]
-    end
+## 7. Chrome Extension Integration
 
-    subgraph Backend["Backend — Cloud Run"]
-        API["FastAPI\nWebSocket Server"]
-        TOOLS["8 AI Tools\n(KB Search, SAP Lookup,\nDiagnosis, ITSM, Research)"]
-        STATE["Session State\n+ RCA Generator"]
-        API --- TOOLS
-        API --- STATE
-    end
+The Chrome extension (Manifest V3) operates in two modes:
 
-    subgraph AI["Google Cloud AI"]
-        GEMINI["Gemini Live\n(Voice + Vision)"]
-        SEARCH["Gemini Flash\n+ Google Search"]
-    end
+**Shield Mode (passive):** Background service worker auto-scans every page load. Calls `POST /api/shield/scan` with URL + DOM snapshot + screenshot. Receives threat assessment and annotates dangerous elements via `content.js`.
 
-    subgraph Data["Data Layer"]
-        SAP["SAP Knowledge Base\n+ Reference Data"]
-        ITSM["Issue Tracker\n+ ITSM System"]
-    end
+**Voice Navigation Mode (active):** Theepa's `navigate_user_browser` tool sends DOM action commands to the extension. The content script executes clicks, highlights, scrolls, and form fills on the user's behalf.
 
-    USER <-->|"Speak / Share Screen"| APP
-    APP <-->|"WebSocket\n(Audio + JSON)"| API
-    API <-->|"Live API\n(Streaming)"| GEMINI
-    TOOLS -->|"Grounded Search"| SEARCH
-    TOOLS --> SAP
-    TOOLS --> ITSM
-    STATE -->|"Download"| USER
-
-    %% Styling
-    classDef userStyle fill:#1a73e8,stroke:#0d47a1,color:#fff,stroke-width:3px,font-size:16px
-    classDef frontendStyle fill:#4285F4,stroke:#1a73e8,color:#fff,stroke-width:2px
-    classDef backendStyle fill:#34A853,stroke:#1e8e3e,color:#fff,stroke-width:2px
-    classDef aiStyle fill:#FBBC04,stroke:#f9ab00,color:#333,stroke-width:2px
-    classDef dataStyle fill:#9C27B0,stroke:#7B1FA2,color:#fff,stroke-width:2px
-
-    class USER userStyle
-    class APP frontendStyle
-    class API,TOOLS,STATE backendStyle
-    class GEMINI,SEARCH aiStyle
-    class SAP,ITSM dataStyle
+```
+Extension ──REST──▶ FastAPI /api/shield/scan
+    │                        │
+    │                   Vigil agent
+    │                   (7 shield tools)
+    │                        │
+    ◀── threat result ───────┘
+    │
+    ▼
+content.js annotates page (red borders, warning overlays)
 ```
 
 ---
 
-## Diagram Legend
+## 8. Session State Machine
 
-| Color | Component |
-|-------|-----------|
-| Blue | Browser / Frontend |
-| Green | Backend (FastAPI on Cloud Run) |
-| Yellow | Google Cloud AI (Gemini Live, Gemini Flash) |
-| Red | Backend Tools (8 function tools) |
-| Purple | Data Stores (JSON KB, SAP Reference, ITSM) |
-| Grey | User Downloads (Transcript, RCA Report) |
+```
+GREETING ──▶ GATHERING ──▶ DIAGNOSING ──▶ RESOLUTION
+    │             │              │              │
+    │        user describes   tools run     ticket created
+    │        the problem      diagnostics   + guidance given
+    │             │              │              │
+    └─────── can loop back at any stage ───────┘
+```
 
-## Tool Reference
+Each stage updates `session_state.py` which tracks: current stage, detected issues, tool call history, diagnostic findings, and ITSM ticket references.
 
-| # | Tool | Target | Purpose |
-|---|------|--------|---------|
-| 1 | `search_knowledge_base` | Local JSON KB | Search SAP knowledge articles |
-| 2 | `lookup_sap_error` | SAP Reference Data | Look up SAP error codes |
-| 3 | `lookup_transaction_code` | SAP Reference Data | Look up SAP t-codes |
-| 4 | `diagnose_sap_issue` | Cross-reference engine | Cross-reference KB + errors for diagnosis |
-| 5 | `create_issue` | Issue Tracker (in-memory) | Log a new issue |
-| 6 | `create_itsm_ticket` | ITSM System (in-memory) | Create an ITSM ticket |
-| 7 | `update_itsm_ticket` | ITSM System | Update existing ITSM ticket |
-| 8 | `research_sap_topic` | Gemini Flash + Google Search | Web-grounded research on SAP topics |
+---
+
+## 9. Deployment Architecture
+
+```
+┌──────────────────────────────────────┐
+│          Google Cloud Run            │
+│  ┌────────────────────────────────┐  │
+│  │  FastAPI + Uvicorn             │  │
+│  │  (Dockerfile, 1 container)    │  │
+│  │  - WebSocket /ws              │  │
+│  │  - REST /api/*                │  │
+│  │  - Static frontend files      │  │
+│  └──────────┬─────────────────────┘  │
+└─────────────┼────────────────────────┘
+              │
+    ┌─────────┴─────────┐
+    ▼                   ▼
+Vertex AI           Vertex AI
+Gemini Live         Gemini Flash
+(voice+vision)      (ADK/Vision/Search)
+```
+
+**Infrastructure (Terraform):**
+- Cloud Run service (auto-scaling, HTTPS)
+- Artifact Registry (container images)
+- IAM bindings (Vertex AI access)
+- Environment variables via Secret Manager

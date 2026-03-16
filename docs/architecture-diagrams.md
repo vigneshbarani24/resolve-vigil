@@ -1,8 +1,8 @@
 # Vigil — Architecture Diagrams
 
-**Vigil** is an AI-powered IT support and scam protection platform developed by a solo developer. At its core is a **voice-first support agent** powered by the Gemini Live API. The agent sees the user's screen, listens to their voice, diagnoses IT issues in real time, and manages the full lifecycle of incident resolution. Simultaneously, the **Vigil Shield** Chrome extension runs a 4-layer scam detection pipeline on every page the user visits.
+**Vigil** is an AI-powered IT support and scam protection platform with **4 ADK agents and 16 tools**. Theepa is the voice — she delegates to the Vigil sub-agent for security analysis, to the Researcher for IT intel, and to Threat Intel for scam/fact verification. The Chrome extension provides real-time visual feedback: shield scanning, danger zone annotations, and live orchestration logs showing every agent transfer and tool call.
 
-This document provides a comprehensive set of architecture diagrams covering the system's major components, data flows, and deployment topology.
+This document provides architecture diagrams covering the multi-agent system, data flows, and deployment topology.
 
 ---
 
@@ -29,7 +29,7 @@ graph TB
         subgraph "Cloud Run"
             FASTAPI[FastAPI Server]
             GM[GeminiLive Wrapper]
-            TR[Tool Registry — 8 Tools]
+            TR[Tool Registry — 16 Tools]
             SM[Session State Manager]
             AF[Activity Feed]
             SHIELD[Shield Analyzer<br/>4-Layer Pipeline]
@@ -287,22 +287,18 @@ flowchart TB
 
 ---
 
-## 6. ADK Multi-Agent Architecture
+## 6. ADK Multi-Agent Architecture (4 Agents, 16 Tools)
 
-When running in ADK mode, the system uses Google's Agent Development Kit for multi-agent orchestration. The `google_search` tool **must** be isolated in a separate sub-agent due to an ADK constraint.
+The system uses Google's Agent Development Kit for hierarchical multi-agent orchestration. Theepa is the root agent (the voice). She delegates to Vigil for security analysis and to Researcher for IT research. Vigil has its own sub-agent (Threat Intel) for scam/fact verification.
 
 ```mermaid
 flowchart TB
     subgraph ADK["Google ADK Runtime"]
-        subgraph SESSION["InMemorySessionService"]
-            SS[Async Session Management<br/>get_session / create_session]
-        end
-
-        subgraph ROOT["Theepa Agent - root_agent"]
+        subgraph ROOT["Theepa — root_agent (THE VOICE)"]
             MODEL_R[Model: gemini-2.5-flash]
-            PROMPT[System Prompt: 240+ lines<br/>Diagnostic protocol + persona]
+            PROMPT[System Prompt: 400+ lines<br/>IT protocol + Vigil delegation]
 
-            subgraph TOOLS["8 FunctionTools"]
+            subgraph IT_TOOLS["8 IT Helpdesk FunctionTools"]
                 T1[search_knowledge_base]
                 T2[lookup_error_code]
                 T3[lookup_portal_page]
@@ -314,24 +310,48 @@ flowchart TB
             end
         end
 
-        subgraph SUB["Researcher Sub-Agent"]
-            MODEL_S[Model: gemini-2.5-flash]
-            GS[google_search<br/>ADK Built-in Tool]
+        subgraph RESEARCHER["Researcher Sub-Agent"]
+            MODEL_S1[Model: gemini-2.5-flash]
+            GS1[google_search<br/>IT research]
+        end
+
+        subgraph VIGIL["Vigil Sub-Agent — Scam Shield"]
+            MODEL_V[Model: gemini-2.5-flash]
+            VPROMPT[Vigil Persona: cybersecurity analyst]
+
+            subgraph SHIELD_TOOLS["7 Shield FunctionTools"]
+                V1[scan_url_safety]
+                V2[check_domain_reputation]
+                V3[analyze_page_for_threats]
+                V4[verify_domain_legitimacy]
+                V5[detect_fake_content]
+                V6[report_threat]
+                V7[highlight_danger_zones]
+            end
+
+            subgraph THREAT_INTEL["Threat Intel Sub-Agent"]
+                MODEL_S2[Model: gemini-2.5-flash]
+                GS2[google_search<br/>scam/fact verification]
+            end
         end
     end
 
     USER[User Query] --> ROOT
-    ROOT -- "Delegates research queries" --> SUB
-    SUB -- "Web search results" --> ROOT
-    ROOT --> RESPONSE[Voice or Text Response]
+    ROOT -- "IT research queries" --> RESEARCHER
+    ROOT -- "Security / scam / fact-check" --> VIGIL
+    VIGIL -- "Domain reputation / fact-check" --> THREAT_INTEL
+    RESEARCHER -- "Search results" --> ROOT
+    VIGIL -- "Shield findings" --> ROOT
+    ROOT --> RESPONSE[Theepa speaks the result]
 ```
 
 **Key observations:**
 
-- ADK's `google_search` tool cannot coexist with other tools in the same agent — this is an undocumented constraint requiring sub-agent isolation.
-- The Researcher sub-agent is only invoked when the internal knowledge base lacks the answer.
-- ADK mode uses `gemini-2.5-flash` (text), while primary voice mode uses `gemini-live-2.5-flash-native-audio`.
-- `InMemorySessionService.get_session()` and `create_session()` are async and must be awaited.
+- **4 agents**: Theepa (root), Vigil (shield), Researcher (IT search), Threat Intel (scam search)
+- **16 tools total**: 8 IT helpdesk + 7 shield + 1 google_search grounding
+- ADK's `google_search` cannot coexist with other tools — requires separate sub-agents. We have TWO: Researcher for IT, Threat Intel for security.
+- Theepa is the single voice — Vigil returns structured findings, Theepa speaks them.
+- Every agent transfer and tool call is logged to the activity feed for real-time visibility.
 
 ---
 
