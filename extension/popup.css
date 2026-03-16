@@ -364,6 +364,238 @@ select {
   font-weight: 600;
 }
 
+/* ── Mode Toggle ── */
+
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  color: var(--color-text);
+}
+
+.mode-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(77, 159, 247, 0.3);
+}
+
+.mode-btn.active[data-mode="shield"] {
+  background: linear-gradient(135deg, #e57373, #f44336);
+  box-shadow: 0 2px 8px rgba(229, 115, 115, 0.3);
+}
+
+.mode-icon {
+  font-size: 14px;
+}
+
+/* ── Shield Mode ── */
+
+.shield-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.shield-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.shield-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.shield-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.shield-subtitle {
+  font-size: 11px;
+  color: var(--color-text-sub);
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  transition: all 0.3s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(129, 199, 132, 0.4);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* Shield Scan Result */
+.shield-result {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.shield-verdict {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.verdict-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.verdict-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verdict-level {
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.verdict-text {
+  font-size: 12px;
+  color: var(--color-text-sub);
+  line-height: 1.4;
+}
+
+/* Verdict severity levels */
+.shield-result.safe {
+  background: rgba(129, 199, 132, 0.08);
+  border-color: rgba(129, 199, 132, 0.3);
+}
+
+.shield-result.safe .verdict-level { color: var(--color-success); }
+
+.shield-result.warning {
+  background: rgba(240, 171, 0, 0.08);
+  border-color: rgba(240, 171, 0, 0.3);
+}
+
+.shield-result.warning .verdict-level { color: var(--color-warning); }
+
+.shield-result.danger {
+  background: rgba(229, 115, 115, 0.1);
+  border-color: rgba(229, 115, 115, 0.4);
+  animation: dangerPulse 2s ease-in-out infinite;
+}
+
+.shield-result.danger .verdict-level { color: var(--color-danger); }
+
+@keyframes dangerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(229, 115, 115, 0.2); }
+}
+
+.threat-details {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.threat-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-sub);
+}
+
+.threat-item::before {
+  content: '\2022';
+  color: var(--color-danger);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.btn-shield {
+  background: linear-gradient(135deg, rgba(229, 115, 115, 0.15), rgba(244, 67, 54, 0.15));
+  color: var(--color-danger);
+  border: 1px solid rgba(229, 115, 115, 0.3);
+}
+
+.btn-shield:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(229, 115, 115, 0.25), rgba(244, 67, 54, 0.25));
+  box-shadow: 0 4px 12px rgba(229, 115, 115, 0.2);
+}
+
 /* ── Scrollbar ── */
 
 ::-webkit-scrollbar {

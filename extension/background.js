@@ -2,7 +2,7 @@
  * Resolve AI Navigator — Background Service Worker
  *
  * Manages communication between popup, content script, and the Resolve backend.
- * Handles screenshot capture, REST calls, and screenshare frame relay.
+ * Handles both Shield Mode (scam/phishing detection) and Assist Mode (UI guidance).
  */
 
 /* ─────────────────────── Storage Keys ─────────────────────── */
@@ -10,7 +10,9 @@
 const DEFAULTS = {
   serverUrl: 'http://localhost:8080',
   language: 'en',
+  mode: 'shield',
   connected: false,
+  shieldAutoScan: true,
 };
 
 async function getSettings() {
@@ -30,7 +32,6 @@ async function captureScreenshot() {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
       } else {
-        // Strip data URL prefix, return raw base64
         resolve(dataUrl.split(',')[1]);
       }
     });
@@ -77,6 +78,29 @@ async function callNavigateAPI(screenshot, domSummary, query, language) {
   return response.json();
 }
 
+async function callShieldAPI(screenshot, domSummary, language) {
+  const settings = await getSettings();
+  const url = `${settings.serverUrl}/api/shield`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      screenshot,
+      dom_summary: domSummary,
+      language: language || settings.language,
+      page_url: domSummary?.url || '',
+      page_title: domSummary?.title || '',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 async function checkBackendHealth() {
   const settings = await getSettings();
   try {
@@ -90,19 +114,56 @@ async function checkBackendHealth() {
   }
 }
 
-/* ──────────────── Analyze Page Flow ──────────────── */
+/* ──────────────── Shield Scan Flow ──────────────── */
 
-async function analyzePage(tabId, query, language) {
-  // 1. Capture screenshot + DOM in parallel
+async function shieldScan(tabId, language) {
+  // 1. Capture screenshot + DOM
   const [screenshot, domSummary] = await Promise.all([
     captureScreenshot(),
     captureDOMFromTab(tabId),
   ]);
 
-  // 2. Send to backend for Gemini vision analysis
+  // 2. Send to backend for threat analysis
+  const result = await callShieldAPI(screenshot, domSummary, language);
+
+  // 3. Show safety banner on the page
+  chrome.tabs.sendMessage(tabId, {
+    type: 'show_shield_banner',
+    threat_level: result.threat_level,
+    summary: result.summary,
+    threats: result.threats || [],
+  });
+
+  // 4. Update extension badge
+  updateBadge(result.threat_level);
+
+  return result;
+}
+
+function updateBadge(threatLevel) {
+  const badges = {
+    safe: { text: '', color: '#81c784' },
+    low: { text: '', color: '#81c784' },
+    medium: { text: '!', color: '#f0ab00' },
+    high: { text: '!!', color: '#e57373' },
+    critical: { text: 'X', color: '#f44336' },
+  };
+  const b = badges[threatLevel] || badges.safe;
+
+  chrome.action.setBadgeText({ text: b.text });
+  chrome.action.setBadgeBackgroundColor({ color: b.color });
+}
+
+/* ──────────────── Analyze Page Flow (Assist) ──────────────── */
+
+async function analyzePage(tabId, query, language) {
+  const [screenshot, domSummary] = await Promise.all([
+    captureScreenshot(),
+    captureDOMFromTab(tabId),
+  ]);
+
   const result = await callNavigateAPI(screenshot, domSummary, query, language);
 
-  // 3. Send annotations to content script for rendering
   if (result.actions && result.actions.length > 0) {
     chrome.tabs.sendMessage(tabId, {
       type: 'render_annotations',
@@ -117,15 +178,9 @@ async function analyzePage(tabId, query, language) {
 
 async function executeActions(tabId, actions) {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, {
-      type: 'execute_actions',
-      actions,
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(response);
-      }
+    chrome.tabs.sendMessage(tabId, { type: 'execute_actions', actions }, (response) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(response);
     });
   });
 }
@@ -137,7 +192,6 @@ let _screenshareWs = null;
 async function relayScreenshareFrame(frameBase64) {
   const settings = await getSettings();
 
-  // Open WS if not connected
   if (!_screenshareWs || _screenshareWs.readyState !== WebSocket.OPEN) {
     const wsUrl = settings.serverUrl.replace(/^http/, 'ws') + '/ws/extension';
     _screenshareWs = new WebSocket(wsUrl);
@@ -153,37 +207,49 @@ async function relayScreenshareFrame(frameBase64) {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'annotations') {
-          // Forward annotations to the active tab
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (tab) {
-            chrome.tabs.sendMessage(tab.id, {
-              type: 'render_annotations',
-              actions: msg.actions,
-            });
+            chrome.tabs.sendMessage(tab.id, { type: 'render_annotations', actions: msg.actions });
           }
         }
       } catch {}
     };
 
-    // Wait for connection
     await new Promise((resolve, reject) => {
       _screenshareWs.addEventListener('open', resolve, { once: true });
       _screenshareWs.addEventListener('error', reject, { once: true });
     });
   }
 
-  _screenshareWs.send(JSON.stringify({
-    type: 'screenshare_frame',
-    frame: frameBase64,
-  }));
+  _screenshareWs.send(JSON.stringify({ type: 'screenshare_frame', frame: frameBase64 }));
 }
 
 function stopScreenshareRelay() {
-  if (_screenshareWs) {
-    _screenshareWs.close();
-    _screenshareWs = null;
-  }
+  if (_screenshareWs) { _screenshareWs.close(); _screenshareWs = null; }
 }
+
+/* ──────────────── Auto-Scan on Navigation ──────────────── */
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
+
+  const settings = await getSettings();
+  if (!settings.connected || !settings.shieldAutoScan) return;
+
+  // Auto-scan in shield mode
+  try {
+    // Small delay to let page render
+    setTimeout(async () => {
+      try {
+        const result = await shieldScan(tabId, settings.language);
+        // Badge already updated in shieldScan()
+      } catch {
+        // Silently fail on auto-scan (page might not have content script yet)
+      }
+    }, 1500);
+  } catch {}
+});
 
 /* ──────────────── Message Handler ──────────────── */
 
@@ -191,11 +257,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handleAsync = async () => {
     try {
       switch (msg.type) {
+        /* ── Shield ── */
+        case 'shield_scan': {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!tab) throw new Error('No active tab');
+          return await shieldScan(tab.id, msg.language);
+        }
+
+        case 'shield_auto_scan': {
+          await setSetting('shieldAutoScan', msg.enabled);
+          if (!msg.enabled) {
+            chrome.action.setBadgeText({ text: '' });
+          }
+          return { success: true };
+        }
+
+        /* ── Assist ── */
         case 'analyze_page': {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (!tab) throw new Error('No active tab');
-          const result = await analyzePage(tab.id, msg.query, msg.language);
-          return result;
+          return await analyzePage(tab.id, msg.query, msg.language);
         }
 
         case 'execute_actions': {
@@ -206,12 +287,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case 'clear_annotations': {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (tab) {
-            chrome.tabs.sendMessage(tab.id, { type: 'clear_annotations' });
-          }
+          if (tab) chrome.tabs.sendMessage(tab.id, { type: 'clear_annotations' });
           return { success: true };
         }
 
+        /* ── Settings ── */
         case 'check_health': {
           const healthy = await checkBackendHealth();
           await setSetting('connected', healthy);
@@ -221,6 +301,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'save_settings': {
           if (msg.serverUrl) await setSetting('serverUrl', msg.serverUrl);
           if (msg.language) await setSetting('language', msg.language);
+          if (msg.mode) await setSetting('mode', msg.mode);
           return { success: true };
         }
 
@@ -228,13 +309,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return await getSettings();
         }
 
+        /* ── Screenshare ── */
         case 'start_screenshare': {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (!tab) throw new Error('No active tab');
           return new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {
-              type: 'start_screenshare',
-              intervalMs: msg.intervalMs || 2000,
+              type: 'start_screenshare', intervalMs: msg.intervalMs || 2000,
             }, resolve);
           });
         }
@@ -242,9 +323,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'stop_screenshare': {
           stopScreenshareRelay();
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (tab) {
-            chrome.tabs.sendMessage(tab.id, { type: 'stop_screenshare' });
-          }
+          if (tab) chrome.tabs.sendMessage(tab.id, { type: 'stop_screenshare' });
           return { success: true };
         }
 
@@ -267,5 +346,5 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   };
 
   handleAsync().then(sendResponse);
-  return true; // async response
+  return true;
 });

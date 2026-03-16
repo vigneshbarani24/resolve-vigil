@@ -285,6 +285,35 @@ async def get_session_transcript(token: str):
         headers={"Content-Disposition": f'attachment; filename="resolve-transcript-{token[:8]}.txt"'}
     )
 
+@app.post("/api/shield")
+async def shield_scan(request: Request):
+    """Analyze a page screenshot for scam/phishing/fraud indicators.
+
+    Used by the Resolve AI Navigator Chrome extension (Shield Mode).
+    """
+    from server.tools.shield_analyzer import analyze_page_safety
+    try:
+        body = await request.json()
+        result = await analyze_page_safety(
+            screenshot_b64=body.get("screenshot", ""),
+            dom_summary=body.get("dom_summary", {}),
+            language=body.get("language", "English"),
+            page_url=body.get("page_url", ""),
+            page_title=body.get("page_title", ""),
+        )
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Shield endpoint error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "threat_level": "safe",
+                "summary": f"Analysis error: {str(e)}",
+                "threats": [],
+                "error": str(e),
+            },
+        )
+
 @app.post("/api/navigate")
 async def navigate_page(request: Request):
     """Analyze a page screenshot via Gemini vision and return UI navigation actions.

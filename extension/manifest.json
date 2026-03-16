@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Resolve AI Navigator",
   "version": "1.0.0",
-  "description": "AI-powered UI navigation assistant — visual guidance, screen analysis, and multilingual IT support",
+  "description": "Vigil Shield (scam/phishing/AI content detection) + AI visual navigation assistant — powered by Gemini",
   "permissions": [
     "activeTab",
     "scripting",

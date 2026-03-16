@@ -221,6 +221,84 @@
     }
   }
 
+  /* ─────────────────── Shield Mode Banner ─────────────────── */
+
+  const BANNER_ID = '__resolve_shield_banner__';
+
+  function showShieldBanner(threatLevel, summary, threats) {
+    removeShieldBanner();
+
+    const levelConfig = {
+      safe: { bg: 'rgba(129, 199, 132, 0.95)', icon: '\u2705', text: '#1b5e20', label: 'Safe' },
+      low: { bg: 'rgba(129, 199, 132, 0.95)', icon: '\u2705', text: '#1b5e20', label: 'Low Risk' },
+      medium: { bg: 'rgba(240, 171, 0, 0.95)', icon: '\u26A0\uFE0F', text: '#4a3800', label: 'Suspicious' },
+      high: { bg: 'rgba(229, 115, 115, 0.95)', icon: '\u{1F6A8}', text: '#fff', label: 'DANGER' },
+      critical: { bg: 'rgba(244, 67, 54, 0.97)', icon: '\u{1F6D1}', text: '#fff', label: 'SCAM DETECTED' },
+    };
+
+    const cfg = levelConfig[threatLevel] || levelConfig.safe;
+
+    // Don't show banner for safe sites
+    if (threatLevel === 'safe' || threatLevel === 'low') return;
+
+    const banner = document.createElement('div');
+    banner.id = BANNER_ID;
+    banner.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
+      background: ${cfg.bg}; color: ${cfg.text};
+      padding: 12px 20px; display: flex; align-items: center; gap: 12px;
+      font-family: 'Nunito', system-ui, sans-serif; font-size: 14px; font-weight: 700;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      animation: __resolve_slideDown__ 0.3s ease forwards;
+      backdrop-filter: blur(8px);
+    `;
+
+    const icon = document.createElement('span');
+    icon.style.fontSize = '24px';
+    icon.textContent = cfg.icon;
+    banner.appendChild(icon);
+
+    const info = document.createElement('div');
+    info.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 2px;';
+
+    const title = document.createElement('span');
+    title.style.cssText = 'font-size: 14px; font-weight: 800; letter-spacing: 0.02em;';
+    title.textContent = `${cfg.label} — ${summary || 'Potential threat detected'}`;
+    info.appendChild(title);
+
+    if (threats && threats.length > 0) {
+      const detail = document.createElement('span');
+      detail.style.cssText = 'font-size: 12px; font-weight: 600; opacity: 0.9;';
+      detail.textContent = threats.slice(0, 2).join(' \u2022 ');
+      info.appendChild(detail);
+    }
+
+    banner.appendChild(info);
+
+    // Close button
+    const close = document.createElement('button');
+    close.style.cssText = `
+      background: rgba(255,255,255,0.2); border: none; color: ${cfg.text};
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+    `;
+    close.textContent = '\u2715';
+    close.addEventListener('click', removeShieldBanner);
+    banner.appendChild(close);
+
+    document.body.appendChild(banner);
+
+    // Auto-dismiss safe/low after 5 seconds
+    if (threatLevel === 'medium') {
+      setTimeout(removeShieldBanner, 10000);
+    }
+  }
+
+  function removeShieldBanner() {
+    const banner = document.getElementById(BANNER_ID);
+    if (banner) banner.remove();
+  }
+
   /* ────────────────── Screenshare Support ────────────────── */
 
   let _screenshareStream = null;
@@ -299,6 +377,12 @@
 
       case 'clear_annotations':
         clearAnnotations();
+        removeShieldBanner();
+        sendResponse({ success: true });
+        break;
+
+      case 'show_shield_banner':
+        showShieldBanner(msg.threat_level, msg.summary, msg.threats);
         sendResponse({ success: true });
         break;
 

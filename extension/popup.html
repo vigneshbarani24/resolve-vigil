@@ -13,10 +13,10 @@
     <!-- Header -->
     <header class="popup-header">
       <div class="logo-row">
-        <div class="logo-icon">R</div>
+        <div class="logo-icon" id="logo-icon">R</div>
         <div>
-          <h1>Resolve Navigator</h1>
-          <p class="tagline">AI Visual Guidance</p>
+          <h1>Resolve</h1>
+          <p class="tagline" id="tagline">AI Visual Guidance</p>
         </div>
       </div>
       <div class="status-row">
@@ -24,6 +24,18 @@
         <span class="status-text" id="status-text">Disconnected</span>
       </div>
     </header>
+
+    <!-- Mode Toggle -->
+    <div class="mode-toggle" id="mode-toggle">
+      <button class="mode-btn active" id="mode-shield" data-mode="shield">
+        <span class="mode-icon">&#x1F6E1;</span>
+        <span>Vigil</span>
+      </button>
+      <button class="mode-btn" id="mode-assist" data-mode="assist">
+        <span class="mode-icon">&#x1F9ED;</span>
+        <span>Assist</span>
+      </button>
+    </div>
 
     <!-- Settings Section -->
     <section class="section" id="settings-section">
@@ -38,7 +50,38 @@
       <button class="btn btn-primary" id="connect-btn">Connect</button>
     </section>
 
-    <!-- Analyze Section (shown when connected) -->
+    <!-- ═══ SHIELD MODE ═══ -->
+    <section class="section hidden" id="shield-section">
+      <div class="shield-status" id="shield-status">
+        <div class="shield-icon" id="shield-icon">&#x1F6E1;</div>
+        <div class="shield-info">
+          <span class="shield-title" id="shield-title">Shield Active</span>
+          <span class="shield-subtitle" id="shield-subtitle">Auto-scanning pages for threats</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="shield-toggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Shield scan result -->
+      <div class="shield-result hidden" id="shield-result">
+        <div class="shield-verdict" id="shield-verdict">
+          <span class="verdict-icon" id="verdict-icon"></span>
+          <div class="verdict-info">
+            <span class="verdict-level" id="verdict-level"></span>
+            <span class="verdict-text" id="verdict-text"></span>
+          </div>
+        </div>
+        <div class="threat-details" id="threat-details"></div>
+      </div>
+
+      <button class="btn btn-shield" id="scan-now-btn">
+        <span class="btn-icon">&#x1F50D;</span> Scan This Page
+      </button>
+    </section>
+
+    <!-- ═══ ASSIST MODE ═══ -->
     <section class="section hidden" id="analyze-section">
       <div class="input-group">
         <label for="query-input">What do you need help with?</label>
@@ -74,7 +117,7 @@
     <!-- Loading -->
     <div class="loading hidden" id="loading">
       <div class="spinner"></div>
-      <span>Analyzing page...</span>
+      <span id="loading-text">Analyzing page...</span>
     </div>
 
     <!-- Error -->

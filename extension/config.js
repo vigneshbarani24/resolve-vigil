@@ -9,6 +9,8 @@ export const CONFIG = {
   name: 'Resolve AI Navigator',
   agentName: 'Theepa',
   tagline: 'AI IT Helpdesk — Visual Navigator',
+  shieldName: 'Vigil',
+  shieldTagline: 'Scam, Spam & AI Content Shield',
 
   // Colors (matches Resolve theme)
   colors: {
