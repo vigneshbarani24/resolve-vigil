@@ -18,6 +18,7 @@ from server.tools.portal_lookup import lookup_error_code, lookup_portal_page, PO
 from server.tools.issue_tracker import create_issue, ISSUE_DECLARATIONS
 from server.agents.diagnostic_expert import diagnose_issue, DIAGNOSIS_DECLARATIONS
 from server.tools.search_grounding import research_support_topic, SEARCH_GROUNDING_DECLARATIONS
+from server.tools.ui_navigator import navigate_user_browser, UI_NAVIGATOR_DECLARATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ TOOL_DECLARATIONS: List[Dict] = [
     *ISSUE_DECLARATIONS,
     *DIAGNOSIS_DECLARATIONS,
     *SEARCH_GROUNDING_DECLARATIONS,
+    *UI_NAVIGATOR_DECLARATIONS,
 ]
 
 # Map of function_name -> callable
@@ -41,6 +43,7 @@ _TOOL_HANDLERS = {
     "create_issue": create_issue,
     "diagnose_issue": diagnose_issue,
     "research_support_topic": research_support_topic,
+    "navigate_user_browser": navigate_user_browser,
 }
 
 

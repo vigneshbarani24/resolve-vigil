@@ -1,0 +1,127 @@
+/* Resolve AI Navigator — Page Overlay Styles
+ *
+ * Injected by content script into every page.
+ * All selectors use __ prefix to avoid clashing with page styles.
+ */
+
+#__resolve_nav_overlay__ {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+/* ── Highlight Box ── */
+
+.__resolve_highlight__ {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: none;
+  animation: __resolve_fadeIn__ 0.3s ease forwards;
+  z-index: 2147483646;
+}
+
+.__resolve_highlight_click__ {
+  border: 3px solid #4d9ff7;
+  background: rgba(77, 159, 247, 0.08);
+  box-shadow: 0 0 16px rgba(77, 159, 247, 0.3),
+              inset 0 0 8px rgba(77, 159, 247, 0.1);
+  animation: __resolve_fadeIn__ 0.3s ease forwards,
+             __resolve_pulse__ 2s ease-in-out infinite;
+}
+
+.__resolve_highlight_fill__ {
+  border: 3px solid #f0ab00;
+  background: rgba(240, 171, 0, 0.08);
+  box-shadow: 0 0 16px rgba(240, 171, 0, 0.3),
+              inset 0 0 8px rgba(240, 171, 0, 0.1);
+  animation: __resolve_fadeIn__ 0.3s ease forwards,
+             __resolve_pulse_warn__ 2s ease-in-out infinite;
+}
+
+.__resolve_highlight_scroll__ {
+  border: 3px dashed #81c784;
+  background: rgba(129, 199, 132, 0.06);
+}
+
+.__resolve_highlight_info__ {
+  border: 3px solid #4d9ff7;
+  background: rgba(77, 159, 247, 0.06);
+}
+
+/* ── Step Badge ── */
+
+.__resolve_badge__ {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #4d9ff7;
+  color: #fff;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+.__resolve_highlight_fill__ > .__resolve_badge__ {
+  background: #f0ab00;
+}
+
+.__resolve_highlight_scroll__ > .__resolve_badge__ {
+  background: #81c784;
+}
+
+/* ── Label ── */
+
+.__resolve_label__ {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: rgba(10, 11, 16, 0.92);
+  color: #f0e6d9;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(77, 159, 247, 0.3);
+  pointer-events: none;
+  z-index: 2147483647;
+}
+
+.__resolve_highlight_fill__ > .__resolve_label__ {
+  border-color: rgba(240, 171, 0, 0.3);
+}
+
+/* ── Animations ── */
+
+@keyframes __resolve_fadeIn__ {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes __resolve_pulse__ {
+  0%, 100% { box-shadow: 0 0 16px rgba(77, 159, 247, 0.3), inset 0 0 8px rgba(77, 159, 247, 0.1); }
+  50% { box-shadow: 0 0 24px rgba(77, 159, 247, 0.5), inset 0 0 12px rgba(77, 159, 247, 0.15); }
+}
+
+@keyframes __resolve_pulse_warn__ {
+  0%, 100% { box-shadow: 0 0 16px rgba(240, 171, 0, 0.3), inset 0 0 8px rgba(240, 171, 0, 0.1); }
+  50% { box-shadow: 0 0 24px rgba(240, 171, 0, 0.5), inset 0 0 12px rgba(240, 171, 0, 0.15); }
+}

@@ -54,6 +54,10 @@ def cleanup_tokens():
     for token in expired:
         del valid_tokens[token]
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.get("/api/status")
 async def get_status():
     return {"mode": "simple", "missing": []}
@@ -280,6 +284,31 @@ async def get_session_transcript(token: str):
         content=transcript_text,
         headers={"Content-Disposition": f'attachment; filename="resolve-transcript-{token[:8]}.txt"'}
     )
+
+@app.post("/api/navigate")
+async def navigate_page(request: Request):
+    """Analyze a page screenshot via Gemini vision and return UI navigation actions.
+
+    Used by the Resolve AI Navigator Chrome extension.
+    """
+    from server.tools.ui_navigator import analyze_page_screenshot
+    try:
+        body = await request.json()
+        result = await analyze_page_screenshot(
+            screenshot_b64=body.get("screenshot", ""),
+            dom_summary=body.get("dom_summary", {}),
+            query=body.get("query", "Help me navigate this page"),
+            language=body.get("language", "English"),
+            page_url=body.get("page_url", ""),
+            page_title=body.get("page_title", ""),
+        )
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Navigate endpoint error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "actions": [], "explanation": "Server error"},
+        )
 
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):

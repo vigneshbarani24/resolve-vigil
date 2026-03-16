@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="logo-row">
+        <div class="logo-icon">R</div>
+        <div>
+          <h1>Resolve Navigator</h1>
+          <p class="tagline">AI Visual Guidance</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="status-text" id="status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <!-- Settings Section -->
+    <section class="section" id="settings-section">
+      <div class="input-group">
+        <label for="server-url">Server URL</label>
+        <input type="text" id="server-url" placeholder="http://localhost:8080" />
+      </div>
+      <div class="input-group">
+        <label for="language-select">Language</label>
+        <select id="language-select"></select>
+      </div>
+      <button class="btn btn-primary" id="connect-btn">Connect</button>
+    </section>
+
+    <!-- Analyze Section (shown when connected) -->
+    <section class="section hidden" id="analyze-section">
+      <div class="input-group">
+        <label for="query-input">What do you need help with?</label>
+        <textarea id="query-input" rows="2" placeholder="e.g., Where do I upload my documents?"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="analyze-btn">
+          <span class="btn-icon">&#x1F50D;</span> Analyze Page
+        </button>
+        <button class="btn btn-secondary" id="clear-btn">Clear</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-accent" id="screenshare-btn">
+          <span class="btn-icon">&#x1F4F9;</span> Share Screen
+        </button>
+      </div>
+
+      <!-- Results -->
+      <div class="results hidden" id="results">
+        <div class="results-header">
+          <span>Guidance</span>
+          <button class="btn-link" id="execute-btn">Execute All</button>
+        </div>
+        <div id="results-body"></div>
+      </div>
+
+      <!-- Explanation -->
+      <div class="explanation hidden" id="explanation"></div>
+    </section>
+
+    <!-- Loading -->
+    <div class="loading hidden" id="loading">
+      <div class="spinner"></div>
+      <span>Analyzing page...</span>
+    </div>
+
+    <!-- Error -->
+    <div class="error hidden" id="error"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
