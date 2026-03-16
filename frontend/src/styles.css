@@ -1,5 +1,5 @@
 /* =============================================
-   SAP Helpdesk Agent - Immergo-Style Theme
+   Resolve IT Helpdesk - Immergo-Style Theme
    ============================================= */
 
 :root {
@@ -18,7 +18,7 @@
   --color-text-main: #f0e6d9;
   --color-text-sub: #b0b8c4;
 
-  /* Accents - SAP adapted */
+  /* Accents */
   --color-accent-primary: #4d9ff7;
   --color-accent-secondary: #f0ab00;
   --color-accent-glow: rgba(77, 159, 247, 0.15);

@@ -90,11 +90,11 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
 
     session = get_session(token)
     if session:
-        from server.tools import issue_tracker, itsm, kb_search, sap_lookup
+        from server.tools import issue_tracker, itsm, kb_search, portal_lookup
         issue_tracker.set_session(session)
         itsm.set_session(session)
         kb_search.set_session(session)
-        sap_lookup.set_session(session)
+        portal_lookup.set_session(session)
 
     setup_config = None
     try:
@@ -267,7 +267,7 @@ async def get_session_rca(token: str):
     rca_text = session.generate_rca()
     return PlainTextResponse(
         content=rca_text,
-        headers={"Content-Disposition": f'attachment; filename="guardian-rca-{token[:8]}.txt"'}
+        headers={"Content-Disposition": f'attachment; filename="resolve-report-{token[:8]}.txt"'}
     )
 
 @app.get("/api/session/{token}/transcript")
@@ -278,7 +278,7 @@ async def get_session_transcript(token: str):
     transcript_text = session.generate_transcript_export()
     return PlainTextResponse(
         content=transcript_text,
-        headers={"Content-Disposition": f'attachment; filename="guardian-transcript-{token[:8]}.txt"'}
+        headers={"Content-Disposition": f'attachment; filename="resolve-transcript-{token[:8]}.txt"'}
     )
 
 @app.get("/{full_path:path}")

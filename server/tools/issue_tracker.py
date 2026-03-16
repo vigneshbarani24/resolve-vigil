@@ -26,7 +26,7 @@ def create_issue(
     title: str,
     description: str,
     severity: str = "medium",
-    transaction_code: str = "",
+    portal_page: str = "",
     steps_to_reproduce: str = "",
 ) -> str:
     """Log a detected issue from the conversation."""
@@ -45,7 +45,7 @@ def create_issue(
         "title": title,
         "description": description,
         "severity": severity,
-        "transaction_code": transaction_code,
+        "portal_page": portal_page,
         "steps_to_reproduce": steps_to_reproduce,
         "timestamp": datetime.now().isoformat(),
         "status": "detected",
@@ -57,21 +57,25 @@ def create_issue(
     if _current_session:
         _current_session.issues.append(issue)
         _current_session.update_checkpoint("initiation", "Capture error details", "complete", f"{title}")
-        # Infer module from transaction code if available
-        if transaction_code and not _current_session.module:
-            tcode = transaction_code.upper()
-            if tcode.startswith(("VA", "VL", "VF")):
-                _current_session.module = "SD"
-            elif tcode.startswith(("ME", "MI", "MB", "MM")):
-                _current_session.module = "MM"
-            elif tcode.startswith(("FB", "FK", "FS", "FBL")):
-                _current_session.module = "FI"
-            elif tcode.startswith(("CO", "KS", "KI")):
-                _current_session.module = "CO"
-            elif tcode.startswith(("SM", "SU", "SE", "SP")):
-                _current_session.module = "BASIS"
+        # Infer category from keywords in title/description
+        text = f"{title} {description}".lower()
+        if not _current_session.module:
+            if any(w in text for w in ["login", "password", "otp", "locked", "auth", "sign in"]):
+                _current_session.module = "Authentication"
+            elif any(w in text for w in ["payment", "transaction", "deducted", "refund", "receipt"]):
+                _current_session.module = "Payments"
+            elif any(w in text for w in ["upload", "document", "file", "photo", "certificate"]):
+                _current_session.module = "Documents"
+            elif any(w in text for w in ["form", "validation", "submit", "field", "mandatory"]):
+                _current_session.module = "Forms"
+            elif any(w in text for w in ["visa", "passport", "embassy", "consulate", "appointment"]):
+                _current_session.module = "Visa/Travel"
+            elif any(w in text for w in ["tax", "itr", "filing", "pan", "aadhaar"]):
+                _current_session.module = "Tax/Identity"
+            elif any(w in text for w in ["error 500", "blank", "loading", "timeout", "browser", "cache"]):
+                _current_session.module = "Technical"
             if _current_session.module:
-                _current_session.update_checkpoint("initiation", "Identify SAP module", "complete", _current_session.module)
+                _current_session.update_checkpoint("initiation", "Identify issue category", "complete", _current_session.module)
         # Set priority from severity
         if severity and not _current_session.priority:
             _current_session.priority = severity
@@ -97,13 +101,13 @@ def clear_session_issues() -> None:
 ISSUE_DECLARATIONS = [
     {
         "name": "create_issue",
-        "description": "Log a detected SAP issue or problem from the conversation. Call this whenever you identify an error, configuration problem, or workflow issue the user is experiencing. The issue will be displayed in the user's issue panel.",
+        "description": "Log a detected IT helpdesk issue or problem from the conversation. Call this whenever you identify an error, portal problem, or workflow issue the user is experiencing. The issue will be displayed in the user's issue panel.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "title": {
                     "type": "STRING",
-                    "description": "Short title of the issue (e.g. 'Authorization error in VA01')"
+                    "description": "Short title of the issue (e.g. 'Login failed — account locked on visa portal')"
                 },
                 "description": {
                     "type": "STRING",
@@ -113,9 +117,9 @@ ISSUE_DECLARATIONS = [
                     "type": "STRING",
                     "description": "Issue severity: critical, high, medium, or low"
                 },
-                "transaction_code": {
+                "portal_page": {
                     "type": "STRING",
-                    "description": "SAP transaction code if applicable"
+                    "description": "Portal page or section if applicable"
                 },
                 "steps_to_reproduce": {
                     "type": "STRING",

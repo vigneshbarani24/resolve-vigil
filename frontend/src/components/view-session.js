@@ -6,133 +6,120 @@ import './issue-panel.js';
 import './diagnostic-tracker.js';
 import './agent-guidance.js';
 
-const SAP_SYSTEM_PROMPT = `You are Jessica, the Senior S-A-P AMS Control Tower veteran for KaarTech — codename "Guardian". You bridge user intent and technical resolution. You have seen millions of tickets. You are relentless, thorough, and you NEVER close a case with missing information.
+const SYSTEM_PROMPT = `You are Theepa, the Senior IT Helpdesk Control Tower Agent for Resolve. You help users navigate government portals, visa applications, tax filing systems, and online services. You are relentless, thorough, and you NEVER close a case with missing information.
 
 PERSONALITY:
-- Relentless investigator: You do NOT accept vague answers. If the user says "it's not working," you demand the exact error message number, the exact T-code, and the exact step where it fails.
+- Relentless investigator: You do NOT accept vague answers. If the user says "it's not working," you demand the exact error message, the exact page they are on, and the exact step where it fails.
 - Skeptical but helpful: "Trust, but verify." Users unintentionally omit steps. You assume they are leaving things out and you ask follow-up questions to fill gaps.
-- SLA-obsessed: Categorize issues into P1 (Showstopper), P2 (Critical), P3 (Standard).
-- Defensive solutioning: Don't just fix errors; ensure they don't bounce back.
-- Professional, authoritative, technically precise. Max 2-3 sentences per response.
-- Pronounce S-A-P as individual letters. Never say "Sap." T-codes with pauses: "V-A... zero... one."
+- SLA-obsessed: Categorize issues into P1 (Showstopper — user completely blocked), P2 (Critical — workaround exists), P3 (Standard — inconvenience).
+- Defensive solutioning: Don't just fix errors; ensure the user can complete their full workflow.
+- Professional, warm but firm, technically precise. Max 2-3 sentences per response.
 
 MANDATORY INFORMATION CHECKLIST — YOU MUST COLLECT ALL OF THESE:
 Before you can consider ANY issue understood, you MUST have collected:
-1. User's name and role
-2. Exact error message number or text (e.g., "M7 021", "VF024", "00 058")
-3. Exact T-code where the error occurs (e.g., VA01, ME21N, MIGO, FB01)
-4. S-A-P Module (FI, CO, SD, MM, PP, Basis, HR, WM, QM)
-5. What the user was trying to do (business process step)
-6. When it started happening (today? after a transport? after an upgrade?)
-7. Who is affected (just them, their team, entire company code, all users)
-8. Any recent changes (new role, transport, support pack, config change)
-9. Steps to reproduce (exact navigation path and field values)
+1. User's name
+2. Which portal or service they are using (visa application, tax filing, passport, etc.)
+3. Exact error message or what they see on screen
+4. Which page or section they are on (login, form, payment, upload, status check)
+5. What they were trying to do (submit form, upload document, make payment, check status)
+6. When it started happening (today? always? after a specific action?)
+7. Who is affected (just them, or others they know)
+8. What browser they are using
+9. Steps they have already tried
 
 DO NOT MOVE ON until you have items 1-7. If the user tries to skip, push back firmly:
-"I need that error message number before I can do anything. Can you read it to me exactly as it appears on screen?"
-"Which T-code were you in when this happened? I need the exact code."
-"Is this just you, or is anyone else on your team seeing this?"
+"I need to know the exact error message before I can help. Can you read it to me exactly as it appears on screen?"
+"Which page were you on when this happened? Login, the form, payment?"
+"Is this just affecting you, or are other people having the same problem?"
 
 PROTOCOL:
-1. Triage (First 30s): Capture user name, error number, T-code, module. Assess impact. "Is this affecting just your ID, or the whole team?" Do NOT proceed to diagnosis until you have these basics.
-2. Sanity Check (Mandatory): Force recreation. "Type /n, then re-enter the T-code." Watch them input data live. Rule out stale buffers, variant drift, human error. Ask: "What variant are you using? Standard or custom?"
-3. Tool Blitz: The MOMENT you have an error code or T-code, call ALL relevant tools:
-   - lookup_sap_error with the error code
-   - lookup_transaction_code with the T-code
+1. Triage (First 30s): Capture user name, portal name, error message, page. Assess impact and urgency. Do NOT proceed until you have these basics.
+2. Sanity Check (Mandatory): Ask user to refresh the page. Check browser, incognito mode, cache. Rule out basic issues first.
+3. Tool Blitz: The MOMENT you have an error code or description, call ALL relevant tools:
+   - lookup_error_code with the error code
+   - lookup_portal_page with the page/section name
    - search_knowledge_base with the error description
-   - diagnose_sap_issue to cross-reference everything
+   - diagnose_issue to cross-reference everything
    Do NOT wait. Call them immediately. Call multiple tools per turn.
-4. Guided Diagnostics: Command user to run diagnostic T-codes and report results:
-   - SU53 for authorization failures
-   - SM12 for lock entries
-   - SM37 for background job status
-   - MMRV for period settings (MM module)
-   - SM21 for system log entries
-   - ST22 for ABAP dumps
-   Ask the user to read you the exact output.
-5. Resolution Attempt: Try AT LEAST 2-3 different resolution approaches before escalating. Check KB, try standard fixes, verify config. Only escalate after exhausting your options.
-6. Issue Logging: Call create_issue for EVERY distinct problem identified. Include severity, module, and error code.
-7. Ticket Creation: Call create_itsm_ticket with the FULL AMS Diagnostic Report. Include ALL collected data — error codes, T-codes, steps to reproduce, diagnostic results, resolution attempts made.
+4. Guided Troubleshooting: Instruct user to try:
+   - Clear browser cache and cookies
+   - Try incognito/private mode
+   - Try a different browser
+   - Check file sizes before upload
+   - Verify date formats
+   - Disable popup blocker
+5. Resolution Attempt: Try AT LEAST 2-3 approaches before escalating. Check KB, try standard fixes, verify user input. Only escalate after exhausting options.
+6. Issue Logging: Call create_issue for EVERY distinct problem identified.
+7. Ticket Creation: Call create_itsm_ticket with the FULL Diagnostic Report.
 
-RCA DATA COLLECTION — ASK THESE PROBING QUESTIONS:
-- "When was the last time this worked correctly?"
-- "Were there any transports moved to production recently?"
-- "Has your authorization profile changed? Run S-U-5-3 and tell me if you see red entries."
-- "Is this happening in Development or Quality system too, or only Production?"
-- "What organizational data are you using — company code, plant, sales org?"
-- "Read me the exact text in the status bar at the bottom of the screen."
+PROBING QUESTIONS:
+- "When was the last time this worked correctly for you?"
+- "Did anything change recently — new browser, cleared cookies, different device?"
+- "Can you tell me exactly what you see on the screen right now?"
+- "Did you get any reference number or confirmation before the error?"
+- "What language is the portal showing in?"
 
 SCREEN ANALYSIS:
 When users share screens, actively call out what you see:
-- "I can see you're in T-code VA01. I see error message V1 555 in the status bar."
-- Identify T-codes, error messages, field values, navigation paths, ALV grids.
-- If you spot an error on screen, immediately call lookup_sap_error without waiting for the user to tell you.
+- "I can see you're on the payment page. The error says 'Transaction timed out'."
+- Identify error messages, form fields, buttons, status indicators, page sections.
+- If you spot an error on screen, immediately call lookup_error_code.
+- If you see form fields highlighted in red, call out which fields need attention.
 
 TOOLS — WHEN TO USE EACH:
-- search_knowledge_base: Search FIRST when user mentions any error or process issue. Try different terms if no results.
-- lookup_sap_error: Call IMMEDIATELY when you hear or see an error code. No delay.
-- lookup_transaction_code: Call when any T-code is mentioned to get context.
-- diagnose_sap_issue: Use for complex problems to cross-reference KB, errors, and T-codes.
-- create_issue: Log a problem AFTER you have confirmed it (not on first mention — verify first).
-- create_itsm_ticket: Create ONLY after you have tried to resolve the issue and either fixed it or determined it needs escalation. Include the full AMS Diagnostic Report with all collected data.
+- search_knowledge_base: Search FIRST when user mentions any error. Try different terms if no results.
+- lookup_error_code: Call IMMEDIATELY when you see an error code. No delay.
+- lookup_portal_page: Call when user mentions which page they are on.
+- diagnose_issue: Use for complex problems to cross-reference KB, errors, and page context.
+- create_issue: Log a problem AFTER you have confirmed it.
+- create_itsm_ticket: Create after trying to resolve. Include full Diagnostic Report.
 - update_itsm_ticket: Update with resolution notes or escalation details.
-- research_sap_topic: Google Search grounding for latest OSS notes, patches, and solutions. Use when internal KB has no answer.
+- research_support_topic: Google Search for latest portal updates and known issues.
 
 CRITICAL TOOL RULES:
 - Call lookup and search tools IMMEDIATELY when you have data. Do not announce — just call.
-- If KB search returns no results, try different search terms (error code, T-code, error text, module name).
+- If KB search returns no results, try different search terms.
 
 TICKET DISCIPLINE — DO NOT RUSH:
-- Do NOT create a ticket until you have collected ALL mandatory information (checklist items 1-9).
-- Do NOT create a ticket in the first 2 minutes. Spend that time diagnosing and trying to fix.
-- FIRST priority: try to RESOLVE the issue yourself using KB solutions and guided diagnostics.
-- SECOND priority: once you have either RESOLVED the issue or determined it needs escalation, create a ticket.
-- Resolved issues still get a ticket — mark it as resolved with the fix applied. Every session must end with a ticket documenting what happened.
-- Only create a ticket early if the user EXPLICITLY asks for one.
-- ONE ticket per session. Never create duplicate tickets.
+- Do NOT create a ticket in the first 2 minutes. Spend that time diagnosing.
+- FIRST priority: try to RESOLVE the issue yourself.
+- SECOND priority: create a ticket documenting what happened.
+- ONE ticket per session. Never create duplicates.
 
 GUARDRAILS:
-- Direct commands only. Never "I am checking." Say "Run S-M-1-2 and tell me if you see any red lock entries."
-- No fluff. No small talk. Focus on the error message number.
-- No system access. Guide user to run T-codes and report results.
+- Direct instructions only. Never "I am checking." Say "Click the three dots menu and select Clear browsing data."
+- No fluff. Focus on the exact error and exact page.
+- Empathetic but efficient. Acknowledge frustration once, then focus on solving.
 - Never guess. If KB has no match, escalate with full documentation.
-- Ticket discipline. No conversation goes unlogged.
-- NEVER say "I'll look into it" or "I'll get back to you." Either fix it now or escalate with a complete RCA.
-- If the user is vague, do NOT accept it. Push for specifics every time.
+- NEVER say "I'll look into it." Fix now or escalate with complete diagnostics.
+- Language sensitivity: help translate portal elements if user is struggling.
 
 TURN-BASED CONVERSATION — THIS IS CRITICAL:
-- This is a TURN-BASED conversation. You speak ONCE, then WAIT for the user to respond.
-- After you finish speaking, STOP. Do not add follow-up statements. Do not elaborate. Do not rephrase.
+- You speak ONCE, then WAIT for the user to respond. STOP after speaking.
 - ONE response per turn. Never send multiple consecutive messages.
-- If the user hasn't responded yet, WAIT. Do not fill the silence.
-- If you asked a question, STOP and wait for the answer. Do not ask another question.
-- Do NOT repeat or rephrase what you just said if the user is silent. They heard you.
+- If you asked a question, STOP and wait for the answer.
 
 CRITICAL SPEECH RULES:
-- NEVER repeat yourself. If you already said something, do not say it again.
-- NEVER confirm the same action twice. If you created a ticket, mention it ONCE then move on.
-- Keep responses to 1-2 sentences MAX. Be terse. Every word must serve a purpose.
-- Do NOT narrate what you are doing. Do NOT say "I have logged this" or "I am creating a ticket." The user can see the UI updates.
-- Create each ticket ONCE. Never create duplicate tickets for the same issue.
-- After calling a tool, immediately move to the NEXT diagnostic step. Do not summarize what the tool did.
+- NEVER repeat yourself. Keep responses to 1-2 sentences MAX.
+- Do NOT narrate your actions. The user sees the UI updates.
+- Create each ticket ONCE. After calling a tool, move to the NEXT step.
 
 GREETING:
-When the session begins, introduce yourself with this exact greeting:
-"Hey, I'm Jessica, your S-A-P Guardian at KaarTech. I'm here to walk through your technical queries with you or prepare a detailed diagnostic for our senior team if the situation requires further investigation. Who am I speaking with, and what part of S-A-P are we looking into today?"
-After the greeting, proceed to triage. Immediately ask for their name, the error message, and the T-code.
+"Hi, I'm Theepa, your IT Support Agent at Resolve. I'm here to help you navigate any portal issues — whether it's visa applications, tax filing, government services, or any online platform. What's your name, and what portal are you working with today?"
+After the greeting, ask for their name, the portal, and the error.
 
 ABSOLUTE RULE — TURN DISCIPLINE:
-After you finish speaking, you MUST yield the floor. Do NOT generate another response until the user speaks next. One turn = one response = then silence. If you have already spoken in this turn, STOP IMMEDIATELY. Do not add anything else. Do not elaborate. Do not rephrase. Do not ask a follow-up question in the same turn. WAIT for the user.`;
+After you finish speaking, STOP. One turn = one response = then silence. WAIT for the user.`;
 
 const TOOL_META = {
     search_knowledge_base:  { label: 'KB Search',      color: '#4d9ff7', icon: '🔍' },
-    lookup_sap_error:       { label: 'Error Lookup',    color: '#e57373', icon: '⚠' },
-    lookup_transaction_code:{ label: 'T-Code Lookup',   color: '#ffb74d', icon: '📋' },
-    diagnose_sap_issue:     { label: 'Diagnosis',       color: '#ba68c8', icon: '🔬' },
+    lookup_error_code:      { label: 'Error Lookup',    color: '#e57373', icon: '⚠' },
+    lookup_portal_page:     { label: 'Page Lookup',     color: '#ffb74d', icon: '📋' },
+    diagnose_issue:         { label: 'Diagnosis',       color: '#ba68c8', icon: '🔬' },
     create_issue:           { label: 'Issue Logged',    color: '#ff8a65', icon: '📌' },
     create_itsm_ticket:     { label: 'Ticket Created',  color: '#81c784', icon: '🎫' },
     update_itsm_ticket:     { label: 'Ticket Updated',  color: '#81c784', icon: '✏' },
-    research_sap_topic:     { label: 'Web Research',    color: '#4dd0e1', icon: '🌐' },
+    research_support_topic: { label: 'Web Research',    color: '#4dd0e1', icon: '🌐' },
 };
 
 class ViewSession extends HTMLElement {
@@ -168,7 +155,7 @@ class ViewSession extends HTMLElement {
         this.innerHTML = `
             <style>
                 /* ═══════════════════════════════════════════════════
-                   GUARDIAN — Split Layout
+                   RESOLVE — Split Layout
                    Center: Conversation  |  Bottom: Controls
                    Right panel: On-demand activity/logs
                    ═══════════════════════════════════════════════════ */
@@ -849,8 +836,8 @@ class ViewSession extends HTMLElement {
                         <button class="m-back" id="back-btn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         </button>
-                        <span class="m-title">Guardian</span>
-                        <span class="m-subtitle">Jessica</span>
+                        <span class="m-title">Resolve</span>
+                        <span class="m-subtitle">Theepa</span>
                     </div>
 
                     <div class="m-topbar-center">
@@ -896,8 +883,8 @@ class ViewSession extends HTMLElement {
                                         <div class="m-insight-label">Detected Info</div>
                                         <div class="m-info-grid" id="info-grid">
                                             <div class="m-info-card"><div class="m-info-card-label">User</div><div class="m-info-card-value empty" id="info-user">—</div></div>
-                                            <div class="m-info-card"><div class="m-info-card-label">Module</div><div class="m-info-card-value empty" id="info-module">—</div></div>
-                                            <div class="m-info-card"><div class="m-info-card-label">T-Code</div><div class="m-info-card-value empty" id="info-tcode">—</div></div>
+                                            <div class="m-info-card"><div class="m-info-card-label">Category</div><div class="m-info-card-value empty" id="info-module">—</div></div>
+                                            <div class="m-info-card"><div class="m-info-card-label">Portal</div><div class="m-info-card-value empty" id="info-tcode">—</div></div>
                                             <div class="m-info-card"><div class="m-info-card-label">Error</div><div class="m-info-card-value empty" id="info-error">—</div></div>
                                         </div>
                                     </div>
@@ -923,7 +910,7 @@ class ViewSession extends HTMLElement {
 
                 <!-- Chat input bar -->
                 <div class="m-chat-bar">
-                    <input type="text" class="m-chat-input" id="chat-input" placeholder="Type a message to Jessica..." disabled autocomplete="off" />
+                    <input type="text" class="m-chat-input" id="chat-input" placeholder="Type a message to Theepa..." disabled autocomplete="off" />
                     <button class="m-chat-send" id="chat-send-btn" disabled>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     </button>
@@ -973,7 +960,7 @@ class ViewSession extends HTMLElement {
 
                         <div class="m-viz-slot">
                             <audio-visualizer id="model-viz" color="#4d9ff7"></audio-visualizer>
-                            <span class="m-viz-tag jess">Jessica</span>
+                            <span class="m-viz-tag jess">Theepa</span>
                         </div>
                     </div>
 
@@ -1157,9 +1144,9 @@ class ViewSession extends HTMLElement {
 
         // Add to live summary
         const summaryIcons = {
-            search_knowledge_base: '🔍', lookup_sap_error: '⚠️', lookup_transaction_code: '📋',
-            diagnose_sap_issue: '🔬', create_issue: '📌', create_itsm_ticket: '🎫',
-            update_itsm_ticket: '✏️', research_sap_topic: '🌐'
+            search_knowledge_base: '🔍', lookup_error_code: '⚠️', lookup_portal_page: '📋',
+            diagnose_issue: '🔬', create_issue: '📌', create_itsm_ticket: '🎫',
+            update_itsm_ticket: '✏️', research_support_topic: '🌐'
         };
         const icon = summaryIcons[name] || '⚡';
         const summaryText = resultStr ? `${meta.label}: ${resultStr}` : `${meta.label} executed`;
@@ -1175,7 +1162,7 @@ class ViewSession extends HTMLElement {
         entry.className = `m-tx-entry ${role}`;
         entry.innerHTML = `
             <div class="m-tx-head">
-                <span class="m-tx-role">${role === 'user' ? 'You' : 'Jessica'}</span>
+                <span class="m-tx-role">${role === 'user' ? 'You' : 'Theepa'}</span>
                 <span class="m-tx-time">${time}</span>
             </div>
             <div class="m-tx-text">${text}</div>
@@ -1248,36 +1235,40 @@ class ViewSession extends HTMLElement {
             }
         }
 
-        // T-codes
-        const tcodeMatch = text.match(/\b((?:VA|VL|VF|ME|MM|MB|FB|FK|FBL|XK|XD|MK|CO|KS|SE|SM|SU|SP|IW|QM|PP|PA|MIGO|MIRO)\d{1,3}[A-Z]?)\b/i);
-        if (tcodeMatch) {
-            const tcode = tcodeMatch[1].toUpperCase();
-            if (this._detectedInfo.tcode !== tcode) {
-                this._detectedInfo.tcode = tcode;
-                this._updateInfoCard('info-tcode', tcode);
-                this._addSummaryPoint('📋', `T-Code detected: ${tcode}`);
+        // Portal detection
+        const portalMatch = text.match(/\b(visa|passport|income tax|tax filing|ITR|DS-160|VFS|BLS|Aadhaar|PAN|Schengen|embassy|consulate|e-filing|government|portal|UIDAI)\b/i);
+        if (portalMatch) {
+            const portal = portalMatch[1];
+            if (this._detectedInfo.tcode !== portal) {
+                this._detectedInfo.tcode = portal;
+                this._updateInfoCard('info-tcode', portal);
+                this._addSummaryPoint('📋', `Portal detected: ${portal}`);
             }
         }
 
-        // Error codes — SAP-style only (e.g., VG001, M7021, F5003, MIGO_ERROR_001)
-        const errorMatch = text.match(/\b([A-Z]{2}\d{3,5})\b/) || text.match(/\b(MESSAGE_[A-Z0-9_]{3,20})\b/i) || text.match(/(?:error|message)\s+(?:code|number|no\.?)\s*[:=]?\s*["']?([A-Z]{2}\d{3,5})["']?/i);
+        // Error codes (e.g., AUTH001, PAY001, FORM001, error 500, error 403)
+        const errorMatch = text.match(/\b([A-Z]{2,5}\d{3})\b/) || text.match(/(?:error|code)\s*[:=]?\s*(\d{3,5})\b/i) || text.match(/(?:error|message)\s+(?:code|number|no\.?)\s*[:=]?\s*["']?([A-Z]{2,5}\d{3})["']?/i);
         if (errorMatch) {
             const error = (errorMatch[1] || errorMatch[0]).trim().toUpperCase();
-            if (this._detectedInfo.error !== error && error.length >= 5) {
+            if (this._detectedInfo.error !== error && error.length >= 3) {
                 this._detectedInfo.error = error;
                 this._updateInfoCard('info-error', error);
                 this._addSummaryPoint('⚠️', `Error code: ${error}`);
             }
         }
 
-        // SAP Modules — require SAP context or exact uppercase match
-        const moduleMatch = text.match(/(?:SAP|module|sap)\s+(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|Basis|ABAP|FICO)\b/i) || text.match(/\b(FI|CO|SD|MM|PP|HR|WM|QM|PM|PS|FICO|ABAP|Basis)[\s-](?:module|system|config)/i) || text.match(/\b(FICO|ABAP|Basis)\b/);
-        if (moduleMatch) {
-            const mod = moduleMatch[1].toUpperCase();
-            if (this._detectedInfo.module !== mod) {
-                this._detectedInfo.module = mod;
-                this._updateInfoCard('info-module', mod);
-            }
+        // Issue categories
+        const lower = text.toLowerCase();
+        let category = null;
+        if (/\b(login|password|otp|locked|sign in|authentication)\b/i.test(lower)) category = 'Authentication';
+        else if (/\b(payment|transaction|deducted|refund|receipt)\b/i.test(lower)) category = 'Payments';
+        else if (/\b(upload|document|file|photo|certificate)\b/i.test(lower)) category = 'Documents';
+        else if (/\b(form|validation|submit|field|mandatory)\b/i.test(lower)) category = 'Forms';
+        else if (/\b(visa|passport|embassy|consulate|appointment)\b/i.test(lower)) category = 'Visa/Travel';
+        else if (/\b(tax|itr|filing|pan|aadhaar)\b/i.test(lower)) category = 'Tax/Identity';
+        if (category && this._detectedInfo.module !== category) {
+            this._detectedInfo.module = category;
+            this._updateInfoCard('info-module', category);
         }
     }
 
@@ -1310,7 +1301,7 @@ class ViewSession extends HTMLElement {
         overlay.innerHTML = `
             <div class="m-csat-card">
                 <div class="m-csat-title">How was your experience?</div>
-                <div class="m-csat-sub">Rate your session with Jessica</div>
+                <div class="m-csat-sub">Rate your session with Theepa</div>
                 <div class="m-csat-stars">
                     <button class="m-csat-star" data-val="1">★</button>
                     <button class="m-csat-star" data-val="2">★</button>
@@ -1371,9 +1362,9 @@ class ViewSession extends HTMLElement {
             statusEl.classList.remove('on');
 
             const language = this.getAttribute('language') || 'English';
-            let systemPrompt = SAP_SYSTEM_PROMPT;
+            let systemPrompt = SYSTEM_PROMPT;
             if (language && language !== 'English') {
-                systemPrompt += `\n\n# Language\nYou MUST respond in ${language}. ALL your spoken responses must be in ${language}, INCLUDING your very first greeting. Translate the greeting naturally into ${language} — do not speak English at all.\nHowever, all ITSM tickets, RCA reports, error code lookups, and technical documentation must remain in English regardless of the conversation language.\nTool function calls and their parameters must always be in English.\nTechnical terms like S-A-P, T-codes, and module names stay in English even when speaking ${language}.\n`;
+                systemPrompt += `\n\n# Language\nYou MUST respond in ${language}. ALL your spoken responses must be in ${language}, INCLUDING your very first greeting. Translate the greeting naturally into ${language} — do not speak English at all.\nHowever, all ITSM tickets, diagnostic reports, error code lookups, and technical documentation must remain in English regardless of the conversation language.\nTool function calls and their parameters must always be in English.\nTechnical terms like error codes, URLs, and portal names stay in English even when speaking ${language}.\n`;
             }
             this.geminiClient = new GeminiLiveAPI();
             this.geminiClient.setSystemInstructions(systemPrompt);
@@ -1434,7 +1425,7 @@ class ViewSession extends HTMLElement {
             this.querySelector('#chat-send-btn').disabled = false;
             this.querySelector('#transcript').clear();
 
-            this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> engine=<span class="val">guardian-live</span>`);
+            this._addLogEntry('info', `<span class="hl">SESSION_INIT</span> lang=<span class="val">${language}</span> engine=<span class="val">resolve-live</span>`);
 
         } catch (err) {
             console.error('Failed to start:', err);
@@ -1568,7 +1559,7 @@ class ViewSession extends HTMLElement {
                 }
                 break;
             }
-            case 'research_sap_topic': {
+            case 'research_support_topic': {
                 if (result) {
                     const r = typeof result === 'string' ? JSON.parse(result) : result;
                     if (r.success && r.source_count > 0) this.querySelector('#transcript')?.addOutputTranscript(`[Researched: ${r.source_count} web sources]`, true);

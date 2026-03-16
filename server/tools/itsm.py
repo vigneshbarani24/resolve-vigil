@@ -2,9 +2,9 @@
 ITSM (IT Service Management) Tool.
 
 Creates and updates helpdesk tickets in ITSM systems like
-ServiceNow, SAP Solution Manager, or Jira Service Management.
+ServiceNow, Jira Service Management, or Freshdesk.
 
-In production, this would call the ITSM REST API via MCP.
+In production, this would call the ITSM REST API.
 Currently returns mock responses for demo.
 """
 import json
@@ -29,8 +29,8 @@ def create_itsm_ticket(
     title: str,
     description: str,
     severity: str = "medium",
-    category: str = "SAP Support",
-    transaction_code: str = "",
+    category: str = "IT Support",
+    portal_page: str = "",
     error_code: str = "",
     steps_to_reproduce: str = "",
 ) -> str:
@@ -55,12 +55,12 @@ def create_itsm_ticket(
         "description": description,
         "severity": severity,
         "category": category,
-        "transaction_code": transaction_code,
+        "portal_page": portal_page,
         "error_code": error_code,
         "steps_to_reproduce": steps_to_reproduce,
         "status": "New",
         "created_at": datetime.now().isoformat(),
-        "assigned_to": "L1 SAP Support",
+        "assigned_to": "L1 IT Support",
     }
 
     _TICKETS[ticket_id] = ticket
@@ -70,7 +70,7 @@ def create_itsm_ticket(
         _current_session.tickets.append(ticket)
         _current_session.update_checkpoint("resolution", "Document root cause", "complete", f"RCA for {title}")
         _current_session.update_checkpoint("resolution", "Create ITSM ticket", "complete", f"Ticket {ticket_id}")
-        _current_session.update_checkpoint("resolution", "Generate RCA report", "complete", "RCA available for download")
+        _current_session.update_checkpoint("resolution", "Generate diagnostic report", "complete", "Report available for download")
 
     return json.dumps({
         "success": True,
@@ -150,15 +150,15 @@ ITSM_DECLARATIONS = [
                 },
                 "category": {
                     "type": "STRING",
-                    "description": "Support category (e.g. 'SAP SD', 'SAP MM', 'SAP BASIS')"
+                    "description": "Support category (e.g. 'Authentication', 'Payments', 'Forms', 'Documents', 'Technical', 'Visa', 'Tax')"
                 },
-                "transaction_code": {
+                "portal_page": {
                     "type": "STRING",
-                    "description": "SAP transaction code where the issue occurred"
+                    "description": "Portal page or section where the issue occurred"
                 },
                 "error_code": {
                     "type": "STRING",
-                    "description": "SAP error/message number if applicable"
+                    "description": "Error code if applicable"
                 },
                 "steps_to_reproduce": {
                     "type": "STRING",

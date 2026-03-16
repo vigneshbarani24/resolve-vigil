@@ -37,23 +37,23 @@ resource "google_project_service" "apis" {
 }
 
 # Artifact Registry for container images
-resource "google_artifact_registry_repository" "guardian" {
+resource "google_artifact_registry_repository" "resolve" {
   location      = var.region
-  repository_id = "guardian"
+  repository_id = "resolve"
   format        = "DOCKER"
-  description   = "Guardian SAP AMS Control Tower container images"
+  description   = "Resolve AI IT Helpdesk container images"
 
   depends_on = [google_project_service.apis]
 }
 
 # Cloud Run service
-resource "google_cloud_run_v2_service" "guardian" {
-  name     = "guardian"
+resource "google_cloud_run_v2_service" "resolve" {
+  name     = "resolve"
   location = var.region
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/guardian/guardian:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/resolve/resolve:latest"
 
       ports {
         container_port = 8080
@@ -92,17 +92,17 @@ resource "google_cloud_run_v2_service" "guardian" {
 resource "google_cloud_run_v2_service_iam_member" "public" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.guardian.name
+  name     = google_cloud_run_v2_service.resolve.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
 output "service_url" {
-  value       = google_cloud_run_v2_service.guardian.uri
-  description = "Guardian Cloud Run service URL"
+  value       = google_cloud_run_v2_service.resolve.uri
+  description = "Resolve Cloud Run service URL"
 }
 
 output "artifact_registry" {
-  value       = "${var.region}-docker.pkg.dev/${var.project_id}/guardian"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/resolve"
   description = "Artifact Registry path"
 }

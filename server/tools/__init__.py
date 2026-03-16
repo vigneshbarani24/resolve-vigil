@@ -1,5 +1,5 @@
 """
-Pluggable tool registry for SAP Helpdesk Agent.
+Pluggable tool registry for Resolve IT Helpdesk Agent.
 
 Tools are registered via register_all_tools(gemini_client) which
 hooks into GeminiLive's tool_mapping dict. Each tool is a simple

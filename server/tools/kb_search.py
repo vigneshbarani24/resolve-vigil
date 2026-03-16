@@ -1,7 +1,7 @@
 """
 Knowledge Base Search Tool.
 
-Searches SAP knowledge base for error codes, documentation,
+Searches IT helpdesk knowledge base for error codes, documentation,
 known issues, and resolution steps. In production, this would
 connect to a vector DB (Vertex AI Search, AlloyDB, etc.).
 Currently uses a local JSON knowledge base for demo.
@@ -14,7 +14,7 @@ from typing import List, Dict
 logger = logging.getLogger(__name__)
 
 # Load knowledge base
-_KB_PATH = Path(__file__).parent.parent / "data" / "sap_knowledge_base.json"
+_KB_PATH = Path(__file__).parent.parent / "data" / "helpdesk_knowledge_base.json"
 _KB_DATA: List[Dict] = []
 
 def _load_kb():
@@ -36,7 +36,7 @@ def set_session(session):
 
 
 def search_knowledge_base(query: str, max_results: int = 3) -> str:
-    """Search the SAP knowledge base for relevant articles."""
+    """Search the IT helpdesk knowledge base for relevant articles."""
     if not _KB_DATA:
         return json.dumps({
             "results": [],
@@ -48,7 +48,7 @@ def search_knowledge_base(query: str, max_results: int = 3) -> str:
 
     for article in _KB_DATA:
         score = 0
-        searchable = f"{article.get('title', '')} {article.get('description', '')} {article.get('error_code', '')} {article.get('module', '')} {' '.join(article.get('keywords', []))}".lower()
+        searchable = f"{article.get('title', '')} {article.get('description', '')} {article.get('error_code', '')} {article.get('category', '')} {' '.join(article.get('keywords', []))}".lower()
 
         # Simple keyword matching (replace with vector search in production)
         for word in query_lower.split():
@@ -85,13 +85,13 @@ def search_knowledge_base(query: str, max_results: int = 3) -> str:
 KB_DECLARATIONS = [
     {
         "name": "search_knowledge_base",
-        "description": "Search the SAP knowledge base for error codes, documentation, known issues, and resolution steps. Use this when the user encounters an error, asks about a process, or needs help with a specific SAP transaction.",
+        "description": "Search the IT helpdesk knowledge base for error codes, documentation, known issues, and resolution steps. Use this when the user encounters an error, asks about a process, or needs help with a specific portal or service.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "query": {
                     "type": "STRING",
-                    "description": "Search query — can be an error code (e.g. 'VG035'), transaction code (e.g. 'VA01'), error message text, or description of the issue"
+                    "description": "Search query — can be an error code (e.g. 'AUTH001'), portal name (e.g. 'visa application'), error message text, or description of the issue"
                 },
                 "max_results": {
                     "type": "INTEGER",

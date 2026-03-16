@@ -1,15 +1,15 @@
 /**
- * SAP Helpdesk Splash Screen - Immergo-style
- * Floating SAP transaction code particles, mystic theme
+ * IT Helpdesk Splash Screen
+ * Floating portal/service term particles, modern theme
  */
 class ViewHome extends HTMLElement {
     connectedCallback() {
-        const sapTerms = [
-            'VA01', 'ME21N', 'MM01', 'FB60', 'XK01', 'MIGO',
-            'SE38', 'SM37', 'SU01', 'SPRO', 'VL01N', 'CO01',
-            'MB51', 'FBL1N', 'ME23N', 'XD03', 'VF01', 'IW31',
-            'QM01', 'PP01', 'PA20', 'ABAP', 'HANA',
-            'S/4', 'BTP', 'FIORI', 'RFC', 'BAPI', 'IDOC'
+        const helpTerms = [
+            'Login', 'OTP', 'Upload', 'Payment', 'Visa',
+            'Passport', 'Tax', 'Form', 'Status', 'PDF',
+            'Aadhaar', 'PAN', 'DS-160', 'Schengen', 'VFS',
+            'Portal', 'Browser', 'Error', 'Submit', 'Cache',
+            'Session', 'Timeout', 'Receipt', 'Refund', 'Help'
         ];
 
         this.innerHTML = `
@@ -89,7 +89,7 @@ class ViewHome extends HTMLElement {
                 <div id="particles-host" style="position: absolute; inset: 0; pointer-events: none;"></div>
 
                 <div class="content-wrapper">
-                    <h1 class="mystic-title">Guardian</h1>
+                    <h1 class="mystic-title">Resolve</h1>
 
                     <p style="
                         font-family: var(--font-heading);
@@ -101,7 +101,7 @@ class ViewHome extends HTMLElement {
                         text-align: center;
                         max-width: 600px;
                     ">
-                        SAP AMS Control Tower &mdash; Tier 0.5 Live Agent
+                        AI IT Helpdesk &mdash; Multilingual Live Agent
                     </p>
 
                     <div class="feature-cards">
@@ -115,7 +115,7 @@ class ViewHome extends HTMLElement {
                                 </svg>
                             </div>
                             <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Voice Interaction</h3>
-                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Talk to Jessica, your AMS Control Tower veteran</p>
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Talk to Theepa, your multilingual IT support agent</p>
                         </div>
 
                         <div class="card" style="text-align: center; padding: var(--spacing-lg);">
@@ -127,7 +127,7 @@ class ViewHome extends HTMLElement {
                                 </svg>
                             </div>
                             <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Screen Analysis</h3>
-                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Share your SAP screen for real-time visual guidance</p>
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Share your screen for real-time visual portal guidance</p>
                         </div>
 
                         <div class="card" style="text-align: center; padding: var(--spacing-lg);">
@@ -139,7 +139,7 @@ class ViewHome extends HTMLElement {
                                     <line x1="16" y1="17" x2="8" y2="17"/>
                                 </svg>
                             </div>
-                            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Ironclad RCA</h3>
+                            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-xs);">Full Diagnostics</h3>
                             <p style="font-size: 0.85rem; opacity: 0.7; margin: 0;">Auto-generates diagnostic reports with full ticket lifecycle</p>
                         </div>
                     </div>
@@ -177,7 +177,7 @@ class ViewHome extends HTMLElement {
                             </select>
                         </div>
                         <button id="start-btn" class="mystic-btn">
-                            Connect to Guardian
+                            Connect to Resolve
                         </button>
                     </div>
 
@@ -186,14 +186,14 @@ class ViewHome extends HTMLElement {
             </div>
         `;
 
-        // Create floating SAP particles
+        // Create floating particles
         const host = this.querySelector('#particles-host');
         const particleCount = 25;
 
         for (let i = 0; i < particleCount; i++) {
             const p = document.createElement('div');
             p.className = 'splash-particle';
-            p.textContent = sapTerms[Math.floor(Math.random() * sapTerms.length)];
+            p.textContent = helpTerms[Math.floor(Math.random() * helpTerms.length)];
             p.style.left = `${Math.random() * 100}%`;
             p.style.animationDelay = `${Math.random() * 15}s`;
             p.style.animationDuration = `${10 + Math.random() * 10}s`;

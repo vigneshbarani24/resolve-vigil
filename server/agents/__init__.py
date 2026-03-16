@@ -1,5 +1,5 @@
 """
-ADK Sub-Agents for SAP Helpdesk.
+ADK Sub-Agents for Resolve IT Helpdesk.
 
 These agents can be used for complex multi-step reasoning
 that goes beyond simple tool calls. Currently stubbed —

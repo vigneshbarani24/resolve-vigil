@@ -14,10 +14,10 @@ from typing import List, Dict
 
 from server.tools.kb_search import search_knowledge_base, KB_DECLARATIONS
 from server.tools.itsm import create_itsm_ticket, update_itsm_ticket, ITSM_DECLARATIONS
-from server.tools.sap_lookup import lookup_sap_error, lookup_transaction_code, SAP_DECLARATIONS
+from server.tools.portal_lookup import lookup_error_code, lookup_portal_page, PORTAL_DECLARATIONS
 from server.tools.issue_tracker import create_issue, ISSUE_DECLARATIONS
-from server.agents.sap_expert import diagnose_sap_issue, DIAGNOSIS_DECLARATIONS
-from server.tools.search_grounding import research_sap_topic, SEARCH_GROUNDING_DECLARATIONS
+from server.agents.diagnostic_expert import diagnose_issue, DIAGNOSIS_DECLARATIONS
+from server.tools.search_grounding import research_support_topic, SEARCH_GROUNDING_DECLARATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 TOOL_DECLARATIONS: List[Dict] = [
     *KB_DECLARATIONS,
     *ITSM_DECLARATIONS,
-    *SAP_DECLARATIONS,
+    *PORTAL_DECLARATIONS,
     *ISSUE_DECLARATIONS,
     *DIAGNOSIS_DECLARATIONS,
     *SEARCH_GROUNDING_DECLARATIONS,
@@ -36,11 +36,11 @@ _TOOL_HANDLERS = {
     "search_knowledge_base": search_knowledge_base,
     "create_itsm_ticket": create_itsm_ticket,
     "update_itsm_ticket": update_itsm_ticket,
-    "lookup_sap_error": lookup_sap_error,
-    "lookup_transaction_code": lookup_transaction_code,
+    "lookup_error_code": lookup_error_code,
+    "lookup_portal_page": lookup_portal_page,
     "create_issue": create_issue,
-    "diagnose_sap_issue": diagnose_sap_issue,
-    "research_sap_topic": research_sap_topic,
+    "diagnose_issue": diagnose_issue,
+    "research_support_topic": research_support_topic,
 }
 
 

@@ -66,7 +66,7 @@ class ViewSummary extends HTMLElement {
             <div class="summary-container">
                 <div class="summary-header">
                     <h1>Session Summary</h1>
-                    <p class="subtitle">Guardian — AMS Control Tower Report</p>
+                    <p class="subtitle">Resolve — IT Helpdesk Diagnostic Report</p>
                 </div>
 
                 <!-- Metadata -->
@@ -76,7 +76,7 @@ class ViewSummary extends HTMLElement {
                         <span class="meta-value">${duration}</span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">Module</span>
+                        <span class="meta-label">Category</span>
                         <span class="meta-value">${d.module || 'N/A'}</span>
                     </div>
                     <div class="meta-item">
@@ -112,7 +112,7 @@ class ViewSummary extends HTMLElement {
                             <div class="issue-card">
                                 <span class="severity-badge ${(issue.severity || 'medium').toLowerCase()}">${issue.severity || 'medium'}</span>
                                 <span class="issue-title">${issue.title || 'Untitled'}</span>
-                                ${issue.transaction_code ? `<span class="tcode">T-Code: ${issue.transaction_code}</span>` : ''}
+                                ${issue.portal_page ? `<span class="tcode">Page: ${issue.portal_page}</span>` : ''}
                             </div>
                         `).join('')}
                     </div>
@@ -137,7 +137,7 @@ class ViewSummary extends HTMLElement {
                 <!-- Agent Guidance -->
                 ${d.agent_guidance && d.agent_guidance.length > 0 ? `
                 <div class="section">
-                    <h2 class="section-title">L2 Guidance</h2>
+                    <h2 class="section-title">Specialist Guidance</h2>
                     <div class="guidance-list">
                         ${d.agent_guidance.map(g => `
                             <div class="guidance-item">
@@ -150,7 +150,7 @@ class ViewSummary extends HTMLElement {
 
                 <!-- Actions -->
                 <div class="actions">
-                    <button class="action-btn primary" id="download-rca">Download RCA Report</button>
+                    <button class="action-btn primary" id="download-rca">Download Diagnostic Report</button>
                     <button class="action-btn secondary" id="download-transcript">Download Transcript</button>
                     <button class="action-btn outline" id="new-session">New Session</button>
                 </div>
@@ -185,7 +185,7 @@ class ViewSummary extends HTMLElement {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `guardian-${type}-${this.token.slice(0, 8)}.txt`;
+            a.download = `resolve-${type}-${this.token.slice(0, 8)}.txt`;
             a.click();
             URL.revokeObjectURL(url);
             btn.textContent = 'Downloaded!';

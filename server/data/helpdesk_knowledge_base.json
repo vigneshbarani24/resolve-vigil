@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "title": "Login Failed — Account Locked After Multiple Attempts",
+    "description": "User cannot log in to the portal. Account is locked due to exceeding the maximum number of failed login attempts. Common on government portals like income tax, visa applications, and benefits portals.",
+    "category": "Authentication",
+    "error_code": "AUTH001",
+    "keywords": ["login", "locked", "password", "account", "authentication", "failed attempts", "OTP"],
+    "resolution": "1. Verify the user's identity (full name, registered email/phone)\n2. Check if account is locked vs disabled vs expired\n3. Guide user to 'Forgot Password' or 'Unlock Account' link\n4. If OTP-based: verify phone number is current, check SMS delivery\n5. If Aadhaar-linked: confirm Aadhaar number matches, try biometric re-auth\n6. Clear browser cache/cookies and retry\n7. If persistent: escalate to identity verification team with user details"
+  },
+  {
+    "id": 2,
+    "title": "Form Submission Error — Validation Failed",
+    "description": "User tries to submit an application form but gets validation errors. Fields may show red but the error message is unclear or in a different language. Common on visa and tax filing portals.",
+    "category": "Forms",
+    "error_code": "FORM001",
+    "keywords": ["form", "validation", "submit", "error", "field", "required", "mandatory", "red"],
+    "resolution": "1. Ask user to read the exact error message (may be a popup or inline)\n2. Check mandatory fields — name, date of birth, document number\n3. Date format issues: DD/MM/YYYY vs MM/DD/YYYY — very common on international portals\n4. Character encoding: non-Latin characters may not be accepted — try transliteration\n5. File upload issues: check file size limit (usually 2MB), format (PDF/JPG only)\n6. If passport number field: remove spaces, use uppercase\n7. Save draft before retrying. Some portals timeout after 15-20 minutes"
+  },
+  {
+    "id": 3,
+    "title": "Payment Failed — Transaction Declined or Timed Out",
+    "description": "User made a payment for visa fees, tax filing, or application charges but the transaction failed, timed out, or money was deducted but receipt not generated.",
+    "category": "Payments",
+    "error_code": "PAY001",
+    "keywords": ["payment", "failed", "declined", "timeout", "deducted", "receipt", "refund", "transaction"],
+    "resolution": "1. Check if money was actually deducted — ask user to check bank statement or UPI app\n2. If deducted but no receipt: payment may be in 'pending' state — check payment history page\n3. Most portals reconcile within 24-48 hours — advise waiting before retrying\n4. DO NOT retry payment if money was deducted — may cause double charge\n5. Note the transaction reference number for tracking\n6. If credit card: check if 3D Secure / OTP step was completed\n7. If international payment: verify card is enabled for online/international transactions\n8. Create ticket with transaction ID, amount, timestamp for refund processing"
+  },
+  {
+    "id": 4,
+    "title": "Document Upload Failed — File Rejected",
+    "description": "User cannot upload required documents (passport, photo, ID proof, tax returns). File is rejected with size, format, or dimension errors.",
+    "category": "Documents",
+    "error_code": "DOC001",
+    "keywords": ["upload", "document", "file", "size", "format", "PDF", "JPG", "photo", "rejected", "too large"],
+    "resolution": "1. Check file size limits — most portals require < 2MB per file\n2. Accepted formats: usually PDF for documents, JPG/JPEG for photos\n3. Photo specifications: passport photo typically 2x2 inches, white background, 200KB-300KB\n4. Reduce file size: use online compressor or reduce scan DPI to 200\n5. For multi-page documents: combine into single PDF\n6. File name: remove special characters and spaces from filename\n7. Browser compatibility: try Chrome or Firefox, disable popup blockers\n8. If biometric photo: ensure face covers 70-80% of frame, no glasses/hat"
+  },
+  {
+    "id": 5,
+    "title": "Application Status Not Updating — Stuck in Processing",
+    "description": "User submitted application (visa, tax return, permit) but status hasn't changed from 'Processing' or 'Under Review' for an extended period.",
+    "category": "Status",
+    "error_code": "STAT001",
+    "keywords": ["status", "processing", "pending", "stuck", "tracking", "application", "under review", "no update"],
+    "resolution": "1. Check the standard processing timeline — visa: 15-60 days, tax refund: 4-6 weeks\n2. Verify application reference number and check status page\n3. Ensure all required documents were uploaded successfully — check document checklist\n4. Look for any 'Action Required' or 'Additional Information Requested' notifications\n5. Check registered email (including spam folder) for correspondence\n6. If biometric appointment required: verify it was completed\n7. For visa: check if security clearance is pending (common for certain nationalities)\n8. If beyond standard timeline: escalate with application reference number"
+  },
+  {
+    "id": 6,
+    "title": "Portal Page Not Loading — Blank Screen or Error 500",
+    "description": "The portal shows a blank page, loading spinner that never completes, or a server error (500, 502, 503). May be browser-specific or time-specific.",
+    "category": "Technical",
+    "error_code": "TECH001",
+    "keywords": ["blank", "loading", "error 500", "server error", "not loading", "white screen", "timeout", "503"],
+    "resolution": "1. Check if the portal is having a known outage — check status page or social media\n2. Clear browser cache and cookies for the portal domain\n3. Try incognito/private mode\n4. Try a different browser (Chrome, Firefox, Edge)\n5. Disable browser extensions, especially ad blockers and VPN\n6. Check internet connection stability\n7. Government portals often have maintenance windows (late night/weekends)\n8. If Error 503: portal may be at capacity — try during off-peak hours (early morning)\n9. If persistent: note the exact error message, URL, and timestamp for escalation"
+  },
+  {
+    "id": 7,
+    "title": "OTP Not Received — SMS/Email Verification Failed",
+    "description": "User is not receiving OTP (One-Time Password) via SMS or email during login, registration, or transaction verification.",
+    "category": "Authentication",
+    "error_code": "AUTH002",
+    "keywords": ["OTP", "SMS", "verification", "code", "not received", "mobile", "email", "two-factor"],
+    "resolution": "1. Verify the registered mobile number — last 4 digits match\n2. Check if phone has network signal and is not in airplane mode\n3. Wait 2-3 minutes — OTPs can be delayed during peak hours\n4. Check spam/junk folder for email OTPs\n5. DO NOT click 'Resend OTP' more than 2-3 times — may trigger cooldown\n6. If international number: verify country code is correct, check if international SMS is enabled\n7. Try voice call OTP option if available\n8. If DND (Do Not Disturb) is active: disable it temporarily\n9. Some portals have a cooldown period after too many OTP requests — wait 30 minutes"
+  },
+  {
+    "id": 8,
+    "title": "Appointment Slot Booking Failed — No Slots Available",
+    "description": "User cannot book an appointment slot (visa interview, biometrics, in-person verification). All slots show as unavailable or booking page crashes.",
+    "category": "Appointments",
+    "error_code": "APPT001",
+    "keywords": ["appointment", "slot", "booking", "unavailable", "schedule", "interview", "biometric", "embassy"],
+    "resolution": "1. Check if new slots are released on specific days/times (many portals release weekly)\n2. Try different locations — nearby cities may have earlier availability\n3. Check both morning and afternoon sessions\n4. If the page crashed during booking: check 'My Appointments' — booking may have gone through\n5. Do NOT keep refreshing rapidly — may trigger rate limiting and block your session\n6. Some portals require re-login if session expired during booking\n7. Enable browser notifications for the portal if supported\n8. If emergency travel: look for emergency/expedited appointment options\n9. Document the unavailability with screenshots for potential appeal"
+  },
+  {
+    "id": 9,
+    "title": "Profile Update Error — Cannot Change Personal Details",
+    "description": "User needs to update personal information (name, address, phone, email) but the portal doesn't allow changes or shows errors when trying to save.",
+    "category": "Profile",
+    "error_code": "PROF001",
+    "keywords": ["profile", "update", "change", "name", "address", "email", "phone", "personal details", "edit"],
+    "resolution": "1. Some portals lock critical fields (name, DOB, nationality) after initial submission — by design\n2. Name changes: usually require supporting documents (marriage certificate, deed poll, court order)\n3. Address changes: check if there's a separate 'Change of Address' form\n4. Email/phone changes: may require verification from BOTH old and new contact\n5. If field is greyed out: check if there's a 'Request Change' or 'Amendment' link\n6. For Aadhaar-linked portals: update must be done in Aadhaar first, then it propagates\n7. Some changes require in-person verification at a service center\n8. Create ticket with: current details, requested changes, and supporting documents"
+  },
+  {
+    "id": 10,
+    "title": "Session Timeout — Work Lost During Form Filling",
+    "description": "User was filling a long form but the session expired, losing all entered data. Very common on government portals with short timeout periods.",
+    "category": "Technical",
+    "error_code": "TECH002",
+    "keywords": ["session", "timeout", "expired", "lost data", "form", "kicked out", "logged out", "auto logout"],
+    "resolution": "1. Most government portals have 15-20 minute session timeouts — this is by design\n2. Prepare all information BEFORE starting the form (passport, documents, dates)\n3. Use the 'Save Draft' button frequently if available\n4. Do not open multiple tabs of the same portal — can cause session conflicts\n5. Keep the tab active — some portals track inactivity\n6. Take screenshots of completed sections as backup\n7. If data was lost: check if auto-save captured anything in 'Drafts' or 'Saved Applications'\n8. For future: prepare answers in a text document, copy-paste into the form quickly"
+  },
+  {
+    "id": 11,
+    "title": "Certificate/Receipt Download Not Working",
+    "description": "User cannot download generated certificates, receipts, acknowledgments, or approval letters from the portal. Button doesn't respond or download fails.",
+    "category": "Documents",
+    "error_code": "DOC002",
+    "keywords": ["download", "certificate", "receipt", "acknowledgment", "PDF", "print", "button not working"],
+    "resolution": "1. Disable popup blocker for the portal domain — downloads often open in new window\n2. Try right-click > 'Save link as' on the download button\n3. Check browser downloads folder — file may have downloaded but not opened\n4. Try a different browser (Chrome, Firefox)\n5. If PDF won't open: install/update Adobe Acrobat Reader\n6. Clear cache and retry — cached version may be corrupt\n7. Check if the document has a generation delay — some certificates take 24-48 hours\n8. If digitally signed document: verify system clock is accurate (signature validation depends on it)"
+  },
+  {
+    "id": 12,
+    "title": "Language/Translation Issue — Portal Content Not in User's Language",
+    "description": "User cannot navigate the portal because content is in a language they don't understand. Language selector is missing or not working properly.",
+    "category": "Accessibility",
+    "error_code": "LANG001",
+    "keywords": ["language", "translation", "Hindi", "Tamil", "Telugu", "regional", "English", "cannot read", "understand"],
+    "resolution": "1. Look for language selector — usually top-right corner of the portal, globe icon\n2. If no language option: use browser's built-in translate feature (Chrome: right-click > Translate)\n3. CAUTION with auto-translate: form field labels may translate incorrectly — verify field names\n4. DO NOT auto-translate dropdown values — select original language values\n5. For official correspondence: note the reference numbers even if you can't read the full text\n6. If bilingual support needed: I can help translate specific sections or error messages\n7. Some portals have separate regional language versions with different URLs\n8. For visa portals: instructions are often available in a separate 'Help' or 'FAQ' section in English"
+  },
+  {
+    "id": 13,
+    "title": "Visa Application — DS-160 Specific Errors",
+    "description": "Issues specific to the US visa DS-160 application form including save errors, photo upload failures, barcode confirmation page problems, and timeout issues.",
+    "category": "Visa",
+    "error_code": "VISA001",
+    "keywords": ["DS-160", "visa", "US", "barcode", "confirmation", "photo", "CEAC", "consulate", "embassy"],
+    "resolution": "1. DS-160 saves automatically — note the Application ID (AA00XXXXXX) to resume later\n2. Photo requirements: 600x600 pixels, JPEG, 240KB max, white background, recent (< 6 months)\n3. If photo keeps being rejected: use the State Department's photo tool to crop\n4. Barcode/confirmation page must be printed — some consulates won't accept digital\n5. If form times out: go to 'Retrieve Application' and enter your Application ID\n6. Security questions: remember your answer exactly as entered (case-sensitive)\n7. If stuck on 'Sign and Submit': ensure ALL required questions are answered (check each section)\n8. Country of origin for nationality: use passport nationality, not birth country\n9. Travel history section: 'Have you been to the US before' — include ALL previous visits"
+  },
+  {
+    "id": 14,
+    "title": "Tax Filing — ITR Form Selection and Filing Errors",
+    "description": "User is confused about which Income Tax Return form to use (ITR-1, ITR-2, etc.) or encountering errors during e-filing on the income tax portal.",
+    "category": "Tax",
+    "error_code": "TAX001",
+    "keywords": ["ITR", "income tax", "e-filing", "ITR-1", "ITR-2", "tax return", "AIS", "26AS", "PAN"],
+    "resolution": "1. ITR Form selection:\n   - ITR-1 (Sahaj): Salary income < 50L, one house property, other sources\n   - ITR-2: Capital gains, foreign income, multiple house properties\n   - ITR-3: Business/professional income\n   - ITR-4 (Sugam): Presumptive business income\n2. Pre-fill data: Download AIS (Annual Information Statement) and Form 26AS first\n3. PAN-Aadhaar link: mandatory — verify linking status before filing\n4. If JSON upload fails: check file is not corrupt, re-download from offline utility\n5. Verify Form 16 details match employer TDS entries in 26AS\n6. If 'Already Filed' error: check if a previous return exists for the assessment year\n7. E-verify within 30 days of filing (Aadhaar OTP, net banking, or physical CPC Bangalore)\n8. For refund: verify bank account is pre-validated on the portal"
+  },
+  {
+    "id": 15,
+    "title": "Schengen Visa — VFS/BLS Portal Appointment and Documentation",
+    "description": "Issues with booking Schengen visa appointments through VFS Global or BLS International portals, including document requirements and tracking.",
+    "category": "Visa",
+    "error_code": "VISA002",
+    "keywords": ["Schengen", "VFS", "BLS", "Europe", "visa", "appointment", "travel insurance", "itinerary", "consulate"],
+    "resolution": "1. Appointment booking: VFS releases slots at specific times — check country-specific schedule\n2. Required documents checklist:\n   - Passport valid 3+ months beyond return date with 2 blank pages\n   - Cover letter stating purpose, dates, accommodation\n   - Travel insurance: minimum 30,000 EUR coverage, valid for entire Schengen area\n   - Flight itinerary (reservation, not purchased ticket)\n   - Hotel bookings for entire stay\n   - Bank statements: last 3-6 months showing sufficient funds\n   - Employment letter with salary, leave approval, and return guarantee\n3. If 'No Appointment Available': try different VFS centers in nearby cities\n4. Photo requirements: 35mm x 45mm, white background, taken within last 6 months\n5. Tracking: use the reference number on VFS portal — status updates take 24-48 hours\n6. Processing time: standard 15 working days, but can vary by consulate"
+  },
+  {
+    "id": 16,
+    "title": "Aadhaar-Related Issues — Linking, Verification, and Updates",
+    "description": "Problems with Aadhaar (Indian biometric ID) including linking with PAN/bank/mobile, eKYC failures, and update requests.",
+    "category": "Identity",
+    "error_code": "ID001",
+    "keywords": ["Aadhaar", "UIDAI", "PAN", "link", "eKYC", "biometric", "update", "enrolment", "demographic"],
+    "resolution": "1. Aadhaar-PAN linking:\n   - Check status on incometax.gov.in > Link Aadhaar Status\n   - If mismatch: name/DOB must match exactly — update Aadhaar first\n   - Late fee may apply after deadline\n2. eKYC failures:\n   - Biometric mismatch: common if fingerprints are worn — try iris scan at enrolment center\n   - Ensure Aadhaar biometric lock is disabled (mAadhaar app > Biometric Lock)\n3. Mobile number update: only at Aadhaar enrolment center with biometric verification\n4. Address update: online via UIDAI portal with supporting document OR at enrolment center\n5. Name/DOB correction: requires visit to enrolment center with original supporting documents\n6. If Aadhaar is deactivated: visit enrolment center for reactivation\n7. Download e-Aadhaar from UIDAI portal using enrolment number or Aadhaar number + OTP"
+  },
+  {
+    "id": 17,
+    "title": "Browser Compatibility — Portal Not Working in User's Browser",
+    "description": "Portal features don't work properly in certain browsers. Buttons unresponsive, pages not rendering, Java/ActiveX requirements on legacy portals.",
+    "category": "Technical",
+    "error_code": "TECH003",
+    "keywords": ["browser", "compatibility", "Chrome", "Firefox", "Safari", "IE", "Edge", "Java", "ActiveX", "not working"],
+    "resolution": "1. Recommended browsers: Chrome (latest) or Firefox — most portals optimized for these\n2. If portal requires Java/ActiveX (legacy government portals):\n   - Use Internet Explorer 11 or Edge in IE mode\n   - Install Java Runtime Environment (JRE) and enable Java in browser\n   - Add portal URL to 'Trusted Sites' in Internet Options\n3. If digital signature (DSC) required: use IE/Edge with appropriate browser plugin\n4. Disable hardware acceleration: Chrome > Settings > System > uncheck\n5. If PDF viewer issue: set Chrome to download PDFs instead of opening inline\n6. Mobile browser issues: some portals only work on desktop — try 'Request Desktop Site'\n7. Clear all site data: Chrome > Settings > Privacy > Site Settings > Clear data for the portal"
+  },
+  {
+    "id": 18,
+    "title": "Digital Signature Certificate (DSC) — Registration and Usage Errors",
+    "description": "Issues with Digital Signature Certificates used for e-filing tax returns, company registration (MCA), or other government submissions.",
+    "category": "Authentication",
+    "error_code": "AUTH003",
+    "keywords": ["DSC", "digital signature", "certificate", "emsigner", "USB token", "MCA", "ROC", "signing"],
+    "resolution": "1. DSC not detected:\n   - Install the portal's signing utility (e.g., Signer.Digital, emsigner)\n   - Insert USB token BEFORE opening the portal\n   - Install USB token drivers from the vendor (e-Mudhra, Sify, Capricorn)\n2. Certificate expired: renew with the issuing CA — takes 1-2 business days\n3. 'Certificate not registered' on MCA portal:\n   - Register DSC in MCA portal user settings first\n   - DSC class must be Class 3 for MCA filings\n4. If emsigner shows 'No certificates found':\n   - Check Windows Certificate Manager (certmgr.msc) — DSC should appear under 'Personal'\n   - Try running the signing utility as Administrator\n5. Multiple DSC issue: ensure the correct certificate is selected (check validity dates)\n6. Browser requirement: some signing utilities only work with specific browsers (IE/Edge)\n7. If PIN locked: contact the DSC vendor for PIN reset"
+  },
+  {
+    "id": 19,
+    "title": "Duplicate Application Error — Previous Application Found",
+    "description": "User tries to create a new application but portal shows error that an existing/duplicate application already exists for the same purpose.",
+    "category": "Forms",
+    "error_code": "FORM002",
+    "keywords": ["duplicate", "already exists", "previous application", "reapply", "withdraw", "cancel"],
+    "resolution": "1. Check 'My Applications' or 'Application History' — a previous submission may exist\n2. If previous application is still 'In Process': cannot create new one until it's resolved\n3. Options:\n   a. Wait for previous application to be processed/rejected\n   b. Withdraw/cancel the previous application if the portal allows\n   c. Contact helpdesk to manually cancel the old application\n4. If previous application was rejected: check if there's a reapply option with the same credentials\n5. Some portals require a waiting period between applications (30-90 days for visa)\n6. If it's a genuine new application (different purpose/year): contact support — may be a system glitch\n7. Document the previous application number for reference"
+  },
+  {
+    "id": 20,
+    "title": "Passport Services — Application Tracking and Appointment Issues",
+    "description": "Issues with passport application portal including new/renewal application errors, appointment scheduling at Passport Seva Kendra, and document requirements.",
+    "category": "Identity",
+    "error_code": "ID002",
+    "keywords": ["passport", "Passport Seva", "PSK", "POPSK", "renewal", "reissue", "appointment", "police verification"],
+    "resolution": "1. Application types:\n   - Fresh: first time or name change\n   - Reissue: renewal, pages exhausted, damaged, lost\n   - Tatkal: expedited processing (additional fee)\n2. Appointment booking:\n   - Login to passportindia.gov.in > 'Schedule Appointment'\n   - Choose PSK (Passport Seva Kendra) or POPSK (Post Office)\n   - Slots released daily — try early morning (around 6 AM IST)\n3. If no slots available: try different PSK locations\n4. Required at appointment: printout of application receipt, original documents, fee payment receipt\n5. Police verification: happens after appointment — status shown in portal\n6. If application shows 'Granted': passport will be dispatched via Speed Post — track with consignment number\n7. Address proof options: Aadhaar, utility bill, bank statement (last 3 months)\n8. For minors: both parents' consent and presence required"
+  }
+]

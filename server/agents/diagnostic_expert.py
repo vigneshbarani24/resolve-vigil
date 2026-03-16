@@ -1,15 +1,14 @@
 """
-SAP Expert ADK Agent (pluggable).
+Diagnostic Expert Agent (pluggable).
 
-When ENABLE_ADK=true, this agent handles complex SAP queries
-that need multi-step reasoning (e.g., diagnosing intermittent
-errors, planning configuration changes, analyzing cross-module
-impacts).
+When ENABLE_ADK=true, this agent handles complex IT support queries
+that need multi-step reasoning (e.g., diagnosing cross-portal issues,
+analyzing authentication chains, troubleshooting payment flows).
 
 For simple lookups, the direct tool functions are faster.
 This agent adds value for:
   - Multi-step diagnostic flows
-  - Cross-referencing KB + error codes + transaction context
+  - Cross-referencing KB + error codes + portal context
   - Generating resolution plans with dependencies
 """
 import os
@@ -26,54 +25,54 @@ try:
         from google.adk import Agent
         from google.adk.tools import FunctionTool
         _ADK_AVAILABLE = True
-        logger.info("ADK available — SAP Expert Agent enabled")
+        logger.info("ADK available — Diagnostic Expert Agent enabled")
 except ImportError:
-    logger.info("google-adk not installed — SAP Expert Agent disabled (direct tools only)")
+    logger.info("google-adk not installed — Diagnostic Expert Agent disabled (direct tools only)")
 
 
-async def diagnose_sap_issue(
+async def diagnose_issue(
     error_description: str,
-    transaction_code: str = "",
-    module: str = "",
+    portal_page: str = "",
+    category: str = "",
     screenshot_context: str = "",
 ) -> str:
     """
-    Complex SAP issue diagnosis using ADK agent (if available)
+    Complex IT helpdesk issue diagnosis using ADK agent (if available)
     or fallback to simple heuristic analysis.
     """
     if _ADK_AVAILABLE:
-        return await _adk_diagnose(error_description, transaction_code, module, screenshot_context)
+        return await _adk_diagnose(error_description, portal_page, category, screenshot_context)
     else:
-        return _simple_diagnose(error_description, transaction_code, module)
+        return _simple_diagnose(error_description, portal_page, category)
 
 
 def _simple_diagnose(
     error_description: str,
-    transaction_code: str = "",
-    module: str = "",
+    portal_page: str = "",
+    category: str = "",
 ) -> str:
     """Fallback diagnosis without ADK."""
     from server.tools.kb_search import search_knowledge_base
-    from server.tools.sap_lookup import lookup_sap_error, lookup_transaction_code
+    from server.tools.portal_lookup import lookup_error_code, lookup_portal_page
 
     results = {}
 
     # Search KB
-    kb_result = search_knowledge_base(f"{error_description} {transaction_code} {module}")
+    kb_result = search_knowledge_base(f"{error_description} {portal_page} {category}")
     results["knowledge_base"] = json.loads(kb_result)
 
-    # Look up transaction code if provided
-    if transaction_code:
-        tcode_result = lookup_transaction_code(transaction_code)
-        results["transaction_info"] = json.loads(tcode_result)
+    # Look up portal page if provided
+    if portal_page:
+        page_result = lookup_portal_page(portal_page)
+        results["page_info"] = json.loads(page_result)
 
     # Extract potential error codes from description
     import re
-    error_codes = re.findall(r'[A-Z]{1,3}\d{3,4}', error_description.upper())
+    error_codes = re.findall(r'[A-Z]{2,5}\d{3}', error_description.upper())
     if error_codes:
         results["error_lookups"] = []
         for code in error_codes[:3]:
-            lookup = lookup_sap_error(code)
+            lookup = lookup_error_code(code)
             results["error_lookups"].append(json.loads(lookup))
 
     return json.dumps({
@@ -85,36 +84,36 @@ def _simple_diagnose(
 
 async def _adk_diagnose(
     error_description: str,
-    transaction_code: str = "",
-    module: str = "",
+    portal_page: str = "",
+    category: str = "",
     screenshot_context: str = "",
 ) -> str:
     """Full ADK-powered diagnosis (requires google-adk)."""
     # This would create an ADK agent with sub-tools
     # and run a multi-step diagnostic flow
     # Placeholder for when ADK is enabled
-    return _simple_diagnose(error_description, transaction_code, module)
+    return _simple_diagnose(error_description, portal_page, category)
 
 
 # Declaration for Gemini function calling
 DIAGNOSIS_DECLARATIONS = [
     {
-        "name": "diagnose_sap_issue",
-        "description": "Perform a comprehensive diagnosis of a complex SAP issue. Use this for problems that need cross-referencing multiple data sources (error codes, KB articles, transaction context). For simple error lookups, use lookup_sap_error instead.",
+        "name": "diagnose_issue",
+        "description": "Perform a comprehensive diagnosis of a complex IT helpdesk issue. Use this for problems that need cross-referencing multiple data sources (error codes, KB articles, portal context). For simple error lookups, use lookup_error_code instead.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "error_description": {
                     "type": "STRING",
-                    "description": "Detailed description of the SAP issue or error"
+                    "description": "Detailed description of the IT helpdesk issue or error"
                 },
-                "transaction_code": {
+                "portal_page": {
                     "type": "STRING",
-                    "description": "SAP transaction code where the issue occurred"
+                    "description": "Portal page or section where the issue occurred"
                 },
-                "module": {
+                "category": {
                     "type": "STRING",
-                    "description": "SAP module (SD, MM, FI, PP, CO, BASIS, etc.)"
+                    "description": "Issue category (Authentication, Payments, Forms, Documents, Technical, Visa, Tax)"
                 },
                 "screenshot_context": {
                     "type": "STRING",

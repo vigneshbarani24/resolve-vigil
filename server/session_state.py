@@ -1,9 +1,9 @@
 """
-Session State Management for Guardian.
+Session State Management for Resolve.
 
 Tracks diagnostic checkpoints, transcript, issues, tickets,
 and agent guidance throughout a support session. Provides
-RCA report generation, transcript export, and call summary.
+diagnostic report generation, transcript export, and call summary.
 """
 import uuid
 import logging
@@ -34,13 +34,13 @@ class TranscriptEntry:
 _DEFAULT_CHECKPOINTS = {
     "initiation": [
         "Capture error details",
-        "Identify SAP module",
+        "Identify issue category",
         "Assess business impact",
     ],
     "diagnosis": [
         "Search knowledge base",
         "Lookup error codes",
-        "Run diagnostic T-codes",
+        "Check portal status",
     ],
     "troubleshoot": [
         "Apply KB resolution",
@@ -50,8 +50,8 @@ _DEFAULT_CHECKPOINTS = {
     "resolution": [
         "Document root cause",
         "Create ITSM ticket",
-        "Generate RCA report",
-        "Provide L2 guidance",
+        "Generate diagnostic report",
+        "Provide specialist guidance",
     ],
 }
 
@@ -118,7 +118,7 @@ class SessionState:
         """Generate a plain-text Root Cause Analysis report."""
         lines = []
         lines.append("=" * 60)
-        lines.append("GUARDIAN — ROOT CAUSE ANALYSIS REPORT")
+        lines.append("RESOLVE — DIAGNOSTIC REPORT")
         lines.append("=" * 60)
         lines.append("")
 
@@ -126,7 +126,7 @@ class SessionState:
         lines.append("## Incident Summary")
         lines.append(f"Session ID : {self.session_id}")
         lines.append(f"Language   : {self.language}")
-        lines.append(f"SAP Module : {self.module or 'Not identified'}")
+        lines.append(f"Category   : {self.module or 'Not identified'}")
         lines.append(f"Priority   : {self.priority or 'Not set'}")
         lines.append(f"Stage      : {self.stage}")
         lines.append(f"Start Time : {self.start_time}")

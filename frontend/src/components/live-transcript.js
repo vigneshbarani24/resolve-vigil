@@ -23,7 +23,7 @@ class LiveTranscript extends HTMLElement {
         this.updateTranscript('model', text, isFinal);
     }
 
-    /** Show "Jessica is thinking..." indicator */
+    /** Show "Theepa is thinking..." indicator */
     showThinking() {
         this._removeIndicator();
         const container = this.shadowRoot.querySelector('.transcript-container');
@@ -31,12 +31,12 @@ class LiveTranscript extends HTMLElement {
         const indicator = document.createElement('div');
         indicator.className = 'status-indicator thinking';
         indicator.id = 'status-indicator';
-        indicator.innerHTML = '<span class="dot-pulse"></span> Jessica is thinking...';
+        indicator.innerHTML = '<span class="dot-pulse"></span> Theepa is thinking...';
         container.appendChild(indicator);
         container.scrollTop = container.scrollHeight;
     }
 
-    /** Show "Jessica is speaking..." indicator */
+    /** Show "Theepa is speaking..." indicator */
     showSpeaking() {
         this._removeIndicator();
         const container = this.shadowRoot.querySelector('.transcript-container');
@@ -44,7 +44,7 @@ class LiveTranscript extends HTMLElement {
         const indicator = document.createElement('div');
         indicator.className = 'status-indicator speaking';
         indicator.id = 'status-indicator';
-        indicator.innerHTML = '<span class="dot-pulse"></span> Jessica is speaking...';
+        indicator.innerHTML = '<span class="dot-pulse"></span> Theepa is speaking...';
         container.appendChild(indicator);
         container.scrollTop = container.scrollHeight;
     }
@@ -95,7 +95,7 @@ class LiveTranscript extends HTMLElement {
 
             const label = document.createElement('span');
             label.className = 'bubble-label';
-            label.textContent = role === 'user' ? 'You' : 'SAP Agent';
+            label.textContent = role === 'user' ? 'You' : 'Resolve Agent';
             bubble.appendChild(label);
 
             container.appendChild(bubble);
@@ -103,7 +103,7 @@ class LiveTranscript extends HTMLElement {
         }
 
         const currentText = bubble.textContent;
-        const labelText = role === 'user' ? 'You' : 'SAP Agent';
+        const labelText = role === 'user' ? 'You' : 'Resolve Agent';
         const contentText = currentText.replace(labelText, '').trim();
         if (contentText.length > 0 && !contentText.endsWith(' ') && !text.startsWith(' ')) {
             if (/^[a-zA-Z0-9\u00C0-\u024F]/.test(text)) {

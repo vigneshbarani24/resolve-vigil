@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Deploy Guardian to Cloud Run
+# Deploy Resolve to Cloud Run
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID environment variable}"
 REGION="${REGION:-us-central1}"
-SERVICE_NAME="${SERVICE_NAME:-guardian}"
+SERVICE_NAME="${SERVICE_NAME:-resolve}"
 
 echo "==> Building frontend..."
 cd frontend && npm run build && cd ..
