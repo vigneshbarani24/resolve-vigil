@@ -25,7 +25,7 @@ And when something does go wrong — IT support is broken. The average ticket ta
 
 ## Architecture
 
-![Architecture Diagram](docs/Vigil-Architecture.png)
+![Architecture Diagram](docs/platform-architecture.png)
 
 ```
                     ┌──────────────────────────────────────────────────────┐
@@ -234,6 +234,58 @@ export PROJECT_ID=your-project-id
 bash deploy.sh        # Standard deploy
 bash deploy.sh --adk  # With ADK multi-agent
 ```
+
+---
+
+## Reproducible Testing Instructions (for Judges)
+
+### Option A: Use the Live Demo (fastest)
+1. Visit **https://resolve-743776360861.us-central1.run.app**
+2. The web app loads — you can see the home page with agent status
+3. Click **Start Voice Session** → speak to Theepa (needs mic permission)
+4. Check the **System Logs** tab to see real-time agent transfers + tool calls
+
+### Option B: Test the Chrome Extension
+1. Clone the repo: `git clone https://github.com/vigneshbarani24/resolve-vigil.git`
+2. Open `chrome://extensions/` → Enable **Developer mode**
+3. Click **Load unpacked** → select the `extension/` folder
+4. Click the Vigil icon → enter `https://resolve-743776360861.us-central1.run.app` as server → **Connect**
+5. Browse to any page — shield auto-scans, badge shows ✓ (safe) or !! (threat)
+6. Open the extension popup → see 5-layer breakdown (OSINT, Web Risk, Vision, Search, Claims)
+7. Click the **Voice** tab → mic button starts a Gemini Live voice session
+
+### Option C: Run Locally
+```bash
+git clone https://github.com/vigneshbarani24/resolve-vigil.git
+cd resolve-vigil
+pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
+cp .env.example .env  # Edit: set PROJECT_ID=your-gcp-project-id
+python -m uvicorn server.main:app --host 0.0.0.0 --port 8080
+```
+Then load the Chrome extension pointing at `http://localhost:8080`.
+
+### What to Test
+| Test | Expected Result |
+|------|----------------|
+| Visit `google.com` with extension | Green ✓ badge — SAFE (known trusted domain) |
+| Visit a suspicious URL | Red !! badge + warning banner + danger zone annotations |
+| Open extension popup on any page | 5-layer findings: OSINT score, Web Risk, Vision analysis, Search verification, Content claims |
+| Visit a Reddit post claiming to be from a brand | Content Claim Verification fires — checks official source |
+| Start voice session → "Is this page safe?" | Vigil shield scan via voice, result spoken back |
+| Start voice session → "I can't find the submit button" | Page annotations appear highlighting the element |
+| Start voice session → "I'm getting error AUTH-003" | IT diagnostic flow: KB search → error lookup → resolution |
+| Check System Logs tab during voice session | Real-time agent transfers (Theepa → Vigil → Threat Intel) + tool calls visible |
+
+### Google Cloud Deployment Proof
+- **Live URL**: https://resolve-743776360861.us-central1.run.app
+- **Health check**: https://resolve-743776360861.us-central1.run.app/health
+- **Deploy script**: [`deploy.sh`](deploy.sh) — one-command Cloud Run deployment
+- **Terraform IaC**: [`terraform/`](terraform/) — Cloud Run + Artifact Registry + IAM
+- **Dockerfile**: [`Dockerfile`](Dockerfile) — Python 3.11 + FastAPI + Vite frontend
+- **Vertex AI usage**: [`server/tools/shield_analyzer.py`](server/tools/shield_analyzer.py) — Gemini Vision + Search grounding
+- **Gemini Live API**: [`server/gemini_live.py`](server/gemini_live.py) — bidirectional voice streaming
+- **Web Risk API**: [`server/tools/shield_analyzer.py#L297`](server/tools/shield_analyzer.py) — Google Web Risk API integration
 
 ---
 
