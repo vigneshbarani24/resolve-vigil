@@ -57,15 +57,6 @@ const $verdictText = $('#verdict-text');
 const $threatDetails = $('#threat-details');
 const $scanNowBtn = $('#scan-now-btn');
 
-// Assist
-const $assistSection = $('#assist-section');
-const $assistInput = $('#assist-input');
-const $guideBtn = $('#guide-btn');
-const $assistResult = $('#assist-result');
-const $assistExplanation = $('#assist-explanation');
-const $assistActionCount = $('#assist-action-count');
-const $executeAllBtn = $('#execute-all-btn');
-
 // Shared
 const $loading = $('#loading');
 const $loadingText = $('#loading-text');
@@ -82,8 +73,6 @@ const $statusServerVal = $('#status-server-val');
 
 let isConnected = false;
 let isAnalyzing = false;
-let lastAssistActions = [];
-
 /* ──────────────────── Init ──────────────────── */
 
 async function init() {
@@ -101,7 +90,6 @@ async function init() {
 
   if (isConnected) {
     $shieldSection.classList.remove('hidden');
-    $assistSection.classList.remove('hidden');
   }
 
   checkConnection();
@@ -123,10 +111,8 @@ function setConnected(connected) {
 
   if (connected) {
     $shieldSection.classList.remove('hidden');
-    $assistSection.classList.remove('hidden');
   } else {
     $shieldSection.classList.add('hidden');
-    $assistSection.classList.add('hidden');
   }
 }
 
@@ -302,72 +288,6 @@ async function handleShieldScan() {
   }
 }
 
-/* ──────────────────── Assist ──────────────────── */
-
-async function handleAssist() {
-  const query = $assistInput.value.trim();
-  if (!query || isAnalyzing) return;
-
-  showLoading(true, 'Analyzing page...');
-  $assistResult.classList.add('hidden');
-  $error.classList.add('hidden');
-  lastAssistActions = [];
-
-  try {
-    const result = await sendMessage({
-      type: 'analyze_page',
-      instruction: query,
-      language: $languageSelect.value,
-    });
-
-    if (result.error) {
-      showError(result.error);
-      return;
-    }
-
-    const explanation = result.explanation || 'No guidance available.';
-    const actions = result.actions || [];
-    lastAssistActions = actions;
-
-    $assistExplanation.textContent = explanation;
-    $assistActionCount.textContent = actions.length > 0
-      ? `${actions.length} action${actions.length > 1 ? 's' : ''} found`
-      : 'No actions needed';
-    $executeAllBtn.classList.toggle('hidden', actions.length === 0);
-    $assistResult.classList.remove('hidden');
-  } catch (err) {
-    showError(err.message || 'Assist failed');
-  } finally {
-    showLoading(false);
-  }
-}
-
-async function handleExecuteAll() {
-  if (!lastAssistActions.length || isAnalyzing) return;
-
-  showLoading(true, 'Executing actions...');
-  $error.classList.add('hidden');
-
-  try {
-    const result = await sendMessage({
-      type: 'execute_actions',
-      actions: lastAssistActions,
-    });
-
-    if (result.error) {
-      showError(result.error);
-    } else {
-      $assistExplanation.textContent = 'Actions executed successfully.';
-      $executeAllBtn.classList.add('hidden');
-      $assistActionCount.textContent = 'Done';
-    }
-  } catch (err) {
-    showError(err.message || 'Execution failed');
-  } finally {
-    showLoading(false);
-  }
-}
-
 /* ──────────────────── Connection ──────────────────── */
 
 async function sendMessage(msg) {
@@ -404,11 +324,6 @@ async function handleConnect() {
 
 $connectBtn.addEventListener('click', handleConnect);
 $scanNowBtn.addEventListener('click', handleShieldScan);
-$guideBtn.addEventListener('click', handleAssist);
-$executeAllBtn.addEventListener('click', handleExecuteAll);
-$assistInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') handleAssist();
-});
 $('#clear-shield-btn').addEventListener('click', clearShieldResult);
 $languageSelect.addEventListener('change', () => {
   sendMessage({ type: 'save_settings', language: $languageSelect.value });

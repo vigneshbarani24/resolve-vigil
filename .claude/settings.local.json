@@ -52,7 +52,11 @@
       "Bash(cd \"/c/KaarTech UK/Hackathons/Google Live Agent/resolve-submission\" && sed -i \"s/Resolve + Vigil — Neural Command Design System/Vigil — Design System/g\" frontend/src/styles.css && sed -i \"s/Resolve Agent/Vigil Agent/g\" frontend/src/components/live-transcript.js && sed -i \"s/Resolve — IT Helpdesk Diagnostic Report/Vigil — Diagnostic Report/g\" frontend/src/components/view-summary.js)",
       "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\frontend\" && npm run build 2>&1)",
       "Bash(cp -r \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\frontend\\\\dist\"/* \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\static/\" 2>&1 || echo \"No static dir, checking structure...\" && ls \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\server/\" | head -5)",
-      "Bash(cp -r \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\frontend\\\\dist\"/* \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\dist/\" 2>&1)"
+      "Bash(cp -r \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\frontend\\\\dist\"/* \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\\\\dist/\" 2>&1)",
+      "Bash(cd \"C:\\\\KaarTech UK\\\\Hackathons\\\\Google Live Agent\\\\resolve-submission\" && python -m uvicorn server.main:app --host 0.0.0.0 --port 8080 2>&1)",
+      "Bash(sleep 3 && curl -s http://localhost:8080/health 2>&1)",
+      "Bash(netstat -ano | grep \":8080\" | head -3)",
+      "Bash(taskkill //PID 14260 //F 2>&1)"
     ]
   }
 }
