@@ -38,7 +38,7 @@ cd terraform && terraform init && terraform apply
 
 ## Architecture
 - **Primary Mode**: FastAPI + WebSocket → Gemini Live API (bidirectional voice/vision streaming)
-- **ADK Mode** (optional): Google ADK multi-agent — researcher sub-agent (google_search) + Theepa agent (9 FunctionTools)
+- **ADK Mode** (optional): Google ADK 4-agent hierarchy — Theepa root (8 FunctionTools) + Vigil sub-agent (7 shield tools) + Researcher (google_search) + Threat Intel (google_search)
 - **Voice Model**: `gemini-live-2.5-flash-native-audio` via Vertex AI
 - **Vision/Research Model**: `gemini-2.5-flash` via Vertex AI
 - **Shield Layer 1**: Google Web Risk API (known threat database)
