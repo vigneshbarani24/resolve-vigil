@@ -19,6 +19,16 @@ from server.tools.issue_tracker import create_issue, ISSUE_DECLARATIONS
 from server.agents.diagnostic_expert import diagnose_issue, DIAGNOSIS_DECLARATIONS
 from server.tools.search_grounding import research_support_topic, SEARCH_GROUNDING_DECLARATIONS
 from server.tools.ui_navigator import navigate_user_browser, UI_NAVIGATOR_DECLARATIONS
+from server.tools.vigil_tools import (
+    scan_url_safety,
+    check_domain_reputation,
+    analyze_page_for_threats,
+    verify_domain_legitimacy,
+    detect_fake_content,
+    report_threat,
+    highlight_danger_zones,
+    VIGIL_TOOL_DECLARATIONS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +41,12 @@ TOOL_DECLARATIONS: List[Dict] = [
     *DIAGNOSIS_DECLARATIONS,
     *SEARCH_GROUNDING_DECLARATIONS,
     *UI_NAVIGATOR_DECLARATIONS,
+    *VIGIL_TOOL_DECLARATIONS,
 ]
 
 # Map of function_name -> callable
 _TOOL_HANDLERS = {
+    # IT Helpdesk tools
     "search_knowledge_base": search_knowledge_base,
     "create_itsm_ticket": create_itsm_ticket,
     "update_itsm_ticket": update_itsm_ticket,
@@ -44,6 +56,14 @@ _TOOL_HANDLERS = {
     "diagnose_issue": diagnose_issue,
     "research_support_topic": research_support_topic,
     "navigate_user_browser": navigate_user_browser,
+    # Vigil Shield tools
+    "scan_url_safety": scan_url_safety,
+    "check_domain_reputation": check_domain_reputation,
+    "analyze_page_for_threats": analyze_page_for_threats,
+    "verify_domain_legitimacy": verify_domain_legitimacy,
+    "detect_fake_content": detect_fake_content,
+    "report_threat": report_threat,
+    "highlight_danger_zones": highlight_danger_zones,
 }
 
 
