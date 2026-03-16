@@ -32,6 +32,8 @@ These aren't separate problems. They're the same problem: **people need an AI th
 
 ### 1. Vigil Shield — 5-Layer Scam Detection (Chrome Extension)
 
+![Vigil Shield in Action](docs/vigil-shield.png)
+
 ![5-Layer Detection Pipeline](docs/2-5layer-detection-pipeline.png)
 
 This is the core of Vigil. A Chrome extension that silently scans every page you visit with a 5-layer AI pipeline. No button to click — it just works:
@@ -50,6 +52,8 @@ The green checkmark on the extension icon? That means all 5 layers ran and your 
 
 ### 2. Fake Content Detection + Danger Zone Annotations
 
+![Shield Activity Log](docs/Vigil-shield-activity.png)
+
 Vigil doesn't just scan URLs — it reads the page:
 
 - **Fact-checking with citations**: "Is this article true?" → Vigil cross-references against Reuters, BBC, AP. Returns citations with source URLs.
@@ -58,6 +62,8 @@ Vigil doesn't just scan URLs — it reads the page:
 - **Content claim verification**: "Qatar Airways cancelled flights" on Reddit → Vigil checks qatarairways.com + Reuters/BBC/AP. Returns verified, unverified, or debunked with annotation overlays.
 
 ### 3. Voice-First IT Support (Theepa)
+
+![Vigil Help Assistant](docs/vigil-help-assistant.png)
 
 We extended the same Gemini-powered architecture to enterprise IT support. You talk to Theepa like a real person. She listens, sees your screen, and runs through a 4-stage diagnostic protocol:
 
@@ -87,6 +93,8 @@ Voice is the single control plane. One conversation handles diagnosis AND page n
 ---
 
 ## How We Built It
+
+![Vigil Home Screen](docs/vigil.png)
 
 ![System Architecture](docs/1-architecture.png)
 
@@ -175,6 +183,10 @@ Google ADK with **four agents** in a hierarchical graph:
 - **Voice-driven UI navigation** — no other submission does this. The voice agent controls the Chrome extension mid-conversation to annotate and interact with the user's page.
 - **20 languages, one model** — native speech-to-speech, not translation. The model thinks in the target language.
 - **Transparent AI** — every agent transfer, tool call, and reasoning step is visible in the extension's live activity log. Judges can SEE the orchestration happening.
+
+![Live Tracking Logs](docs/live-tracking-logs.png)
+
+![Screensharing Option](docs/screensharing-option.png)
 - **Solo build** — one developer, full stack: backend, frontend, Chrome extension, Terraform, deployment.
 - **It actually works** — live demo at the URL above. Try it. Scan a page. Break it if you can.
 
