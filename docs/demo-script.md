@@ -14,7 +14,7 @@
 **[Show: Frustrated user on a government portal / support ticket queue]**
 
 **Narration:**
-> "IT support wastes billions every year. The average ticket takes hours — most of that time is back-and-forth gathering basic information. And while users wait, they're navigating phishing pages and scam sites that slip past every filter. What if two AI agents could solve both problems at once?"
+> "IT support wastes billions every year. The average ticket takes hours — most of that time is back-and-forth gathering basic information. And while users wait, they're navigating phishing pages and scam sites that slip past every filter. What if four AI agents could solve both problems at once?"
 
 ---
 
