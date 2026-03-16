@@ -5,7 +5,7 @@
 - **Categories**: Live Agents + UI Navigator
 - **Hackathon**: Gemini Live Agent Challenge (Devpost)
 - **Deadline**: Mar 17, 2026 @ 5:30am GMT+5:30
-- **Prize Pool**: $80,000 | **Team**: Solo (KaarTech UK)
+- **Prize Pool**: $80,000 | **Team**: Solo
 - **Framework**: Google ADK (`google-adk`) + FastAPI/WebSocket (primary mode)
 
 ## Quick Start

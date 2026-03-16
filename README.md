@@ -276,7 +276,7 @@ Gemini Live API, Gemini 2.5 Flash, Vertex AI, Google ADK, Google Web Risk API, G
 Live Agents, UI Navigator
 
 ## Team
-**KaarTech UK** (Solo) — Built for the Gemini Live Agent Challenge
+**Solo Developer** — Built for the Gemini Live Agent Challenge
 
 ---
 

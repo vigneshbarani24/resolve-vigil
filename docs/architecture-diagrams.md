@@ -1,6 +1,6 @@
 # Vigil — Architecture Diagrams
 
-**Vigil** is an AI-powered IT support and scam protection platform developed by KaarTech UK. At its core is a **voice-first support agent** powered by the Gemini Live API. The agent sees the user's screen, listens to their voice, diagnoses IT issues in real time, and manages the full lifecycle of incident resolution. Simultaneously, the **Vigil Shield** Chrome extension runs a 4-layer scam detection pipeline on every page the user visits.
+**Vigil** is an AI-powered IT support and scam protection platform developed by a solo developer. At its core is a **voice-first support agent** powered by the Gemini Live API. The agent sees the user's screen, listens to their voice, diagnoses IT issues in real time, and manages the full lifecycle of incident resolution. Simultaneously, the **Vigil Shield** Chrome extension runs a 4-layer scam detection pipeline on every page the user visits.
 
 This document provides a comprehensive set of architecture diagrams covering the system's major components, data flows, and deployment topology.
 
@@ -572,4 +572,4 @@ flowchart LR
 
 ---
 
-*This document is maintained as part of the Vigil project by KaarTech UK for the Gemini Live Agent Challenge.*
+*This document is maintained as part of the Vigil project by a solo developer for the Gemini Live Agent Challenge.*

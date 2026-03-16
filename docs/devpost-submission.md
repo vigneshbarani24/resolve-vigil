@@ -144,7 +144,7 @@ Gemini Live API, Vertex AI, Google Cloud Run, Google GenAI SDK, Google ADK, Goog
 Live Agents, UI Navigator
 
 ## Team
-KaarTech UK (Solo)
+Solo Developer
 
 ## Links
 - **Live Demo**: https://resolve-743776360861.us-central1.run.app
