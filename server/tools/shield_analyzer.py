@@ -1,18 +1,17 @@
 """
-Shield Analyzer — Gemini Vision-based scam/phishing detection.
+Shield Analyzer (Vigil) — Multi-layer scam/phishing detection.
 
-Analyzes page screenshots + DOM metadata to detect:
-- Fake/impersonation websites (e.g., fake bank, fake government portal)
-- Phishing forms collecting credentials
-- Scam transaction pages designed to steal money
-- Suspicious URLs/domains mimicking legitimate services
-- Fake news and misleading content on social media
+Three detection layers:
+1. Google Web Risk API — checks URL against Google's known phishing/malware database
+2. Gemini Vision — analyzes screenshot + DOM for visual impersonation/scam indicators
+3. Google Search Grounding — cross-references domain against scam reports on the web
 
 Domain-agnostic — works on any website.
 """
 import json
 import logging
 import os
+from urllib.parse import urlparse
 
 import google.genai as genai
 from google.genai import types
@@ -100,6 +99,49 @@ SHIELD_RESPONSE_SCHEMA = {
     },
     "required": ["threat_level", "summary", "threats", "recommendation"],
 }
+
+
+async def _check_web_risk(page_url: str) -> dict:
+    """Check URL against Google Web Risk API for known threats.
+
+    Returns dict with is_threat (bool), threat_types (list), and detail (str).
+    Free for 100k lookups/month.
+    """
+    try:
+        from google.cloud import webrisk_v1
+        from google.cloud.webrisk_v1 import ThreatType
+
+        client = webrisk_v1.WebRiskServiceClient()
+
+        response = client.search_uris(
+            uri=page_url,
+            threat_types=[
+                ThreatType.SOCIAL_ENGINEERING,
+                ThreatType.MALWARE,
+                ThreatType.UNWANTED_SOFTWARE,
+            ],
+        )
+
+        if response.threat:
+            threat_names = []
+            for threat in response.threat.threat_types:
+                name = ThreatType(threat).name
+                threat_names.append(name)
+
+            return {
+                "is_threat": True,
+                "threat_types": threat_names,
+                "detail": f"Google Web Risk: URL flagged as {', '.join(threat_names)}",
+            }
+
+        return {"is_threat": False, "threat_types": [], "detail": ""}
+
+    except ImportError:
+        logger.info("google-cloud-webrisk not installed, skipping Web Risk check")
+        return {"is_threat": False, "threat_types": [], "detail": ""}
+    except Exception as e:
+        logger.warning(f"Web Risk API check failed: {e}")
+        return {"is_threat": False, "threat_types": [], "detail": ""}
 
 
 async def _search_domain_reputation(client, page_url: str, page_title: str = "") -> str:
@@ -193,6 +235,9 @@ async def analyze_page_safety(
             types.Part.from_text(text=user_prompt),
         ]
 
+        # ── Step 0: Google Web Risk API (known threat database) ──
+        web_risk_result = await _check_web_risk(page_url) if page_url else {"is_threat": False}
+
         # ── Step 1: Vision analysis (screenshot + DOM) ──
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -226,9 +271,20 @@ async def analyze_page_safety(
             except Exception as se:
                 logger.warning(f"Shield search grounding failed: {se}")
 
-        # ── Step 3: Merge vision + search results ──
+        # ── Step 3: Merge all layers ──
+
+        # Layer 0: Web Risk API (Google's known threat database)
+        if web_risk_result.get("is_threat"):
+            vision_result["threat_level"] = "critical"
+            vision_result["threats"] = [
+                web_risk_result["detail"]
+            ] + vision_result.get("threats", [])
+            vision_result["summary"] = (
+                f"BLOCKED by Google Web Risk: {', '.join(web_risk_result.get('threat_types', []))}"
+            )
+
+        # Layer 2: Google Search grounding
         if search_context:
-            # If search found scam reports, escalate threat level
             vision_result["search_intel"] = search_context
             if "scam" in search_context.lower() or "phishing" in search_context.lower() or "fraud" in search_context.lower():
                 current = vision_result.get("threat_level", "safe")
@@ -236,7 +292,7 @@ async def analyze_page_safety(
                 if current in escalation:
                     vision_result["threat_level"] = escalation[current]
                     vision_result["threats"] = vision_result.get("threats", []) + [
-                        f"Google Search reports scam/fraud activity associated with this domain"
+                        "Google Search reports scam/fraud activity associated with this domain"
                     ]
 
         return {
@@ -247,6 +303,8 @@ async def analyze_page_safety(
             "impersonating": vision_result.get("impersonating", ""),
             "recommendation": vision_result.get("recommendation", ""),
             "search_intel": vision_result.get("search_intel", ""),
+            "web_risk": web_risk_result,
+            "layers_used": ["web_risk_api", "gemini_vision", "google_search_grounding"],
             "success": True,
         }
 
