@@ -37,7 +37,7 @@ Bidirectional WebSocket streams audio and JSON between the browser and Gemini Li
 ### Chrome Extension (Manifest V3)
 The extension does two things:
 1. **UI Navigator**: Captures DOM elements with bounding rectangles, sends to Gemini Vision, receives structured actions (highlight, click, fill, scroll), and executes them on the page
-2. **Vigil Shield**: Auto-scans every page via 3-layer detection (Web Risk API → Gemini Vision → Google Search grounding)
+2. **Vigil Shield**: Auto-scans every page via 4-layer detection (OSINT heuristics → Web Risk API → Gemini Vision → Google Search grounding with de-escalation)
 
 ### AI Layer (Gemini Live + Gemini Flash + Web Risk)
 Three AI services work together:

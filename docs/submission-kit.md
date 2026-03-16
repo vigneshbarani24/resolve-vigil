@@ -62,7 +62,7 @@
 
 1:45 - 2:15  Architecture Flash:
              - Show architecture diagram
-             - Mention: 8 tools, 4-layer shield, 20 languages, ADK multi-agent
+             - Mention: 4 agents, 16 tools, 4-layer shield, 20 languages, ADK multi-agent
              - Show Cloud Run deployment
 
 2:15 - 2:30  Close: "Vigil. Voice-first IT support and real-time scam

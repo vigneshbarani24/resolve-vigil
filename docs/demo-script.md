@@ -23,7 +23,7 @@
 **[Show: Resolve home screen — dark UI with professional design]**
 
 **Narration:**
-> "This is Resolve + Vigil. Two AI agents, one platform. Meet Theepa — a voice-first IT support agent who sees your screen, speaks 20 languages, and runs 9 tools simultaneously. And Vigil — a scam shield that auto-scans every page you visit."
+> "This is Resolve + Vigil. Four AI agents, one platform. Meet Theepa — a voice-first IT support agent who sees your screen, speaks 20 languages, and orchestrates 16 tools across 4 agents. And Vigil — a security sub-agent with 7 shield tools that auto-scans every page you visit, fact-checks content, and highlights danger zones."
 
 **[Click "Start Session" button]**
 

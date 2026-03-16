@@ -327,7 +327,7 @@ Sequence:
 
 1. Browser → Server: "WebSocket Connect /ws/session?token=xxx"
 2. Server → Gemini: "Live Connect (gemini-live-2.5-flash-native-audio)"
-   Config: system_instruction (240-line Theepa prompt), voice config, 9 tool declarations
+   Config: system_instruction (240-line Theepa prompt), voice config, 16 tool declarations
 3. Browser → Server: "Audio chunks (PCM16 base64, ~60ms intervals)"
    Note on Browser: "AudioWorklet capture-processor.js → PCM16 @ 16kHz"
 4. Server → Gemini: "Forward audio stream"

@@ -23,7 +23,7 @@
 |-------------------|---------------|
 | GenAI SDK or ADK usage | ADK multi-agent (FunctionTool, sub-agents) + google-genai SDK |
 | Google Cloud backend | Cloud Run + Vertex AI + Web Risk API |
-| Sound agent logic | 9-tool pipeline with parallel execution + 3-layer shield |
+| Sound agent logic | 16-tool pipeline across 4 agents with parallel execution + 4-layer shield |
 | Error handling | Fallbacks, reconnection, turn gating |
 | Anti-hallucination | Google Search grounding in both Theepa and Vigil |
 | IaC deployment | Terraform + `deploy.sh` + Docker (bonus points) |
@@ -32,7 +32,7 @@
 
 | Requirement | Plan |
 |-------------|------|
-| Clear problem/solution | "IT support is broken + users get scammed" → "Two AI agents solve both" |
+| Clear problem/solution | "IT support is broken + users get scammed" → "4 AI agents solve both" |
 | Architecture diagram | ASCII in README + visual in demo video |
 | Cloud deployment proof | Cloud Run service + Terraform code |
 | Working software demo | Live: voice interaction + Chrome extension + Vigil scan |

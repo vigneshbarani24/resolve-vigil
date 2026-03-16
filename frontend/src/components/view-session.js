@@ -402,7 +402,7 @@ class ViewSession extends HTMLElement {
                     opacity: 0.4;
                 }
                 .m-viz-tag.you { color: #81c784; }
-                .m-viz-tag.jess { color: var(--color-accent-primary); }
+                .m-viz-tag.theepa { color: var(--color-accent-primary); }
 
                 /* Panel toggle badge */
                 .m-badge {
@@ -960,7 +960,7 @@ class ViewSession extends HTMLElement {
 
                         <div class="m-viz-slot">
                             <audio-visualizer id="model-viz" color="#4d9ff7"></audio-visualizer>
-                            <span class="m-viz-tag jess">Theepa</span>
+                            <span class="m-viz-tag theepa">Theepa</span>
                         </div>
                     </div>
 

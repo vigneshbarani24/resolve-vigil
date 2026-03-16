@@ -733,7 +733,12 @@ class ViewHome extends HTMLElement {
                 <div class="tab-content" id="content-overview">
                     <div class="stats">
                         <div class="stat">
-                            <div class="stat-value">9</div>
+                            <div class="stat-value">4</div>
+                            <div class="stat-label">Agents</div>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat">
+                            <div class="stat-value">16</div>
                             <div class="stat-label">Tools</div>
                         </div>
                         <div class="stat-divider"></div>
@@ -745,11 +750,6 @@ class ViewHome extends HTMLElement {
                         <div class="stat">
                             <div class="stat-value">4</div>
                             <div class="stat-label">Shield Layers</div>
-                        </div>
-                        <div class="stat-divider"></div>
-                        <div class="stat">
-                            <div class="stat-value">4</div>
-                            <div class="stat-label">Diagnostic Stages</div>
                         </div>
                     </div>
                 </div>

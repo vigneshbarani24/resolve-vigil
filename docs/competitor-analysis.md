@@ -61,7 +61,7 @@ Vigil operates at the intersection of two markets: AI-powered IT service managem
 
 | Aspect | Google Safe Browsing | Vigil Shield |
 |--------|---------------------|--------------|
-| Detection Method | URL blocklist (known threats) | 3-layer: Web Risk API + Gemini Vision + Search grounding |
+| Detection Method | URL blocklist (known threats) | 4-layer: OSINT + Web Risk API + Gemini Vision + Search grounding |
 | Visual Analysis | None | Screenshot + DOM analysis for visual scam indicators |
 | Fake Content Detection | None | AI detection of fake reviews, counterfeit logos, fabricated testimonials |
 | DOM Annotation | None | Red borders, warning overlays on dangerous elements |

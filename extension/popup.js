@@ -427,7 +427,7 @@ async function pollActivity() {
     const resp = await fetch(`${serverUrl}/api/activity`);
     if (!resp.ok) return;
     const data = await resp.json();
-    const events = data.events || [];
+    const events = data.activities || data.events || [];
 
     if (events.length > lastActivityIndex) {
       const newEvents = events.slice(lastActivityIndex);
@@ -461,7 +461,8 @@ async function pollActivity() {
     // Poll threat log
     const threatResp = await fetch(`${serverUrl}/api/threats`);
     if (threatResp.ok) {
-      const threats = await threatResp.json();
+      const threatData = await threatResp.json();
+      const threats = Array.isArray(threatData) ? threatData : (threatData.threats || []);
       if (threats.length > 0) {
         $threatSection.classList.remove('hidden');
         $threatCount.textContent = threats.length;
@@ -489,27 +490,31 @@ function createOrchEntry(ev) {
   const entry = document.createElement('div');
   entry.className = 'orch-entry';
 
-  // Determine type
+  // Determine type — server fields: category, action, detail, ts, severity
   let type = 'tool';
   let typeLabel = 'TOOL';
-  const evType = (ev.type || ev.event || '').toLowerCase();
-  const evMsg = ev.message || ev.detail || ev.event || '';
+  const evType = (ev.category || ev.type || ev.event || '').toLowerCase();
+  const evAction = ev.action || '';
+  const evMsg = ev.action ? `${ev.action}${ev.detail ? ': ' + ev.detail : ''}` : (ev.message || ev.detail || ev.event || '');
 
-  if (evType.includes('transfer') || evMsg.includes('transfer') || evMsg.includes('delegat')) {
+  if (evType.includes('transfer') || evAction.includes('transfer') || evAction.includes('delegat')) {
     type = 'transfer';
     typeLabel = 'XFER';
-  } else if (evType.includes('agent') || evMsg.includes('agent')) {
+  } else if (evType.includes('agent') || evAction.includes('agent')) {
     type = 'agent';
     typeLabel = 'AGENT';
-  } else if (evType.includes('result') || evType.includes('response')) {
+  } else if (evType.includes('result') || evType.includes('response') || evType.includes('complete')) {
     type = 'result';
     typeLabel = 'DONE';
-  } else if (evType.includes('threat') || evType.includes('shield')) {
+  } else if (evType.includes('threat') || evType.includes('shield') || evType.includes('security')) {
     type = 'threat';
     typeLabel = 'SHIELD';
+  } else if (evType.includes('tool')) {
+    type = 'tool';
+    typeLabel = 'TOOL';
   }
 
-  const time = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+  const time = ev.ts || (ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
 
   // Format message — bold tool/agent names
   let msg = escapeHtml(evMsg);
